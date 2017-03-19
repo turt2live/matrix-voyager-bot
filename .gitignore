@@ -1,3 +1,14 @@
+.idea/
+
+db/*.db
+db/*.db-journal
+start.sh
+
+.tmp
+
+config/production.yaml
+config/development.yaml
+
 # Logs
 logs
 *.log

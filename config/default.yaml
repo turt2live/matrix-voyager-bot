@@ -1,0 +1,11 @@
+# The configuration for the matrix portion of the bot. The bot's matrix account must already
+# be created proiot to running the bot.
+matrix:
+  # The homeserver URL for the bot. For example, https://matrix.org
+  homeserverUrl: "https://t2bot.io"
+
+  # The access token for the bot that authenticates it on the above homeserver.
+  accessToken: "YOUR_TOKEN_HERE"
+
+  # The Matrix ID for the bot's account. For example, @email:t2bot.io
+  userId: "@voyager:t2bot.io"
