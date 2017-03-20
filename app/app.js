@@ -10,6 +10,7 @@ var svg = $(".svg-wrap > svg")
     .attr("height", '100%');
 
 svg = d3.select(".svg-wrap > svg");
+var defs = d3.select(".svg-wrap > svg > defs");
 
 var simulation = d3.forceSimulation()
     .force("link", d3.forceLink().id(function (d) {
@@ -23,8 +24,29 @@ d3.json(source, function (error, graph) {
     if (error) throw error;
 
     var display = {};
+    var images = {"count": 0};
     for (var node of graph.nodes) {
         display[node.id] = node.display || node.id;
+
+        var imgSize = node.type == 'user' ? 24 : 44;
+        defs.append("pattern")
+            .attr("id", "img" + images["count"])
+            //.attr("patternUnits", "userSpaceOnUse")
+            //.attr("height", imgSize)
+            //.attr("width", imgSize)
+            .attr("x", "0%")
+            .attr("y", "0%")
+            .attr("width", "100%")
+            .attr("height", "100%")
+            .attr("viewBox", "0 0 " + imgSize+" "+ imgSize)
+            .append("image")
+            .attr("x", "0%")
+            .attr("y", "0%")
+            .attr("height", imgSize)
+            .attr("width", imgSize)
+            .attr("xlink:href", "api/v1/thumbnail/" + encodeURIComponent(display[node.id]));
+        images[node.id] = "img" + images["count"];
+        images["count"]++;
     }
 
     var link = svg.append("g")
@@ -44,7 +66,9 @@ d3.json(source, function (error, graph) {
         .selectAll("circle")
         .data(graph.nodes)
         .enter().append("circle")
-        .attr("r", 5)
+        .attr("fill", function (d) {
+            return "url(#" + images[d.id] + ")";
+        })
         .attr("class", function (d) {
             return d.type;
         })
@@ -69,7 +93,7 @@ d3.json(source, function (error, graph) {
 
     simulation.force("link")
         .links(graph.links)
-        .distance(45);
+        .distance(65);
 
     function ticked() {
         link

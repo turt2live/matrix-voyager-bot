@@ -1,6 +1,8 @@
 var express = require("express");
 var log = require("npmlog");
 var config = require("config");
+var PNGImage = require("pngjs-image");
+var stringHash = require("string-hash");
 
 class WebHandler {
     constructor(db, matrix) {
@@ -11,11 +13,72 @@ class WebHandler {
         this._app.use(express.static('app'));
 
         this._app.get('/api/v1/network', this._getNetwork.bind(this));
+        this._app.get('/api/v1/thumbnail/:item', this._getThumbnail.bind(this));
     }
 
     listen() {
         this._app.listen(config.get('web.port'), config.get('web.address'));
         log.info("WebHandler", "Listening on port " + config.get('web.address') + ":" + config.get('web.port'));
+    }
+
+    _getThumbnail(request, response) {
+        this._matrix.getThumbnail(request.params.item).then(thumb=> {
+            response.end(thumb, 'binary');
+        }, () => {
+            this._generateThumbnail(request.params.item).then(thumb=> {
+                response.end(thumb, 'binary');
+            }, () => response.sendStatus(404));
+        });
+    }
+
+    _generateThumbnail(seed) {
+        var hash = stringHash(seed);
+        var knownColors = [
+            {red: 174, green: 113, blue: 198, alpha: 255},
+            {red: 113, green: 198, blue: 168, alpha: 255},
+            {red: 198, green: 168, blue: 113, alpha: 255},
+            {red: 113, green: 137, blue: 198, alpha: 255}
+        ];
+        var seedColor = knownColors[hash % knownColors.length];
+
+        return new Promise((resolve, reject)=> {
+            var fileName = (seed[0] == '!' || seed[0] == '#' ? 'images/room_overlay.png' : (seed[0] == '@' ? 'images/user_overlay.png' : null));
+            var overlay = null;
+
+            try {
+                if (fileName != null) overlay = PNGImage.readImageSync(fileName);
+            } catch (e) {
+                log.warn("WebHandler", e);
+            }
+
+            var image = PNGImage.createImage(150, 150);
+            image.fillRect(0, 0, 150, 150, seedColor);
+
+            if (overlay) {
+                for (var x = 0; x < 150; x++) {
+                    for (var y = 0; y < 150; y++) {
+                        var idx = overlay.getIndex(x, y);
+                        var red = overlay.getRed(idx);
+                        var green = overlay.getGreen(idx);
+                        var blue = overlay.getBlue(idx);
+                        var alpha = overlay.getAlpha(idx);
+                        if (alpha > 0) {
+                            image.setPixel(x, y, {
+                                red: red,
+                                green: green,
+                                blue: blue,
+                                alpha: alpha
+                            });
+                        }
+                    }
+                }
+            }
+
+            image.toBlob(function (err, data) {
+                if (err) reject(err);
+                else resolve(data);
+            });
+        });
     }
 
     _getNetwork(request, response) {

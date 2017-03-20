@@ -1,6 +1,9 @@
 var config = require("config");
 var sdk = require("matrix-js-sdk");
 var log = require("npmlog");
+var http = require("http");
+var https = require("https");
+var Buffer = require("buffer").Buffer;
 
 class MatrixHandler {
 
@@ -96,6 +99,55 @@ class MatrixHandler {
         }
 
         return roomId;
+    }
+
+    getThumbnail(itemId) {
+        return new Promise((resolve, reject) => {
+            if (itemId[0] == '#' || itemId[0] == '!') {
+                var room = this._client.getRoom(itemId);
+                if (!room) {
+                    reject();
+                }
+
+                var avatarEvent = room.currentState.events['m.room.avatar'];
+                if(!avatarEvent) {
+                    reject();
+                    return;
+                }
+
+                var mxcUrl = avatarEvent[''].event.content.url;
+                if(mxcUrl) this._downloadMxcContent(mxcUrl).then(resolve, reject);
+                else reject();
+            } else if (itemId[0] == '@') {
+                var user = this._client.getUser(itemId);
+                if (!user.avatarUrl)
+                    reject();
+                else this._downloadMxcContent(user.avatarUrl).then(resolve, reject);
+            } else reject();
+        });
+    }
+
+    _downloadMxcContent(mxcUrl) {
+        var url = this._client.mxcUrlToHttp(mxcUrl, 150, 150);
+        var ht = url.startsWith("https") ? https : http;
+
+        return new Promise((resolve, reject) => {
+            var request = ht.get(url, res => {
+                var buffer = Buffer.alloc(0);
+                if (res.statusCode !== 200) {
+                    reject();
+                    return;
+                }
+
+                res.on('data', d=> {
+                    buffer = Buffer.concat([buffer, d]);
+                });
+                res.on('end', () => {
+                    resolve(buffer);
+                });
+            });
+            request.on('error', e => reject(e));
+        });
     }
 }
 

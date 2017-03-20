@@ -72,6 +72,10 @@ class DataStore {
                             if (error) reject(error);
                             else resolve();
                         });
+
+                    // We run this concurrently as it doesn't actually affect operation
+                    if (toRoomId)
+                        this._db.run("UPDATE room_links SET to_room_id = ? WHERE parsed_value = ? AND to_room_id IS NULL", toRoomId, toRoomId);
                 } else resolve();
             }.bind(this));
         });
