@@ -27,6 +27,24 @@ class DataStore {
         });
     }
 
+    getMembershipEvents() {
+        return new Promise((resolve, reject)=> {
+            this._db.all("SELECT * FROM membership_events", function (error, rows) {
+                if (error) reject(error);
+                else resolve(rows);
+            });
+        });
+    }
+
+    getRoomEvents() {
+        return new Promise((resolve, reject) => {
+            this._db.all("SELECT * FROM room_links", function (error, rows) {
+                if (error) reject(error);
+                else resolve(rows);
+            });
+        });
+    }
+
     recordState(eventId, type, roomId, sender, timestamp, message, error = null) {
         return new Promise((resolve, reject)=> {
             this._db.get("SELECT * FROM membership_events WHERE event_id = ?", eventId, function (error, row) {

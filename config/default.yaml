@@ -7,5 +7,13 @@ matrix:
   # The access token for the bot that authenticates it on the above homeserver.
   accessToken: "YOUR_TOKEN_HERE"
 
-  # The Matrix ID for the bot's account. For example, @email:t2bot.io
+  # The Matrix ID for the bot's account. For example, @voyager:t2bot.io
   userId: "@voyager:t2bot.io"
+
+# The web settings for the bot (serves the graph)
+web:
+  # The port to run the webserver on
+  port: 8184
+
+  # The address to bind to (0.0.0.0 for all interfaces)
+  address: '0.0.0.0'

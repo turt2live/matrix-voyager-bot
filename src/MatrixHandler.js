@@ -73,6 +73,30 @@ class MatrixHandler {
             return this._db.recordRoomLink(event.event_id, idOrAlias, 'message', null, event.room_id, event.sender, event.origin_server_ts, event.content.body, err);
         }).catch(err => log.error("MatrixHandler", err));
     }
+
+    getRoomAlias(roomId) {
+        var room = this._client.getRoom(roomId);
+        if (!room)return roomId;
+
+        var canonicalAliasEvent = room.currentState.events['m.room.canonical_alias'];
+        if (canonicalAliasEvent) {
+            var alias = canonicalAliasEvent[''].event.content.alias;
+            if (alias) return alias;
+        }
+
+        var aliasEvent = room.currentState.events['m.room.aliases'];
+        if (!aliasEvent) return roomId;
+
+        for (var domain in aliasEvent) {
+            var domainEvent = aliasEvent[domain];
+            var aliases = domainEvent.event.content.aliases;
+            if (aliases && aliases.length > 0) {
+                return aliases[0];
+            }
+        }
+
+        return roomId;
+    }
 }
 
 module.exports = MatrixHandler;
