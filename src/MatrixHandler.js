@@ -107,7 +107,6 @@ class MatrixHandler {
                 var room = this._client.getRoom(itemId);
                 if (!room) {
                     var rooms = this._client.getRooms();
-                    console.log(rooms);
                     for (var knownRoom of rooms) {
                         var aliasEvent = knownRoom.currentState.events['m.room.aliases'];
                         if (aliasEvent) {

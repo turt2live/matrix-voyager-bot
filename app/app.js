@@ -29,17 +29,18 @@ d3.json(source, function (error, graph) {
         display[node.id] = node.display || node.id;
 
         var imgSize = node.type == 'user' ? 24 : 44;
-        defs.append("pattern")
+        var pattern = defs.append("pattern")
             .attr("id", "img" + images["count"])
-            //.attr("patternUnits", "userSpaceOnUse")
-            //.attr("height", imgSize)
-            //.attr("width", imgSize)
             .attr("x", "0%")
             .attr("y", "0%")
             .attr("width", "100%")
             .attr("height", "100%")
-            .attr("viewBox", "0 0 " + imgSize+" "+ imgSize)
-            .append("image")
+            .attr("viewBox", "0 0 " + imgSize + " " + imgSize);
+        pattern.append("rect")
+            .attr("height", imgSize)
+            .attr("width", imgSize)
+            .attr("fill", "#fff");
+        pattern.append("image")
             .attr("x", "0%")
             .attr("y", "0%")
             .attr("height", imgSize)
