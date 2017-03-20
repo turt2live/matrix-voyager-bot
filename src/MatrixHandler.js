@@ -106,17 +106,35 @@ class MatrixHandler {
             if (itemId[0] == '#' || itemId[0] == '!') {
                 var room = this._client.getRoom(itemId);
                 if (!room) {
-                    reject();
+                    var rooms = this._client.getRooms();
+                    console.log(rooms);
+                    for (var knownRoom of rooms) {
+                        var aliasEvent = knownRoom.currentState.events['m.room.aliases'];
+                        if (aliasEvent) {
+                            for (var domain in aliasEvent) {
+                                var domainEvent = aliasEvent[domain];
+                                var aliases = domainEvent.event.content.aliases;
+                                if (aliases && aliases.indexOf(itemId) !== -1) {
+                                    room = knownRoom;
+                                    break;
+                                }
+                            }
+                            if (room)break;
+                        }
+                    }
+
+                    if (!room)
+                        reject();
                 }
 
                 var avatarEvent = room.currentState.events['m.room.avatar'];
-                if(!avatarEvent) {
+                if (!avatarEvent) {
                     reject();
                     return;
                 }
 
                 var mxcUrl = avatarEvent[''].event.content.url;
-                if(mxcUrl) this._downloadMxcContent(mxcUrl).then(resolve, reject);
+                if (mxcUrl) this._downloadMxcContent(mxcUrl).then(resolve, reject);
                 else reject();
             } else if (itemId[0] == '@') {
                 var user = this._client.getUser(itemId);
