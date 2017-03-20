@@ -95,7 +95,6 @@ d3.json(source, function (error, graph) {
             });
     }
 });
-}
 
 function dragstarted(d) {
     if (!d3.event.active) simulation.alphaTarget(0.3).restart();
