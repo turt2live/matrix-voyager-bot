@@ -44,7 +44,6 @@ body {
 .nodes circle {
     stroke: #fff;
     stroke-width: 1px;
-    r: 12;
 }
 
 .nodes circle.user {
@@ -53,6 +52,5 @@ body {
 
 .nodes circle.room {
     /*fill: #a36aba;*/
-    r: 22;
     stroke-width: 1.5px;
 }

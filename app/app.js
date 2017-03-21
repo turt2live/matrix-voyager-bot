@@ -25,7 +25,8 @@ d3.json(source, function (error, graph) {
 
     var display = {};
     var images = {"count": 0};
-    for (var node of graph.nodes) {
+    for (var key in graph.nodes) {
+        var node = graph.nodes[key]; // can't use `for x of y` because IE
         display[node.id] = node.display || node.id;
 
         var imgSize = node.type == 'user' ? 24 : 44;
@@ -72,6 +73,9 @@ d3.json(source, function (error, graph) {
         })
         .attr("class", function (d) {
             return d.type;
+        })
+        .attr("r", function(d) {
+            return d.type == "room" ? 22 : 12;
         })
         .call(d3.drag()
             .on("start", dragstarted)
