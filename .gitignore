@@ -4,6 +4,8 @@ db/*.db
 db/*.db-journal
 start.sh
 
+app/test2.json
+
 .tmp
 
 config/production.yaml

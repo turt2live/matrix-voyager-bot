@@ -16,10 +16,11 @@ var simulation = d3.forceSimulation()
     .force("link", d3.forceLink().id(function (d) {
         return d.id;
     }))
-    .force("charge", d3.forceManyBody().strength(-150))
+    .force("charge", d3.forceManyBody().strength(-500))
     .force("center", d3.forceCenter(width / 2, height / 2));
 
 var source = "api/v1/network"; // test.json
+//source = "test2.json";
 d3.json(source, function (error, graph) {
     if (error) throw error;
 
@@ -97,8 +98,7 @@ d3.json(source, function (error, graph) {
         .on("tick", ticked);
 
     simulation.force("link")
-        .links(graph.links)
-        .distance(65);
+        .links(graph.links);
 
     function ticked() {
         link
