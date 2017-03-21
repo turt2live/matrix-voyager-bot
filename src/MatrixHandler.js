@@ -145,7 +145,7 @@ class MatrixHandler {
     }
 
     _downloadMxcContent(mxcUrl) {
-        var url = this._client.mxcUrlToHttp(mxcUrl, 150, 150);
+        var url = this._client.mxcUrlToHttp(mxcUrl, 150, 150, 'crop');
         var ht = url.startsWith("https") ? https : http;
 
         return new Promise((resolve, reject) => {
