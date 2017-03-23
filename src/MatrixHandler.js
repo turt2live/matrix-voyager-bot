@@ -149,10 +149,7 @@ class MatrixHandler {
                 break;
             case 'unlinkme':
                 this._db.deleteSimilarState('self_link', event.room_id, event.sender).then(hasState => {
-                    if (hasState) {
-                        this._client.sendNotice(event.room_id, sender.displayName + ": Your links to this room have been removed.");
-                    } else this._db.recordState(event.event_id, 'self_link', event.room_id, event.sender, event.origin_server_ts, event.content.body)
-                        .then(() => this._client.sendReadReceipt(wrapperEvent))
+                    this._client.sendNotice(event.room_id, sender.displayName + ": Your links to this room have been removed.");
                 }, err=> {
                     log.error("MatrixHandler", "Error unlinking " + event.sender + " to room " + event.room_id);
                     log.error("MatrixHandler", err);
