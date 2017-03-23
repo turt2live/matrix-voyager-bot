@@ -13,11 +13,15 @@ svg = d3.select(".svg-wrap > svg");
 var defs = d3.select(".svg-wrap > svg > defs");
 
 var simulation = d3.forceSimulation()
-    .force("link", d3.forceLink().id(function (d) {
-        return d.id;
-    }))
-    .force("charge", d3.forceManyBody().strength(-500))
-    .force("center", d3.forceCenter(width / 2, height / 2));
+        .force("link", d3.forceLink().id(function (d) {
+            return d.id;
+        }))
+        .force("charge", d3.forceManyBody().strength(-100))
+        .force("center", d3.forceCenter(width / 2, height / 2))
+        .force("collide", d3.forceCollide(function (d) {
+            return d.type == "user" ? 24 : 44;
+        }).strength(0.5))
+    ;
 
 var source = "api/v1/network"; // test.json
 //source = "test2.json";
@@ -75,7 +79,7 @@ d3.json(source, function (error, graph) {
         .attr("class", function (d) {
             return d.type;
         })
-        .attr("r", function(d) {
+        .attr("r", function (d) {
             return d.type == "room" ? 22 : 12;
         })
         .call(d3.drag()
@@ -101,6 +105,14 @@ d3.json(source, function (error, graph) {
         .links(graph.links);
 
     function ticked() {
+        node
+            .attr("cx", function (d) {
+                return d.x = Math.max(imgSize, Math.min(width - imgSize, d.x));
+            })
+            .attr("cy", function (d) {
+                return d.y = Math.max(imgSize, Math.min(height - imgSize, d.y));
+            });
+
         link
             .attr("x1", function (d) {
                 return d.source.x;
@@ -113,14 +125,6 @@ d3.json(source, function (error, graph) {
             })
             .attr("y2", function (d) {
                 return d.target.y;
-            });
-
-        node
-            .attr("cx", function (d) {
-                return d.x;
-            })
-            .attr("cy", function (d) {
-                return d.y;
             });
     }
 });
