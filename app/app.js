@@ -23,6 +23,14 @@ var simulation = d3.forceSimulation()
         }).strength(0.5))
     ;
 
+var zoom = d3.zoom()
+    .scaleExtent([-1, 10])
+    .on('zoom', function () {
+        svg.select("g.links").attr("transform", "translate(" + d3.event.transform.x + "," + d3.event.transform.y + ")scale(" + d3.event.transform.k + "," + d3.event.transform.k + ")");
+        svg.select("g.nodes").attr("transform", "translate(" + d3.event.transform.x + "," + d3.event.transform.y + ")scale(" + d3.event.transform.k + "," + d3.event.transform.k + ")");
+    });
+svg.call(zoom);
+
 var source = "api/v1/network"; // test.json
 //source = "test2.json";
 d3.json(source, function (error, graph) {
