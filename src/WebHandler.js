@@ -13,7 +13,7 @@ class WebHandler {
         this._app.use(express.static('app'));
 
         this._app.get('/api/v1/network', this._getNetwork.bind(this));
-        this._app.get('/api/v1/thumbnail/:item', this._getThumbnail.bind(this));
+        this._app.get('/api/v1/thumbnail/:type/:item', this._getThumbnail.bind(this));
     }
 
     listen() {
@@ -22,16 +22,16 @@ class WebHandler {
     }
 
     _getThumbnail(request, response) {
-        this._matrix.getThumbnail(request.params.item).then(thumb=> {
+        this._matrix.getThumbnail(request.params.item, request.params.type).then(thumb=> {
             response.end(thumb, 'binary');
         }, () => {
-            this._generateThumbnail(request.params.item).then(thumb=> {
+            this._generateThumbnail(request.params.item, request.params.type).then(thumb=> {
                 response.end(thumb, 'binary');
             }, () => response.sendStatus(404));
         });
     }
 
-    _generateThumbnail(seed) {
+    _generateThumbnail(seed, type) {
         var hash = stringHash(seed);
         var knownColors = [
             {red: 174, green: 113, blue: 198, alpha: 255},
@@ -42,7 +42,7 @@ class WebHandler {
         var seedColor = knownColors[hash % knownColors.length];
 
         return new Promise((resolve, reject)=> {
-            var fileName = (seed[0] == '!' || seed[0] == '#' ? 'images/room_overlay.png' : (seed[0] == '@' ? 'images/user_overlay.png' : null));
+            var fileName = (type == 'room' ? 'images/room_overlay.png' : 'images/user_overlay.png');
             var overlay = null;
 
             try {
@@ -86,6 +86,14 @@ class WebHandler {
         var links = {}; // { id: link }
 
         var unpublishedRoomIds = [];
+        var anonMap = {};
+        var anonIndex = 0; // just an incrementing value to use when anonymizing users/rooms
+
+        var getAnonId = function(id) {
+            if(anonMap[id]) return anonMap[id];
+            anonMap[id] = "anon-idx-" + anonIndex++;
+            return anonMap[id];
+        };
 
         this._db.getMembershipEvents().then(events => {
             // We have to find all rooms that should be unpublished first, so we don't show the invite node when
@@ -112,13 +120,14 @@ class WebHandler {
                 }
 
                 // Add the room node
-                var roomNodeId = event.room_id;
+                var roomPublic = this._matrix.isPublicRoom(event.room_id);
+                var roomNodeId = roomPublic ? event.room_id : getAnonId(event.room_id);
                 var roomAlias = this._matrix.getRoomAlias(event.room_id);
                 if (!nodes[roomNodeId]) {
                     nodes[roomNodeId] = {
                         id: roomNodeId,
                         type: 'room',
-                        display: roomAlias
+                        display: roomPublic ? roomAlias : 'Matrix Room'
                     };
                 }
 
@@ -145,8 +154,11 @@ class WebHandler {
                 if (unpublishedRoomIds.indexOf(event.to_room_id) !== -1 || unpublishedRoomIds.indexOf(event.to_room_id) !== -1)
                     continue; // Skip room node - we were kicked or banned, so it should be unpublished
 
-                var sourceNodeId = event.from_room_id;
-                var targetNodeId = event.to_room_id;
+                var sourceRoomPublic = this._matrix.isPublicRoom(event.from_room_id);
+                var targetRoomPublic = this._matrix.isPublicRoom(event.to_room_id);
+
+                var sourceNodeId = sourceRoomPublic ? event.from_room_id : getAnonId(event.from_room_id);
+                var targetNodeId = targetRoomPublic ? event.to_room_id : getAnonId(event.to_room_id);
 
                 if (!targetNodeId) continue; // skip link - no target room (probably an unknown room)
 
@@ -157,14 +169,14 @@ class WebHandler {
                     nodes[sourceNodeId] = {
                         id: sourceNodeId,
                         type: 'room',
-                        display: sourceRoomAlias
+                        display: sourceRoomPublic ? sourceRoomAlias : 'Matrix Room'
                     };
                 }
                 if (!nodes[targetNodeId]) {
                     nodes[targetNodeId] = {
                         id: targetNodeId,
                         type: 'room',
-                        display: targetRoomAlias
+                        display: targetRoomPublic ? targetRoomAlias : 'Matrix Room'
                     };
                 }
 

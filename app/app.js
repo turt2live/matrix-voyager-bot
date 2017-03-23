@@ -59,7 +59,7 @@ d3.json(source, function (error, graph) {
             .attr("y", "0%")
             .attr("height", imgSize)
             .attr("width", imgSize)
-            .attr("xlink:href", "api/v1/thumbnail/" + encodeURIComponent(display[node.id]));
+            .attr("xlink:href", "api/v1/thumbnail/" + encodeURIComponent(node.type) + "/" + encodeURIComponent(display[node.id]));
         images[node.id] = "img" + images["count"];
         images["count"]++;
     }
