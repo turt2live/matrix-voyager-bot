@@ -43,7 +43,7 @@ class MatrixHandler {
 
     _processRoom(room) {
         this._publicRoomList.addTrackedRoom(room.roomId);
-        
+
         for (var memberKey in room.currentState.members) {
             var member = room.currentState.members[memberKey];
             var server = member.userId.split(':')[1];
@@ -72,9 +72,19 @@ class MatrixHandler {
     _processTimelineEvent(wrapperEvent) {
         var event = wrapperEvent.event;
         if (event.type != 'm.room.message') return Promise.resolve(); // don't care
+        if ((event.sender || event.user_id) == this._client.credentials.userId) return Promise.resolve(); // ignore ourselves
+
+        var room = this._client.getRoom(event.room_id);
+        if (!room) return Promise.resolve(); // invalid room (can happen if we've just restarted)
 
         var body = event.content.body;
         if (!body) return Promise.resolve(); // Probably redacted
+
+        if (body.startsWith('!voyager')) {
+            this._processCommand(event, body.substring('!voyager'.length).trim().split(' '));
+            // don't need a promise from _processCommand - it should respond appropriately for us
+            return Promise.resolve();
+        }
 
         var matches = body.match(/[#!][a-zA-Z0-9.\-_#]+:[a-zA-Z0-9.\-_]+/g);
         if (!matches) return Promise.resolve();
@@ -85,6 +95,48 @@ class MatrixHandler {
         }
 
         return Promise.all(dbPromises).then(() => this._client.sendReadReceipt(wrapperEvent));
+    }
+
+    _processCommand(event, args) {
+        var sender = this._client.getUser(event.sender);
+
+        if (args.length == 0) {
+            this._client.sendNotice(event.room_id, sender.displayName + ": Unknown command. Try !voyager help");
+            return;
+        }
+
+        switch (args[0].toLowerCase()) {
+            case 'help':
+                this._client.sendNotice(event.room_id,
+                    "!voyager showme     - Sets your name and avatar to be visible on the graph\n" +
+                    "!voyager hideme     - Hides your name and avatar from the graph\n" +
+                    "!voyager help       - This menu"
+                );
+                break;
+            case 'enroll':
+            case 'showme':
+                this._db.setEnrolledState(event.sender, true).then(() => {
+                    this._client.sendNotice(event.room_id, sender.displayName + ": Your name and avatar will now appear on the graph.");
+                }, err => {
+                    log.error("MatrixHandler", "Error setting enrolled state for " + event.sender);
+                    log.error("MatrixHandler", err);
+                    this._client.sendNotice(event.room_id, sender.displayName + ": There was an error processing your command.");
+                });
+                break;
+            case 'withdraw':
+            case 'hideme':
+                this._db.setEnrolledState(event.sender, false).then(() => {
+                    this._client.sendNotice(event.room_id, sender.displayName + ": Your name and avatar will no longer appear on the graph.");
+                }, err => {
+                    log.error("MatrixHandler", "Error setting enrolled state for " + event.sender);
+                    log.error("MatrixHandler", err);
+                    this._client.sendNotice(event.room_id, sender.displayName + ": There was an error processing your command.");
+                });
+                break;
+            default:
+                this._client.sendNotice(event.room_id, "Unknown command. Try !voyager help");
+                break;
+        }
     }
 
     _processRoomLink(event, idOrAlias) {

@@ -45,6 +45,34 @@ class DataStore {
         });
     }
 
+    getEnrolledUsers() {
+        return new Promise((resolve, reject) => {
+            this._db.all("SELECT * FROM enrolled_users", function (error, rows) {
+                if (error) reject();
+                else resolve(rows.map(r=>r.user_id));
+            });
+        });
+    }
+
+    setEnrolledState(userId, enrolled) {
+        return new Promise((resolve, reject) => {
+            if (!enrolled) {
+                this._db.run("DELETE FROM enrolled_users WHERE user_id = ?", userId, function (_, error) {
+                    if (error) reject(error);
+                    else resolve();
+                });
+            } else {
+                this.getEnrolledUsers().then(users => {
+                    if (users.indexOf(userId) != -1) resolve(false);
+                    else this._db.run("INSERT INTO enrolled_users (user_id) VALUES (?)", userId, function (id, error) {
+                        if (error) reject(error);
+                        else resolve(true);
+                    });
+                }, e=>reject(e)).catch(e=>reject(e));
+            }
+        });
+    }
+
     recordState(eventId, type, roomId, sender, timestamp, message, error = null) {
         return new Promise((resolve, reject)=> {
             this._db.get("SELECT * FROM membership_events WHERE event_id = ?", eventId, function (error, row) {

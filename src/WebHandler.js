@@ -85,17 +85,23 @@ class WebHandler {
         var nodes = {}; // { id: node }
         var links = {}; // { id: link }
 
+        var publicUsers = [];
         var unpublishedRoomIds = [];
         var anonMap = {};
         var anonIndex = 0; // just an incrementing value to use when anonymizing users/rooms
 
-        var getAnonId = function(id) {
-            if(anonMap[id]) return anonMap[id];
+        var getAnonId = function (id) {
+            if (anonMap[id]) return anonMap[id];
             anonMap[id] = "anon-idx-" + anonIndex++;
             return anonMap[id];
         };
 
-        this._db.getMembershipEvents().then(events => {
+        this._db.getEnrolledUsers().then(enrolledUsers => {
+            publicUsers = enrolledUsers;
+            return this._db.getMembershipEvents();
+        }, err => {
+            throw err;
+        }).then(events => {
             // We have to find all rooms that should be unpublished first, so we don't show the invite node when
             // the room should be hidden.
             for (var event of events) {
@@ -110,12 +116,13 @@ class WebHandler {
                     continue; // we were kicked or banned - don't publish link
 
                 // Add the user node
-                var userNodeId = event.sender + "-" + event.type;
+                var publicUser = publicUsers.indexOf(event.sender) !== -1;
+                var userNodeId = (publicUser ? event.sender : getAnonId(event.sender)) + "-" + event.type;
                 if (!nodes[userNodeId]) {
                     nodes[userNodeId] = {
                         id: userNodeId,
                         type: 'user',
-                        display: event.sender
+                        display: publicUser ? event.sender : 'Matrix User'
                     };
                 }
 
