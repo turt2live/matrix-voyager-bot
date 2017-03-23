@@ -41,6 +41,10 @@ body {
     stroke: #10b748;
 }
 
+.links line.self_link {
+    stroke: #694bcc;
+}
+
 .nodes circle {
     stroke: #fff;
     stroke-width: 1px;

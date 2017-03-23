@@ -81,7 +81,7 @@ class MatrixHandler {
         if (!body) return Promise.resolve(); // Probably redacted
 
         if (body.startsWith('!voyager')) {
-            this._processCommand(event, body.substring('!voyager'.length).trim().split(' '));
+            this._processCommand(event, body.substring('!voyager'.length).trim().split(' '), wrapperEvent);
             // don't need a promise from _processCommand - it should respond appropriately for us
             return Promise.resolve();
         }
@@ -97,7 +97,7 @@ class MatrixHandler {
         return Promise.all(dbPromises).then(() => this._client.sendReadReceipt(wrapperEvent));
     }
 
-    _processCommand(event, args) {
+    _processCommand(event, args, wrapperEvent) {
         var sender = this._client.getUser(event.sender);
 
         if (args.length == 0) {
@@ -110,6 +110,8 @@ class MatrixHandler {
                 this._client.sendNotice(event.room_id,
                     "!voyager showme     - Sets your name and avatar to be visible on the graph\n" +
                     "!voyager hideme     - Hides your name and avatar from the graph\n" +
+                    "!voyager linkme     - Links your user account to this current room on the graph\n" +
+                    "!voyager unlinkme   - Removes your self-links from the current room on the graph\n" +
                     "!voyager help       - This menu"
                 );
                 break;
@@ -118,7 +120,7 @@ class MatrixHandler {
                 this._db.setEnrolledState(event.sender, true).then(() => {
                     this._client.sendNotice(event.room_id, sender.displayName + ": Your name and avatar will now appear on the graph.");
                 }, err => {
-                    log.error("MatrixHandler", "Error setting enrolled state for " + event.sender);
+                    log.error("MatrixHandler", "Error setting enrolled state to visible for " + event.sender);
                     log.error("MatrixHandler", err);
                     this._client.sendNotice(event.room_id, sender.displayName + ": There was an error processing your command.");
                 });
@@ -128,7 +130,31 @@ class MatrixHandler {
                 this._db.setEnrolledState(event.sender, false).then(() => {
                     this._client.sendNotice(event.room_id, sender.displayName + ": Your name and avatar will no longer appear on the graph.");
                 }, err => {
-                    log.error("MatrixHandler", "Error setting enrolled state for " + event.sender);
+                    log.error("MatrixHandler", "Error setting enrolled state to hidden for " + event.sender);
+                    log.error("MatrixHandler", err);
+                    this._client.sendNotice(event.room_id, sender.displayName + ": There was an error processing your command.");
+                });
+                break;
+            case 'linkme':
+                this._db.hasSimilarState('self_link', event.room_id, event.sender).then(hasState => {
+                    if (hasState) {
+                        this._client.sendNotice(event.room_id, sender.displayName + ": You're already linked to this room!");
+                    } else this._db.recordState(event.event_id, 'self_link', event.room_id, event.sender, event.origin_server_ts, event.content.body)
+                        .then(() => this._client.sendReadReceipt(wrapperEvent))
+                }, err=> {
+                    log.error("MatrixHandler", "Error linking " + event.sender + " to room " + event.room_id);
+                    log.error("MatrixHandler", err);
+                    this._client.sendNotice(event.room_id, sender.displayName + ": There was an error processing your command.");
+                });
+                break;
+            case 'unlinkme':
+                this._db.deleteSimilarState('self_link', event.room_id, event.sender).then(hasState => {
+                    if (hasState) {
+                        this._client.sendNotice(event.room_id, sender.displayName + ": Your links to this room have been removed.");
+                    } else this._db.recordState(event.event_id, 'self_link', event.room_id, event.sender, event.origin_server_ts, event.content.body)
+                        .then(() => this._client.sendReadReceipt(wrapperEvent))
+                }, err=> {
+                    log.error("MatrixHandler", "Error unlinking " + event.sender + " to room " + event.room_id);
                     log.error("MatrixHandler", err);
                     this._client.sendNotice(event.room_id, sender.displayName + ": There was an error processing your command.");
                 });

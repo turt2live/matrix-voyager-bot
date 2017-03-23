@@ -29,7 +29,7 @@ class DataStore {
 
     getMembershipEvents() {
         return new Promise((resolve, reject)=> {
-            this._db.all("SELECT * FROM membership_events", function (error, rows) {
+            this._db.all("SELECT * FROM membership_events WHERE unlisted = 0", function (error, rows) {
                 if (error) reject(error);
                 else resolve(rows);
             });
@@ -70,6 +70,24 @@ class DataStore {
                     });
                 }, e=>reject(e)).catch(e=>reject(e));
             }
+        });
+    }
+
+    hasSimilarState(type, roomId, sender) {
+        return new Promise((resolve, reject) => {
+            this._db.get("SELECT * FROM membership_events WHERE type = ? AND room_id = ? AND sender = ? AND unlisted = 0", type, roomId, sender, function (error, row) {
+                if (error)reject(error);
+                else resolve(row);
+            });
+        });
+    }
+
+    deleteSimilarState(type, roomId, sender) {
+        return new Promise((resolve, reject) => {
+            this._db.run("UPDATE membership_events SET unlisted = 1 WHERE type = ? AND room_id = ? AND sender = ?", type, roomId, sender, function (_, error) {
+                if (error)reject(error);
+                else resolve();
+            });
         });
     }
 

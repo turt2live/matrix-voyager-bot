@@ -102,7 +102,7 @@ d3.json(source, function (error, graph) {
 
     link.append("title")
         .text(function (d) {
-            return d.value + " " + d.type + (d.value !== 1 ? "s" : "") + " from " + (display[d.source]);
+            return d.value + " " + d.type.replace(/_/g, ' ') + (d.value !== 1 ? "s" : "") + " from " + (display[d.source]);
         });
 
     simulation
