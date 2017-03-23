@@ -8,7 +8,7 @@ class PublicRoomList {
         this._trackedRooms = [];
         this._knownPublicRoomMap = [];
 
-        setInterval(this._updateRoomCache.bind(this), 15 * 60 * 1000); // update every 15 minutes
+        //setInterval(this._updateRoomCache.bind(this), 15 * 60 * 1000); // update every 15 minutes
     }
 
     isPublic(roomId) {
