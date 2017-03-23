@@ -85,8 +85,22 @@ class WebHandler {
         var nodes = {}; // { id: node }
         var links = {}; // { id: link }
 
+        var unpublishedRoomIds = [];
+
         this._db.getMembershipEvents().then(events => {
+            // We have to find all rooms that should be unpublished first, so we don't show the invite node when
+            // the room should be hidden.
             for (var event of events) {
+                if (event.type == 'kick' || event.type == 'ban') {
+                    // Skip events that we don't want to show
+                    unpublishedRoomIds.push(event.room_id);
+                }
+            }
+
+            for (var event of events) {
+                if (unpublishedRoomIds.indexOf(event.room_id) !== -1)
+                    continue; // we were kicked or banned - don't publish link
+
                 // Add the user node
                 var userNodeId = event.sender + "-" + event.type;
                 if (!nodes[userNodeId]) {
@@ -128,6 +142,9 @@ class WebHandler {
             throw err;
         }).then(events => {
             for (var event of events) {
+                if (unpublishedRoomIds.indexOf(event.to_room_id) !== -1 || unpublishedRoomIds.indexOf(event.to_room_id) !== -1)
+                    continue; // Skip room node - we were kicked or banned, so it should be unpublished
+
                 var sourceNodeId = event.from_room_id;
                 var targetNodeId = event.to_room_id;
 
