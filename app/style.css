@@ -3,58 +3,16 @@ html {
     padding: 0;
 }
 
-.svg-wrap {
-    height: 100vh;
-    padding: 0;
-    margin: 0;
-}
-
 body {
     background-color: #ddd;
     padding: 0;
     margin: 0;
 }
 
-.svg-wrap > svg {
-    margin: 0;
-    padding: 0;
-}
-
-.links line {
-    stroke: #999;
-    stroke-opacity: 0.8;
-}
-
-.links line.ban {
-    stroke: #ff2626;
-}
-
-.links line.kick {
-    stroke: #dd5e1a;
-}
-
-.links line.message {
-    /*stroke: #ff2626;*/
-}
-
-.links line.invite {
-    stroke: #10b748;
-}
-
-.links line.self_link {
-    stroke: #694bcc;
-}
-
-.nodes circle {
-    stroke: #fff;
-    stroke-width: 1px;
-}
-
-.nodes circle.user {
-    /*fill: #59adf7;*/
-}
-
-.nodes circle.room {
-    /*fill: #a36aba;*/
-    stroke-width: 1.5px;
+.svg-wrap {
+    position: absolute;
+    left: calc(5% / 2);
+    top: calc(5% / 2);
+    width: 95%;
+    height: 95%;
 }

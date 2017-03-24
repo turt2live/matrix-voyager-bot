@@ -1,27 +1,64 @@
-// Based on example from bl.ocks.org
-// https://bl.ocks.org/mbostock/4062045
-
-var container = $('.svg-wrap');
+var container = $(".svg-wrap");
 var width = container.width();
 var height = container.height();
+var displayNames = {}; // { nodeId: text }
+var nodeFills = {}; // { nodeId: id }
 
 var svg = $(".svg-wrap > svg")
-    .attr("width", '100%')
-    .attr("height", '100%');
+    .attr('width', width)
+    .attr('height', height);
 
 svg = d3.select(".svg-wrap > svg");
 var defs = d3.select(".svg-wrap > svg > defs");
 
+var jsonSource = "api/v1/network";
+//jsonSource = "test2.json";
+
 var simulation = d3.forceSimulation()
-        .force("link", d3.forceLink().id(function (d) {
-            return d.id;
-        }))
-        .force("charge", d3.forceManyBody().strength(-100))
-        .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("collide", d3.forceCollide(function (d) {
-            return d.type == "user" ? 24 : 44;
-        }).strength(0.5))
-    ;
+    .force("link", d3.forceLink().id(getNodeId).distance(getLinkDistance))
+    .force("charge", d3.forceManyBody())
+    .force("center", d3.forceCenter(width / 2, height / 2))
+    .force("collide", d3.forceCollide(function (d) {
+        return getNodeRadius(d);
+    }));
+
+d3.json(jsonSource, function (error, json) {
+    if (error) throw error;
+
+    prepareFills(json);
+
+    var links = svg.append("g")
+        .attr("class", "links")
+        .selectAll("line")
+        .data(json.links).enter().append("line")
+        .attr("stroke-width", getWidthForLink)
+        .attr("stroke", getColorForType);
+
+    var nodes = svg.append("g")
+        .attr("class", "nodes")
+        .selectAll("circle")
+        .data(json.nodes).enter().append("circle")
+        .attr("fill", getNodeFill)
+        .attr("r", getNodeRadius)
+        .attr("stroke", "#fff")
+        .attr("stroke-width", getWidthForNode)
+        .call(d3.drag()
+            .on("start", onDragStarted)
+            .on("drag", onDragged)
+            .on("end", onDragEnded));
+
+    nodes.append("title")
+        .text(getNodeText);
+    links.append("title")
+        .text(getLinkText);
+
+    simulation.nodes(json.nodes).on("tick", onTick);
+    simulation.force("link").links(json.links);
+
+    function onTick() {
+        checkNodeDistance(nodes, links);
+    }
+});
 
 var zoom = d3.zoom()
     .scaleExtent([-1, 10])
@@ -31,125 +68,116 @@ var zoom = d3.zoom()
     });
 svg.call(zoom);
 
-var source = "api/v1/network"; // test.json
-//source = "test2.json";
-d3.json(source, function (error, graph) {
-    if (error) throw error;
+function getNodeText(node) {
+    return displayNames[node.id];
+}
 
-    var display = {};
-    var images = {"count": 0};
-    for (var key in graph.nodes) {
-        var node = graph.nodes[key]; // can't use `for x of y` because IE
-        display[node.id] = node.display || node.id;
+function getLinkText(link) {
+    return link.value + " " + link.type.replace(/_/g, ' ') + (link.value == 1 ? "" : "s");
+}
 
-        var imgSize = node.type == 'user' ? 24 : 44;
+function getLinkDistance(link) {
+    return Math.sqrt(link.value) * 75;
+}
+
+function getNodeId(node) {
+    return node.id;
+}
+
+function getWidthForNode(node) {
+    return node.type == "user" ? "1px" : "1.5px";
+}
+
+function getNodeFill(node) {
+    return "url(#" + nodeFills[node.id] + ")";
+}
+
+function getWidthForLink(link) {
+    return Math.sqrt(link.value);
+}
+
+function getColorForType(point) {
+    switch (point.type) {
+        case "invite":
+            return "#10b748";
+        case "self_link":
+            return "#694bcc";
+        case "kick":
+            return "#dd5e1a";
+        case "ban":
+            return "#ff2626";
+        case "message":
+        default:
+            return "#999";
+    }
+}
+
+function getNodeRadius(node) {
+    return node.type == "user" ? 10 : 14;
+}
+
+function prepareFills(json) {
+    var nodeCount = 0;
+    for (var key in json.nodes) {
+        var node = json.nodes[key];
+
+        displayNames[node.id] = node.display || node.id;
+
+        var nodeSize = getNodeRadius(node);
         var pattern = defs.append("pattern")
-            .attr("id", "img" + images["count"])
-            .attr("x", "0%")
-            .attr("y", "0%")
-            .attr("width", "100%")
-            .attr("height", "100%")
-            .attr("viewBox", "0 0 " + imgSize + " " + imgSize);
+            .attr("id", "img" + nodeCount)
+            .attr("x", "0%").attr("y", "0%")
+            .attr("width", "100%").attr("height", "100%")
+            .attr("viewBox", "0 0 " + nodeSize + " " + nodeSize);
         pattern.append("rect")
-            .attr("height", imgSize)
-            .attr("width", imgSize)
+            .attr("height", nodeSize).attr("width", nodeSize)
             .attr("fill", "#fff");
         pattern.append("image")
-            .attr("x", "0%")
-            .attr("y", "0%")
-            .attr("height", imgSize)
-            .attr("width", imgSize)
-            .attr("xlink:href", "api/v1/thumbnail/" + encodeURIComponent(node.type) + "/" + encodeURIComponent(display[node.id]));
-        images[node.id] = "img" + images["count"];
-        images["count"]++;
+            .attr("x", "0%").attr("y", "0%")
+            .attr("width", nodeSize).attr("height", nodeSize)
+            .attr("xlink:href", "api/v1/thumbnail/" + encodeURIComponent(node.type) + "/" + encodeURIComponent(displayNames[node.id]));
+        nodeFills[node.id] = "img" + nodeCount;
+        nodeCount++;
     }
+}
 
-    var link = svg.append("g")
-        .attr("class", "links")
-        .selectAll("line")
-        .data(graph.links)
-        .enter().append("line")
-        .attr("stroke-width", function (d) {
-            return Math.sqrt(d.value);
-        })
-        .attr("class", function (d) {
-            return d.type;
-        });
-
-    var node = svg.append("g")
-        .attr("class", "nodes")
-        .selectAll("circle")
-        .data(graph.nodes)
-        .enter().append("circle")
-        .attr("fill", function (d) {
-            return "url(#" + images[d.id] + ")";
-        })
-        .attr("class", function (d) {
-            return d.type;
-        })
-        .attr("r", function (d) {
-            return d.type == "room" ? 22 : 12;
-        })
-        .call(d3.drag()
-            .on("start", dragstarted)
-            .on("drag", dragged)
-            .on("end", dragended));
-
-    node.append("title")
-        .text(function (d) {
-            return display[d.id];
-        });
-
-    link.append("title")
-        .text(function (d) {
-            return d.value + " " + d.type.replace(/_/g, ' ') + (d.value !== 1 ? "s" : "") + " from " + (display[d.source]);
-        });
-
-    simulation
-        .nodes(graph.nodes)
-        .on("tick", ticked);
-
-    simulation.force("link")
-        .links(graph.links);
-
-    function ticked() {
-        node
-            .attr("cx", function (d) {
-                return d.x = Math.max(imgSize, Math.min(width - imgSize, d.x));
-            })
-            .attr("cy", function (d) {
-                return d.y = Math.max(imgSize, Math.min(height - imgSize, d.y));
-            });
-
-        link
-            .attr("x1", function (d) {
-                return d.source.x;
-            })
-            .attr("y1", function (d) {
-                return d.source.y;
-            })
-            .attr("x2", function (d) {
-                return d.target.x;
-            })
-            .attr("y2", function (d) {
-                return d.target.y;
-            });
-    }
-});
-
-function dragstarted(d) {
+function onDragStarted(d) {
     if (!d3.event.active) simulation.alphaTarget(0.3).restart();
     d.fx = d.x;
     d.fy = d.y;
 }
 
-function dragged(d) {
+function onDragged(d) {
     d.fx = d3.event.x;
     d.fy = d3.event.y;
 }
 
-function dragended(d) {
+function onDragEnded(d) {
     if (!d3.event.active) simulation.alphaTarget(0);
     d.fx = null;
     d.fy = null;
+}
+
+function checkNodeDistance(nodes, links) {
+    nodes
+        .attr("cx", function (d) {
+            return d.x = Math.max(getNodeRadius(d), Math.min(width - getNodeRadius(d), d.x));
+        })
+        .attr("cy", function (d) {
+            return d.y = Math.max(getNodeRadius(d), Math.min(height - getNodeRadius(d), d.y));
+        });
+
+    links
+        .attr("x1", function (d) {
+            return d.source.x;
+        })
+        .attr("y1", function (d) {
+            return d.source.y;
+        })
+        .attr("x2", function (d) {
+            return d.target.x;
+        })
+        .attr("y2", function (d) {
+            return d.target.y;
+        });
 }
