@@ -73,7 +73,10 @@ function getNodeText(node) {
 }
 
 function getLinkText(link) {
-    return link.value + " " + link.type.replace(/_/g, ' ') + (link.value == 1 ? "" : "s");
+    var type = link.type.replace(/_/g, ' ');
+    return "" +
+        link.sourceToTarget + " " + type + (link.sourceToTarget == 1 ? "" : "s") + " to " + displayNames[link.target] + "\n" +
+        link.targetToSource + " " + type + (link.targetToSource == 1 ? "" : "s") + " to " + displayNames[link.source];
 }
 
 function getLinkDistance(link) {

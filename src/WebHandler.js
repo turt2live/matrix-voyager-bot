@@ -141,12 +141,13 @@ class WebHandler {
                 // Add the link
                 var linkId = userNodeId + "-" + roomNodeId; // @user:domain.com-invite-!room:domain.com
                 if (links[linkId]) {
-                    links[linkId].value++;
+                    links[linkId].sourceToTarget++;
                 } else {
                     links[linkId] = {
                         source: userNodeId,
                         target: roomNodeId,
-                        value: 1,
+                        sourceToTarget: 1,
+                        targetToSource: 0,
                         type: event.type
                     };
                 }
@@ -194,12 +195,15 @@ class WebHandler {
                     links[linkId] = {
                         source: sourceNodeId,
                         target: targetNodeId,
-                        value: 1,
+                        sourceToTarget: 1,
+                        targetToSource: 0,
                         type: 'message'
                     };
                 } else {
                     var link = links[linkId] || links[altLinkId];
-                    link.value++;
+                    if (sourceNodeId == link.source)
+                        link.sourceToTarget++;
+                    else link.targetToSource++;
                 }
             }
         }, err => {
@@ -216,6 +220,12 @@ class WebHandler {
             }
 
             for (var linkId in links) {
+                var link = links[linkId];
+                link.value = link.sourceToTarget + link.targetToSource;
+                if (link.source == link.target) {
+                    link.sourceToTarget = link.targetToSource = link.value;
+                }
+
                 result.links.push(links[linkId]);
             }
 
