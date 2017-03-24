@@ -117,7 +117,7 @@ class WebHandler {
 
                 // Add the user node
                 var publicUser = publicUsers.indexOf(event.sender) !== -1;
-                var userNodeId = (publicUser ? event.sender : getAnonId(event.sender)) + "-" + event.type;
+                var userNodeId = publicUser ? event.sender : getAnonId(event.sender);
                 if (!nodes[userNodeId]) {
                     nodes[userNodeId] = {
                         id: userNodeId,
@@ -141,15 +141,21 @@ class WebHandler {
                 // Add the link
                 var linkId = userNodeId + "-" + roomNodeId; // @user:domain.com-invite-!room:domain.com
                 if (links[linkId]) {
-                    links[linkId].sourceToTarget++;
+                    var link = links[linkId];
+                    link.sourceToTarget++;
+
+                    if (!link.subtypes[event.type]) link.subtypes[event.type] = 1;
+                    else link.subtypes[event.type]++;
                 } else {
                     links[linkId] = {
                         source: userNodeId,
                         target: roomNodeId,
                         sourceToTarget: 1,
                         targetToSource: 0,
-                        type: event.type
+                        type: 'user_link',
+                        subtypes: {}
                     };
+                    links[linkId].subtypes[event.type] = 1;
                 }
             }
 

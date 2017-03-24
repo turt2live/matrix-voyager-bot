@@ -2,6 +2,7 @@ var container = $(".svg-wrap");
 var width = container.width();
 var height = container.height();
 var displayNames = {}; // { nodeId: text }
+var nodeTypes = {}; // { nodeId: type }
 var nodeFills = {}; // { nodeId: id }
 
 var svg = $(".svg-wrap > svg")
@@ -22,19 +23,27 @@ var simulation = d3.forceSimulation()
         return getNodeRadius(d);
     }));
 
+var links, nodes;
+
 d3.json(jsonSource, function (error, json) {
     if (error) throw error;
 
+    explodeLinks(json);
+    parseNodes(json);
     prepareFills(json);
+    prepareMarkers(json);
 
-    var links = svg.append("g")
+    links = svg.append("g")
         .attr("class", "links")
-        .selectAll("line")
-        .data(json.links).enter().append("line")
+        .selectAll("path")
+        .data(json.links).enter().append("svg:path")
+        .attr("fill", "none")
         .attr("stroke-width", getWidthForLink)
-        .attr("stroke", getColorForType);
+        .attr("stroke", getColorForType)
+        .attr("stroke-opacity", 0.7)
+        .attr("marker-end", getMarkerEndForLink);
 
-    var nodes = svg.append("g")
+    nodes = svg.append("g")
         .attr("class", "nodes")
         .selectAll("circle")
         .data(json.nodes).enter().append("circle")
@@ -54,10 +63,6 @@ d3.json(jsonSource, function (error, json) {
 
     simulation.nodes(json.nodes).on("tick", onTick);
     simulation.force("link").links(json.links);
-
-    function onTick() {
-        checkNodeDistance(nodes, links);
-    }
 });
 
 var zoom = d3.zoom()
@@ -68,15 +73,17 @@ var zoom = d3.zoom()
     });
 svg.call(zoom);
 
+function getMarkerEndForLink(link) {
+    return "url(#arrow-" + link.type + "-" + nodeTypes[link.target] + ")";
+}
+
 function getNodeText(node) {
     return displayNames[node.id];
 }
 
 function getLinkText(link) {
     var type = link.type.replace(/_/g, ' ');
-    return "" +
-        link.sourceToTarget + " " + type + (link.sourceToTarget == 1 ? "" : "s") + " to " + displayNames[link.target] + "\n" +
-        link.targetToSource + " " + type + (link.targetToSource == 1 ? "" : "s") + " to " + displayNames[link.source];
+    return link.value + " " + type + (link.value !== 1 ? "s" : "") + " from " + displayNames[link.source] + " to " + displayNames[link.target];
 }
 
 function getLinkDistance(link) {
@@ -99,8 +106,8 @@ function getWidthForLink(link) {
     return Math.sqrt(link.value);
 }
 
-function getColorForType(point) {
-    switch (point.type) {
+function getColorForType(pointOrType) {
+    switch (pointOrType.type || pointOrType) {
         case "invite":
             return "#10b748";
         case "self_link":
@@ -115,8 +122,8 @@ function getColorForType(point) {
     }
 }
 
-function getNodeRadius(node) {
-    return node.type == "user" ? 10 : 14;
+function getNodeRadius(nodeOrType) {
+    return (nodeOrType.type || nodeOrType) == "user" ? 10 : 15;
 }
 
 function prepareFills(json) {
@@ -144,6 +151,43 @@ function prepareFills(json) {
     }
 }
 
+function prepareMarkers(json) {
+    return; // TODO: Finish this code. Issue: #29
+
+    var markerNodeTypes = ['user', 'room']; // don't need to detect this, we'll just hardcode it for now
+
+    var foundTypes = [];
+    for (var key in json.links) {
+        var link = json.links[key];
+
+        if (foundTypes.indexOf(link.type) == -1)
+            foundTypes.push(link.type);
+    }
+
+    for (var i = 0; i < foundTypes.length; i++) {
+        var linkType = foundTypes[i];
+
+        // User and Rooms have different sizes, so we have to build the marker twice
+        for (var j = 0; j < markerNodeTypes.length; j++) {
+            var nodeType = markerNodeTypes[j];
+
+            defs.append("marker")
+                .attr("id", "arrow-" + linkType + "-" + nodeType)
+                .attr("stroke", getColorForType(linkType))
+                .attr("fill", "none")
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 20)
+                .attr("refY", 0)
+                .attr("markerUnits", "userSpaceOnUse")
+                .attr("markerWidth", 8)
+                .attr("markerHeight", 8)
+                .attr("orient", "auto")
+                .append("svg:path")
+                .attr("d", "M0,-5L10,0L0,5");
+        }
+    }
+}
+
 function onDragStarted(d) {
     if (!d3.event.active) simulation.alphaTarget(0.3).restart();
     d.fx = d.x;
@@ -161,7 +205,7 @@ function onDragEnded(d) {
     d.fy = null;
 }
 
-function checkNodeDistance(nodes, links) {
+function onTick() {
     nodes
         .attr("cx", function (d) {
             return d.x = Math.max(getNodeRadius(d), Math.min(width - getNodeRadius(d), d.x));
@@ -170,17 +214,78 @@ function checkNodeDistance(nodes, links) {
             return d.y = Math.max(getNodeRadius(d), Math.min(height - getNodeRadius(d), d.y));
         });
 
-    links
-        .attr("x1", function (d) {
-            return d.source.x;
-        })
-        .attr("y1", function (d) {
-            return d.source.y;
-        })
-        .attr("x2", function (d) {
-            return d.target.x;
-        })
-        .attr("y2", function (d) {
-            return d.target.y;
-        });
+    links.attr("d", function (d) {
+        var dx = d.target.x - d.source.x;
+        var dy = d.target.y - d.source.y;
+        var dr = Math.sqrt((dx * dx) + (dy * dy));
+        var hasRelatedLinks = d.relatedTypes && d.relatedTypes.length > 1;
+        if (!hasRelatedLinks && (d.sourceToTarget == 0 || d.targetToSource == 0)) {
+            return "M" + d.source.x + "," + d.source.y + " L" + d.target.x + "," + d.target.y;
+        }
+
+        var shouldInvert = hasRelatedLinks ? (d.relatedTypes.indexOf(d.type) !== 0) : false;
+
+        var sx = shouldInvert ? d.target.x : d.source.x;
+        var sy = shouldInvert ? d.target.y : d.source.y;
+        var tx = shouldInvert ? d.source.x : d.target.x;
+        var ty = shouldInvert ? d.source.y : d.target.y;
+        return "M" + sx + "," + sy + "A" + dr + "," + dr + " 0 0,1 " + tx + "," + ty;
+    });
+}
+
+function explodeLinks(json) {
+    var newLinks = [];
+
+    for (var key in json.links) {
+        var link = json.links[key];
+
+        // Special case: Expand user links into multiple links
+        if (link.type == "user_link") {
+            var otherLinkTypes = [];
+
+            for (var subtype in link.subtypes) {
+                otherLinkTypes.push(subtype);
+
+                var subLink = {
+                    source: link.source,
+                    target: link.target,
+                    sourceToTarget: link.subtypes[subtype],
+                    targetToSource: 0,
+                    value: link.subtypes[subtype],
+                    type: subtype,
+                    relatedTypes: otherLinkTypes // pass by reference
+                };
+                newLinks.push(subLink);
+            }
+
+            continue;
+        }
+
+        if (link.source == link.target) continue; // Filter out self-links for now
+
+        var c1 = JSON.parse(JSON.stringify(link));
+        var c2 = JSON.parse(JSON.stringify(link));
+
+        if (link.sourceToTarget != 0) {
+            c1.value = link.sourceToTarget;
+            newLinks.push(c1);
+        }
+
+        if (link.targetToSource != 0) {
+            c2.value = link.targetToSource;
+            c2.target = link.source;
+            c2.source = link.target;
+            newLinks.push(c2);
+        }
+    }
+
+    json.links = newLinks;
+}
+
+function parseNodes(json) {
+    for (var key in json.nodes) {
+        var node = json.nodes[key];
+
+        nodeTypes[node.id] = node.type;
+    }
 }
