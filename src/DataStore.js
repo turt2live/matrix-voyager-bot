@@ -29,7 +29,7 @@ class DataStore {
 
     getMembershipEvents() {
         return new Promise((resolve, reject)=> {
-            this._db.all("SELECT * FROM membership_events WHERE unlisted = 0", function (error, rows) {
+            this._db.all("SELECT * FROM membership_events WHERE unlisted = ?", 0, function (error, rows) {
                 if (error) reject(error);
                 else resolve(rows);
             });
@@ -38,7 +38,7 @@ class DataStore {
 
     getRoomEvents() {
         return new Promise((resolve, reject) => {
-            this._db.all("SELECT * FROM room_links", function (error, rows) {
+            this._db.all("SELECT * FROM room_links WHERE unlisted = ?", 0, function (error, rows) {
                 if (error) reject(error);
                 else resolve(rows);
             });
