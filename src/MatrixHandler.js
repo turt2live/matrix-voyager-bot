@@ -16,7 +16,7 @@ class MatrixHandler {
             baseUrl: config.get("matrix.homeserverUrl"),
             accessToken: config.get("matrix.accessToken"),
             userId: this._mxid,
-            //store: matrixStore
+            store: matrixStore
         });
 
         log.info("MatrixHandler", "Using matrix user ID: " + this._mxid);
@@ -33,7 +33,7 @@ class MatrixHandler {
     }
 
     listen() {
-        this._client.startClient({initialSyncLimit: 5});
+        this._client.startClient({initialSyncLimit: 5, pollTimeout: 30 * 60 * 1000}); // pollTimeout is 30 minutes
     }
 
     _processMembership(event) {
