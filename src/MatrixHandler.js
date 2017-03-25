@@ -19,6 +19,8 @@ class MatrixHandler {
             store: matrixStore
         });
 
+        matrixStore.setClient(this._client);
+
         log.info("MatrixHandler", "Using matrix user ID: " + this._mxid);
 
         this._client.on('Room.timeline', event => {

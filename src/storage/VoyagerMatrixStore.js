@@ -24,6 +24,12 @@ class VoyagerMatrixStore { // implements StubStore
         // Stored in memory, and not persisted
         this._filters = {}; // userId: { filterId: Filter }
         this._accountData = {}; // type: content
+
+        this._client = null;
+    }
+
+    setClient(client) {
+        this._client = client;
     }
 
     scrollback(room, limit) {
@@ -95,10 +101,7 @@ class VoyagerMatrixStore { // implements StubStore
             this._store.setItem("user_map", JSON.stringify(this._knownUsers));
         }
 
-        var serialUser = {
-            userId: user.userId,
-            presence: user.events.presence ? user.events.presence.event : null
-        };
+        var serialUser = this._serializeUser(user);
         this._store.setItem("user_" + user.userId, JSON.stringify(serialUser));
     }
 
@@ -106,15 +109,8 @@ class VoyagerMatrixStore { // implements StubStore
         if (this._users[userId])
             return this._users[userId];
 
-        var data = this._store.getItem("user_" + userId);
-        if (!data) return null;
-
-        var obj = JSON.parse(data);
-        var presenceEvent = obj.presence ? new MatrixEvent(obj.presence) : null;
-
-        var user = new User(userId);
-        if (presenceEvent)
-            user.setPresenceEvent(presenceEvent);
+        var user = this._loadUser(userId);
+        this._users[userId] = user;
 
         return user;
     }
@@ -165,21 +161,63 @@ class VoyagerMatrixStore { // implements StubStore
         var data = this._store.getItem("room_" + roomId);
         if (!data) return null;
 
-        var obj = JSON.parse(data);
+        var obj1 = JSON.parse(data);
+        var obj2 = JSON.parse(data);
 
         var stateEvents = [];
-        for (var eventType in obj.state.events) {
-            var event = obj.state.events[eventType];
+        var oldStateEvents = [];
+        for (var eventType in obj1.state.events) {
+            var event = obj1.state.events[eventType];
             for (var skey in event) {
-                stateEvents.push(new MatrixEvent(event[skey]));
+                stateEvents.push(new MatrixEvent(obj1.state.events[eventType][skey]));
+                oldStateEvents.push(new MatrixEvent(obj2.state.events[eventType][skey]));
             }
         }
 
-        var room = new Room(roomId);
-        room.oldState.setStateEvents(stateEvents);
+        var room = new Room(roomId, {
+            storageToken: "voyager"
+        });
+        room.oldState.setStateEvents(oldStateEvents);
         room.currentState.setStateEvents(stateEvents);
 
+        this._registerRoomListeners(room);
+
         return room;
+    }
+
+    _loadUser(userId) {
+        var data = this._store.getItem("user_" + userId);
+        if (!data) return null;
+
+        var obj = JSON.parse(data);
+        var presenceEvent = obj.presence ? new MatrixEvent(obj.presence) : null;
+        var displayName = obj.displayName;
+        var avatarUrl = obj.avatarUrl;
+
+        var user = new User(userId);
+        if (presenceEvent)
+            user.setPresenceEvent(presenceEvent);
+        if (displayName)
+            user.setDisplayName(displayName);
+        if (avatarUrl)
+            user.setAvatarUrl(avatarUrl);
+
+        this._registerUserListeners(user);
+
+        return user;
+    }
+
+    _serializeUser(user) {
+        // We store a very limited version of the user to the data store for retrieval later
+
+        var serialized = {
+            userId: user.userId,
+            presence: user.events.presence ? user.events.presence.event : null,
+            displayName: user.displayName,
+            avatarUrl: user.avatarUrl
+        };
+
+        return serialized;
     }
 
     _serializeRoom(room) {
@@ -202,6 +240,48 @@ class VoyagerMatrixStore { // implements StubStore
         }
 
         return serialized;
+    }
+
+    _registerRoomListeners(room) {
+        if (!this._client) return;
+
+        this._reEmit(this._client, room, ["Room.name", "Room.timeline", "Room.redaction", "Room.receipt", "Room.tags", "Room.timelineReset", "Room.localEchoUpdated", "Room.accountData"]);
+        this._reEmit(this._client, room.currentState, ["RoomState.events", "RoomState.members", "RoomState.newMember"]);
+
+        // Logic borrowed from matrix-js-sdk
+        room.currentState.on("RoomState.newMember", (event, state, member) => {
+            member.user = this._client.getUser(member.userId);
+            this._reEmit(this._client, member, ["RoomMember.name", "RoomMember.typing", "RoomMember.powerLevel", "RoomMember.membership"]);
+        });
+    }
+
+    _registerUserListeners(user) {
+        if (!this._client) return;
+
+        this._reEmit(this._client, user, ["User.avatarUrl", "User.displayName", "User.presence", "User.currentlyActive", "User.lastPresenceTs"]);
+    }
+
+    // Logic borrowed from syncApi in matrix-js-sdk
+    _reEmit(reEmitEntity, emittableEntity, eventNames) {
+        for (var eventName of eventNames) {
+            this._reEmitEvent(reEmitEntity, emittableEntity, eventName);
+        }
+    }
+
+    _reEmitEvent(reEmitEntity, emittableEntity, eventName) {
+        // setup a listener on the entity (the Room, User, etc) for this event
+        emittableEntity.on(eventName, function () {
+            // take the args from the listener and reuse them, adding the
+            // event name to the arg list so it works with .emit()
+            // Transformation Example:
+            // listener on "foo" => function(a,b) { ... }
+            // Re-emit on "thing" => thing.emit("foo", a, b)
+            var newArgs = [eventName];
+            for (var i = 0; i < arguments.length; i++) {
+                newArgs.push(arguments[i]);
+            }
+            reEmitEntity.emit.apply(reEmitEntity, newArgs);
+        });
     }
 }
 
