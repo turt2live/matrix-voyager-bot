@@ -4,6 +4,7 @@ var log = require("npmlog");
 var http = require("http");
 var https = require("https");
 var Buffer = require("buffer").Buffer;
+var matrixStore = require("./matrix_data_store");
 
 class MatrixHandler {
 
@@ -14,7 +15,8 @@ class MatrixHandler {
         this._client = sdk.createClient({
             baseUrl: config.get("matrix.homeserverUrl"),
             accessToken: config.get("matrix.accessToken"),
-            userId: this._mxid
+            userId: this._mxid,
+            store: matrixStore
         });
 
         log.info("MatrixHandler", "Using matrix user ID: " + this._mxid);
@@ -271,7 +273,7 @@ class MatrixHandler {
     }
 
     _downloadMxcContent(mxcUrl) {
-        var url = this._client.mxcUrlToHttp(mxcUrl, 150, 150, 'crop');
+        var url = this._client.mxcUrlToHttp(mxcUrl, 128, 128, 'crop');
         var ht = url.startsWith("https") ? https : http;
 
         return new Promise((resolve, reject) => {

@@ -12,6 +12,7 @@ config/production.yaml
 config/development.yaml
 
 db/sync-token
+db/localstorage
 
 # Logs
 logs
