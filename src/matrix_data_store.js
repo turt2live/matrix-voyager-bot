@@ -1,12 +1,14 @@
+var LocalStorageBackedCache = require("./LocalStorageBackedCache");
 var LocalStorage = require("node-localstorage").LocalStorage;
 
 var WebStorageStore = require("matrix-js-sdk/lib/store/webstorage");
 var MatrixInMemoryStore = require("matrix-js-sdk").MatrixInMemoryStore;
 
 var localStorage = new LocalStorage("db/localstorage", 100 * 1024 * 1024); // quota is 100mb
+var cachedStorage = new LocalStorageBackedCache(localStorage);
 
-var store = new WebStorageStore(localStorage, 25);
-var memoryStore = new MatrixInMemoryStore({localStorage: localStorage});
+var store = new WebStorageStore(cachedStorage, 25);
+var memoryStore = new MatrixInMemoryStore({localStorage: cachedStorage});
 
 // We use some functions from the memory store because the WebStorageStore doesn't support them
 
