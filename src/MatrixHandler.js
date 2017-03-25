@@ -4,7 +4,6 @@ var log = require("npmlog");
 var http = require("http");
 var https = require("https");
 var Buffer = require("buffer").Buffer;
-var PublicRoomList = require("./PublicRoomList");
 
 class MatrixHandler {
 
@@ -17,14 +16,8 @@ class MatrixHandler {
             accessToken: config.get("matrix.accessToken"),
             userId: this._mxid
         });
-        this._publicRoomList = new PublicRoomList(this._client);
 
         log.info("MatrixHandler", "Using matrix user ID: " + this._mxid);
-
-        this._client.on('Room', room => {
-            return this._processRoom(room)
-                .catch(error => log.error("MatrixHandler", error));
-        });
 
         this._client.on('Room.timeline', event => {
             return this._processTimelineEvent(event) // the actual event is nested for some reason
@@ -38,19 +31,7 @@ class MatrixHandler {
     }
 
     listen() {
-        this._client.startClient(25); // only keep 25 events in memory
-    }
-
-    _processRoom(room) {
-        this._publicRoomList.addTrackedRoom(room.roomId);
-
-        for (var memberKey in room.currentState.members) {
-            var member = room.currentState.members[memberKey];
-            var server = member.userId.split(':')[1];
-            this._publicRoomList.addTrackedServer(server);
-        }
-
-        return Promise.resolve();
+        this._client.startClient({initialSyncLimit: 5});
     }
 
     _processMembership(event) {
@@ -176,9 +157,9 @@ class MatrixHandler {
         if (!room)return false;
 
         var joinRulesEvent = room.currentState.events['m.room.join_rules'];
-        if (!joinRulesEvent) return this._publicRoomList.isPublic(roomId);
+        if (!joinRulesEvent) return false;
 
-        return joinRulesEvent[''].event.content.join_rule === 'public' || this._publicRoomList.isPublic(roomId);
+        return joinRulesEvent[''].event.content.join_rule === 'public';
     }
 
     getRoomAlias(roomId) {

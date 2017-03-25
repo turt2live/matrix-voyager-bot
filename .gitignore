@@ -11,6 +11,8 @@ app/test2.json
 config/production.yaml
 config/development.yaml
 
+db/sync-token
+
 # Logs
 logs
 *.log
