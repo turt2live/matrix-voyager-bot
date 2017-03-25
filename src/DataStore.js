@@ -38,7 +38,7 @@ class DataStore {
 
     getRoomEvents() {
         return new Promise((resolve, reject) => {
-            this._db.all("SELECT * FROM room_links WHERE unlisted = ?", 0, function (error, rows) {
+            this._db.all("SELECT * FROM room_links WHERE unlisted = ? AND to_room_id <> ''", 0, function (error, rows) {
                 if (error) reject(error);
                 else resolve(rows);
             });
