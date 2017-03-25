@@ -16,7 +16,7 @@ class MatrixHandler {
             baseUrl: config.get("matrix.homeserverUrl"),
             accessToken: config.get("matrix.accessToken"),
             userId: this._mxid,
-            store: matrixStore
+            //store: matrixStore
         });
 
         log.info("MatrixHandler", "Using matrix user ID: " + this._mxid);
