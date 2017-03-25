@@ -30,6 +30,12 @@ class MatrixHandler {
             return this._processMembership(event.event) // the actual event is nested for some reason
                 .catch(error => log.error("MatrixHandler", error));
         });
+
+        this._client.on("sync", (state, prevState, data) => {
+            log.info("MatrixHandler", "Sync state: " + prevState + " -> " + state);
+            if (state == "ERROR")
+                log.error("MatrixHandler", data);
+        });
     }
 
     listen() {
