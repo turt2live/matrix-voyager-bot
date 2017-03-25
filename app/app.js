@@ -4,6 +4,7 @@ var height = container.height();
 var displayNames = {}; // { nodeId: text }
 var nodeTypes = {}; // { nodeId: type }
 var nodeFills = {}; // { nodeId: id }
+var nodesById = {}; // { nodeId: node }
 
 var svg = $(".svg-wrap > svg")
     .attr('width', width)
@@ -17,11 +18,9 @@ var jsonSource = "api/v1/network";
 
 var simulation = d3.forceSimulation()
     .force("link", d3.forceLink().id(getNodeId).distance(getLinkDistance))
-    .force("charge", d3.forceManyBody())
+    .force("charge", d3.forceManyBody().strength(getNodeStrength))
     .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("collide", d3.forceCollide(function (d) {
-        return getNodeRadius(d);
-    }));
+    .force("collide", d3.forceCollide(getNodeCollisionRadius).strength(0.5));
 
 var links, nodes;
 
@@ -30,6 +29,7 @@ d3.json(jsonSource, function (error, json) {
 
     explodeLinks(json);
     parseNodes(json);
+    parseLinks(json);
     prepareFills(json);
     prepareMarkers(json);
 
@@ -72,6 +72,14 @@ var zoom = d3.zoom()
         svg.select("g.nodes").attr("transform", "translate(" + d3.event.transform.x + "," + d3.event.transform.y + ")scale(" + d3.event.transform.k + "," + d3.event.transform.k + ")");
     });
 svg.call(zoom);
+
+function getNodeStrength(node) {
+    return Math.max(-400, node.linkCount * -40);
+}
+
+function getNodeCollisionRadius(node) {
+    return getNodeRadius(node) + 5;
+}
 
 function getMarkerEndForLink(link) {
     return "url(#arrow-" + link.type + "-" + nodeTypes[link.target] + ")";
@@ -287,5 +295,15 @@ function parseNodes(json) {
         var node = json.nodes[key];
 
         nodeTypes[node.id] = node.type;
+        nodesById[node.id] = node;
+    }
+}
+
+function parseLinks(json) {
+    for (var key in json.links) {
+        var link = json.links[key];
+
+        nodesById[link.target].linkCount = (nodesById[link.target].linkCount + 1) || 1;
+        nodesById[link.source].linkCount = (nodesById[link.source].linkCount + 1) || 1;
     }
 }
