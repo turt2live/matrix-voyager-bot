@@ -67,7 +67,7 @@ class MatrixHandler {
             return Promise.resolve();
         }
 
-        var matches = body.match(/[#!][a-zA-Z0-9.\-_#]+:[a-zA-Z0-9.\-_]+/g);
+        var matches = body.match(/[#!][a-zA-Z0-9.\-_#]+:[a-zA-Z0-9.\-_]+[a-zA-Z0-9]/g);
         if (!matches) return Promise.resolve();
 
         var dbPromises = [];
