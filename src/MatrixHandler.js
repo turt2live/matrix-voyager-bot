@@ -117,22 +117,59 @@ class MatrixHandler {
                 });
                 break;
             case 'linkme':
-                this._db.hasSimilarState('self_link', event.room_id, event.sender).then(hasState => {
+                var roomPromise = Promise.resolve(event.room_id);
+                if (args[1]) {
+                    roomPromise = this._client.joinRoom(args[1]).then(r=> {
+                        if (!r)return Promise.reject();
+                        else return Promise.resolve(r.roomId);
+                    });
+                }
+
+                var alias = null;
+                var targetRoomId = null;
+                roomPromise.then(roomId => {
+                    alias = this.getRoomAlias(roomId);
+                    targetRoomId = roomId;
+                    return this._db.hasSimilarState('self_link', roomId, event.sender);
+                }, () => {
+                    this._client.sendNotice(event.room_id, sender.displayName + ": Could not find room " + (args[1] || event.room_id));
+                    return Promise.reject();
+                }).then(hasState => {
                     if (hasState) {
-                        this._client.sendNotice(event.room_id, sender.displayName + ": You're already linked to this room!");
-                    } else this._db.recordState(event.event_id, 'self_link', event.room_id, event.sender, event.origin_server_ts, event.content.body)
-                        .then(() => this._client.sendReadReceipt(wrapperEvent))
+                        this._client.sendNotice(event.room_id, sender.displayName + ": You're already linked to " + alias);
+                    } else this._db.recordState(event.event_id, 'self_link', targetRoomId, event.sender, event.origin_server_ts, event.content.body)
+                        .then(() => this._db.setEnrolledState(event.sender, true)) // automatically assume they want to appear on the graph
+                        .then(() => this._client.sendNotice(event.room_id, sender.displayName + ": You've been linked to " + alias + " and your name and avatar will appear on the graph"));
                 }, err=> {
-                    log.error("MatrixHandler", "Error linking " + event.sender + " to room " + event.room_id);
+                    if (!err)return;
+                    log.error("MatrixHandler", "Error linking " + event.sender + " to room " + alias);
                     log.error("MatrixHandler", err);
                     this._client.sendNotice(event.room_id, sender.displayName + ": There was an error processing your command.");
                 });
                 break;
             case 'unlinkme':
-                this._db.deleteSimilarState('self_link', event.room_id, event.sender).then(() => {
-                    this._client.sendNotice(event.room_id, sender.displayName + ": Your links to this room have been removed.");
+                var roomPromise = Promise.resolve(event.room_id);
+                if (args[1]) {
+                    roomPromise = this._client.joinRoom(args[1]).then(r=> {
+                        if (!r)return Promise.reject();
+                        else return Promise.resolve(r.roomId);
+                    });
+                }
+
+                var alias = null;
+                var targetRoomId = null;
+                roomPromise.then(roomId => {
+                    alias = this.getRoomAlias(roomId);
+                    targetRoomId = roomId;
+                    return this._db.deleteSimilarState('self_link', roomId, event.sender);
+                }, () => {
+                    this._client.sendNotice(event.room_id, sender.displayName + ": Could not find room " + (args[1] || event.room_id));
+                    return Promise.reject();
+                }).then(() => {
+                    this._client.sendNotice(event.room_id, sender.displayName + ": Your links to " + alias + " have been removed");
                 }, err=> {
-                    log.error("MatrixHandler", "Error unlinking " + event.sender + " to room " + event.room_id);
+                    if (!err)return;
+                    log.error("MatrixHandler", "Error unlinking " + event.sender + " from room " + alias);
                     log.error("MatrixHandler", err);
                     this._client.sendNotice(event.room_id, sender.displayName + ": There was an error processing your command.");
                 });
