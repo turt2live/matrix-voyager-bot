@@ -13,6 +13,7 @@ config/development.yaml
 
 db/sync-token
 db/localstorage
+db/voyager_local_storage
 
 # Logs
 logs
