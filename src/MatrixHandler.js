@@ -143,10 +143,14 @@ class MatrixHandler {
         }
     }
 
-    _processRoomLink(event, idOrAlias) {
+    _processRoomLink(event, idOrAlias, retryCount = 0) {
         return this._client.joinRoom(idOrAlias).then(room => {
             return this._db.recordRoomLink(event.event_id, idOrAlias, 'message', room.roomId, event.room_id, event.sender, event.origin_server_ts, event.content.body);
         }, err => {
+            if (err.httpStatus == 500 && retryCount < 5) {
+                this._processRoomLink(event, idOrAlias, ++retryCount);
+                return; // don't try to handle the error, yet
+            }
             log.error("MatrixHandler", err);
             return this._db.recordRoomLink(event.event_id, idOrAlias, 'message', null, event.room_id, event.sender, event.origin_server_ts, event.content.body, err);
         }).catch(err => log.error("MatrixHandler", err));
