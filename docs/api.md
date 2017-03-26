@@ -34,21 +34,25 @@ Gets information about the graph network.
     // Note: This only includes nodes that are relevant to the `links`
     nodes: [{
       id: 1234,
-      type: "user", // 'user' or 'room'
-      displayName: 'Some User',
-      isAnonymous: false,
-      objectId: '@user:domain.com', // Rooms will be a Room ID. Anonymous nodes don't have this field.
-      avatarUrl: 'https://t2bot.io/media/...', // Not included if the object doesn't have an avatar
-      firstIntroduced: 1234567890 // milliseconds since epoch
+      firstIntroduced: 1234567890, // milliseconds since epoch
+      meta: {
+        type: 'user', // or 'room'
+        displayName: "Some User",
+        avatarUrl: "https://...", // not included if the node doesn't have an avatar
+        objectId: "@user:domain.com", // Rooms will be a Room ID. Anonymous nodes don't have this.
+        isAnonymous: false
+      }
     }],
 
     // Links now all have a weight of 1 and may be duplicated (source to target). 
     links: [{
       id: 1234,
-      type: "invite", // any of the link types available
       timestamp: 1234567890, // milliseconds since epoch
-      targetNodeId: 1234,
-      sourceNodeId: 1235
+      meta: {
+        sourceNodeId: 1234,
+        targetNodeId: 1235,
+        type: 'message' // any of the link types
+      }
     }]
   }
 }
@@ -74,12 +78,14 @@ Gets all known nodes (users or rooms).
 ```javascript
 [{
   id: 1234,
-  type: "user", // 'user' or 'room'
-  displayName: 'Some User',
-  isAnonymous: false,
-  objectId: '@user:domain.com', // Rooms will be a Room ID. Anonymous nodes don't have this field.
-  avatarUrl: 'https://t2bot.io/media/...', // Not included if the object doesn't have an avatar
   firstIntroduced: 1234567890 // milliseconds since epoch
+  meta: {
+    type: 'user', // or 'room'
+    displayName: "Some User",
+    avatarUrl: "https://...", // not included if the node doesn't have an avatar
+    objectId: "@user:domain.com", // Rooms will be a Room ID. Anonymous nodes don't have this.
+    isAnonymous: false
+  }
 }]
 ```
 
@@ -91,12 +97,14 @@ Gets information about a particular node
 ```javascript
 {
   id: 1234,
-  type: "user", // 'user' or 'room'
-  displayName: 'Some User',
-  isAnonymous: false,
-  objectId: '@user:domain.com', // Rooms will be a Room ID. Anonymous nodes don't have this field.
-  avatarUrl: 'https://t2bot.io/media/...', // Not included if the object doesn't have an avatar
   firstIntroduced: 1234567890 // milliseconds since epoch
+  meta: {
+    type: 'user', // or 'room'
+    displayName: "Some User",
+    avatarUrl: "https://...", // not included if the node doesn't have an avatar
+    objectId: "@user:domain.com", // Rooms will be a Room ID. Anonymous nodes don't have this.
+    isAnonymous: false
+  }
 }
 ```
 
