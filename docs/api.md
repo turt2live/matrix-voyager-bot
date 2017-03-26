@@ -4,18 +4,18 @@
 
 All resources can be reached with [https://voyager.t2bot.io](https://voyager.t2bot.io)
 
-### Event Types
-
+### Link Types
 * `message` - A message in a room that contained an alias or room ID
 * `topic` - A topic in the source room contained an alias or room ID
 * `invite` - The bot was invited to the target room by the source user
 * `self_link` - The source user decided to link themselves to the target room
-* `node_updated` - Shows up in a timeline when an avatar or name has been updated
-* `node_removed` - Shows up in a timeline when the specified node is no longer on the graph
 
-**Not returned from API, but still recorded:**
-* `kick` - The source user kicked the bot from the target room
-* `ban` - The source user banned the bot from the target room
+### Event Types
+* `node_added` - A new node has been created
+* `node_updated` - An existing node has been updated, see metadata
+* `node_removed` - An existing node has been removed
+* `link_added` - A link has been created (may occur multiple times for each source and target pair)
+* `link_removed` - An existing link has been removed
  
 ## `GET /api/v1/network`
 
@@ -45,7 +45,7 @@ Gets information about the graph network.
     // Links now all have a weight of 1 and may be duplicated (source to target). 
     links: [{
       id: 1234,
-      type: "invite", // any of the event types available
+      type: "invite", // any of the link types available
       timestamp: 1234567890, // milliseconds since epoch
       target: 1234,
       source: 1235
@@ -120,10 +120,14 @@ Gets all known events.
   results: {
     events: [{
       id: 1234, // an ID for this event (sequential to dedupe timestamp)
-      type: "invite", // any of the event types available
+      type: "node_updated", // any of the event types available
       timestamp: 1234567890, // milliseconds since epoch
-      sourceNodeId: 1235,
-      targetNodeId: 1234
+      nodeId: 1234,
+      meta: { // may not be included if it doesn't apply to the event, or if the relevant node no longer exists
+        displayName: 'Some Name',
+        avatarUrl: 'https://...',
+        isAnonymous: false
+      }
     }]
   }
 }
@@ -140,30 +144,74 @@ If no events were found for the given range, the following is returned as `200 O
 }
 ```
 
-*Note*: The event graph is ordered by timestamp in *ascending* order. Use the `since` parameter to filter this output.
+### Some examples of other event types
 
-*Note*: The `events` may contain `node_*` events in them. They will appear as such:
-```
+**node_added**
+```javascript
 {
   id: 1234,
-  type: "node_updated",
+  type: "node_added",
   timestamp: 1234567890, // milliseconds since epoch
-  sourceNodeId: 1234,
-  targetNodeId: 1234, // always the same as source
-  meta: {
+  nodeId: 1234,
+  meta: { // Not present if the node no longer exists on the graph
     displayName: 'Some Name',
     avatarUrl: 'https://...',
     isAnonymous: false
   }
 }
 ```
+
+**node_updated**
+```javascript
+{
+  id: 1234,
+  type: "node_updated",
+  timestamp: 1234567890, // milliseconds since epoch
+  nodeId: 1234,
+  meta: { // Not present if the node no longer exists on the graph
+    displayName: 'Some Name',
+    avatarUrl: 'https://...',
+    isAnonymous: false
+  }
+}
 ```
+
+**node_removed**
+```javascript
 {
   id: 1234,
   type: "node_removed",
   timestamp: 1234567890, // milliseconds since epoch
-  sourceNodeId: 1234,
-  targetNodeId: 1234 // always the same as source
+  nodeId: 1234
 }
 ```
-*Note how `node_removed` does not have any metadata information - this is because the node no longer exists.*
+
+**link_added**
+```javascript
+{
+  id: 1234,
+  type: "link_added",
+  timestamp: 1234567890, // milliseconds since epoch
+  linkId: 1234,
+  meta: {
+    sourceNodeId: 1234,
+    targetNodeId: 1235,
+    type: 'message' // any of the link types
+  }
+}
+```
+
+**link_removed**
+```javascript
+{
+  id: 1234,
+  type: "link_removed",
+  timestamp: 1234567890, // milliseconds since epoch
+  linkId: 1234,
+  meta: {
+    sourceNodeId: 1234,
+    targetNodeId: 1235,
+    type: 'message' // any of the link types
+  }
+}
+```
