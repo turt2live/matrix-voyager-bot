@@ -216,10 +216,10 @@ function onDragEnded(d) {
 function onTick() {
     nodes
         .attr("cx", function (d) {
-            return d.x = Math.max(getNodeRadius(d), Math.min(width - getNodeRadius(d), d.x));
+            return d.x;
         })
         .attr("cy", function (d) {
-            return d.y = Math.max(getNodeRadius(d), Math.min(height - getNodeRadius(d), d.y));
+            return d.y;
         });
 
     links.attr("d", function (d) {
