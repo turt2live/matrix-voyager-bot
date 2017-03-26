@@ -154,7 +154,9 @@ If no events were found for the given range, the following is returned as `200 O
   meta: { // Not present if the node no longer exists on the graph
     displayName: 'Some Name',
     avatarUrl: 'https://...',
-    isAnonymous: false
+    isAnonymous: false,
+    type: 'room', // or 'user'
+    objectId: '!room:domain.com' // only present if not anonymous
   }
 }
 ```
