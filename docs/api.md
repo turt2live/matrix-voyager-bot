@@ -47,8 +47,8 @@ Gets information about the graph network.
       id: 1234,
       type: "invite", // any of the link types available
       timestamp: 1234567890, // milliseconds since epoch
-      target: 1234,
-      source: 1235
+      targetNodeId: 1234,
+      sourceNodeId: 1235
     }]
   }
 }
@@ -65,8 +65,6 @@ If there are no events/links for the given range, the following is returned as `
   }
 }
 ```
-
-***Note***: `links` will never contain `node_*` events. They'll just be transparently available (or missing) in the data set returned.
 
 ## `GET /api/v1/nodes`
 
@@ -169,6 +167,7 @@ If no events were found for the given range, the following is returned as `200 O
   timestamp: 1234567890, // milliseconds since epoch
   nodeId: 1234,
   meta: { // Not present if the node no longer exists on the graph
+    // One or more of these fields will be present, depending on the change
     displayName: 'Some Name',
     avatarUrl: 'https://...',
     isAnonymous: false
