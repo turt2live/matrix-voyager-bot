@@ -1,6 +1,6 @@
-var MatrixHandler = require("./src/MatrixHandler");
-var WebHandler = require("./src/WebHandler");
-var DataStore = require("./src/DataStore");
+var MatrixHandler = require("./src-old/MatrixHandler");
+var WebHandler = require("./src-old/WebHandler");
+var DataStore = require("./src-old/DataStore");
 var log = require("npmlog");
 
 log.info("index", "Preparing database");
