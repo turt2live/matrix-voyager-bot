@@ -242,6 +242,8 @@ class VoyagerMatrixStore { // implements StubStore
         return serialized;
     }
 
+    // HACK: This really shouldn't be here. This implies the storage layer is coupled to the application, however that is not supposed
+    // to be the case. It is supposed to be independent of the application and just store things.
     _registerRoomListeners(room) {
         if (!this._client) return;
 
@@ -255,6 +257,8 @@ class VoyagerMatrixStore { // implements StubStore
         });
     }
 
+    // HACK: This really shouldn't be here. This implies the storage layer is coupled to the application, however that is not supposed
+    // to be the case. It is supposed to be independent of the application and just store things.
     _registerUserListeners(user) {
         if (!this._client) return;
 
