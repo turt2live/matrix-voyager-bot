@@ -223,8 +223,8 @@ function onTick() {
         });
 
     links.attr("d", function (d) {
-        var dx = d.target.x - d.source.x;
-        var dy = d.target.y - d.source.y;
+        var dx = (d.target.x - d.source.x) / 0.1;
+        var dy = (d.target.y - d.source.y) / 0.1;
         var dr = Math.sqrt((dx * dx) + (dy * dy));
         var hasRelatedLinks = d.relatedTypes && d.relatedTypes.length > 1;
         if (!hasRelatedLinks && (d.sourceToTarget == 0 || d.targetToSource == 0)) {
