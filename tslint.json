@@ -57,18 +57,12 @@
       "check-else",
       "check-whitespace"
     ],
-    "quotemark": [
-      true,
-      "single"
-    ],
+    "quotemark": [],
     "radix": true,
     "semicolon": [
       "always"
     ],
-    "triple-equals": [
-      true,
-      "allow-null-check"
-    ],
+    "triple-equals": [],
     "typedef-whitespace": [
       true,
       {

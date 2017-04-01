@@ -1,6 +1,10 @@
+@import "~nvd3/build/nv.d3.css";
+
 // styles in src/style directory are applied to the whole page
 body {
-  background: #0147A7;
+  background: #ddd;
+  margin: 0;
+  padding: 0;
   color: #fff;
 }
 a {
