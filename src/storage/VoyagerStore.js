@@ -408,6 +408,81 @@ class VoyagerStore {
             });
         });
     }
+
+    /**
+     * Gets all of the timeline events for the given range
+     * @param {Number} since the timestamp to start the search from, exclusive
+     * @param {Number} limit the total number of results to search for
+     * @returns {Promise<{remaining: Number, events: CompleteTimelineEvent[]}>} resolves to information about the results. May be an empty array
+     */
+    getTimelineEventsPaginated(since, limit) {
+        return new Promise((resolve, reject) => {
+            var events = [];
+            var remaining = 0;
+
+            // It's more efficient for us to look up all the fields possible in one
+            // query because it means we don't need to make 10,000 return trips to the
+            // database. However, the sqlite3 library is somewhat limited so we need to
+            // do the object mapping ourselves.
+            //
+            // This query gets the TimelineEvent, referenced Link, the source and target Node,
+            // as well as the meta information for the Nodes (similar to a NodeVersion).
+            var query = "" +
+                "SELECT  timeline_events.id AS 'timeline_events.id',\n" +
+                "        timeline_events.linkId AS 'timeline_events.linkId',\n" +
+                "        timeline_events.timestamp AS 'timeline_events.timestamp',\n" +
+                "        timeline_events.message AS 'timeline_events.message',\n" +
+                "        timeline_events.matrixEventId AS 'timeline_events.matrixEventId',\n" +
+                "        links.id AS 'links.id',\n" +
+                "        links.type AS 'links.type',\n" +
+                "        links.sourceNodeId AS 'links.sourceNodeId',\n" +
+                "        links.targetNodeId AS 'links.targetNodeId',\n" +
+                "        links.timestamp AS 'links.timestamp',\n" +
+                "        links.isVisible AS 'links.isVisible',\n" +
+                "        links.isRedacted AS 'links.isRedacted',\n" +
+                "        sourceNode.id AS 'sourceNode.id',\n" +
+                "        sourceNode.type AS 'sourceNode.type',\n" +
+                "        sourceNode.objectId AS 'sourceNode.objectId',\n" +
+                "        sourceNode.isReal AS 'sourceNode.isReal',\n" +
+                "        sourceNode.firstTimestamp AS 'sourceNode.firstTimestamp',\n" +
+                "        sourceNode.isRedacted AS 'sourceNode.isRedacted',\n" +
+                "        (SELECT node_versions.displayName FROM node_versions WHERE node_versions.nodeId = links.sourceNodeId AND node_versions.displayName IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'sourceNode.nodeVersion.displayName',\n" +
+                "        (SELECT node_versions.avatarUrl FROM node_versions WHERE node_versions.nodeId = links.sourceNodeId AND node_versions.avatarUrl IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'sourceNode.nodeVersion.avatarUrl',\n" +
+                "        (SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = links.sourceNodeId AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'sourceNode.nodeVersion.isAnonymous',\n" +
+                "        targetNode.id AS 'targetNode.id',\n" +
+                "        targetNode.type AS 'targetNode.type',\n" +
+                "        targetNode.objectId AS 'targetNode.objectId',\n" +
+                "        targetNode.isReal AS 'targetNode.isReal',\n" +
+                "        targetNode.firstTimestamp AS 'targetNode.firstTimestamp',\n" +
+                "        targetNode.isRedacted AS 'targetNode.isRedacted',\n" +
+                "        (SELECT node_versions.displayName FROM node_versions WHERE node_versions.nodeId = links.targetNodeId AND node_versions.displayName IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'targetNode.nodeVersion.displayName',\n" +
+                "        (SELECT node_versions.avatarUrl FROM node_versions WHERE node_versions.nodeId = links.targetNodeId AND node_versions.avatarUrl IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'targetNode.nodeVersion.avatarUrl',\n" +
+                "        (SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = links.targetNodeId AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'targetNode.nodeVersion.isAnonymous'\n" +
+                "FROM timeline_events\n" +
+                "JOIN links ON links.id = timeline_events.linkId\n" +
+                "JOIN nodes AS sourceNode ON sourceNode.id = links.sourceNodeId\n" +
+                "JOIN nodes AS targetNode ON targetNode.id = links.targetNodeId\n" +
+                "WHERE timeline_events.timestamp > ?\n" +
+                "LIMIT ?";
+
+            this._db.all(query, since, limit, (err, rows) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                events = (rows || []).map(r => new CompleteTimelineEvent(r));
+
+                this._db.get("SELECT COUNT(*) AS total FROM timeline_events WHERE timestamp > ?", since, (err, row) => {
+                    if (err) reject(err);
+                    else resolve({
+                        remaining: Math.min(0, (row.total || 0) - events.length),
+                        events: events
+                    });
+                });
+            });
+        });
+    }
 }
 
 class Node {
@@ -461,6 +536,48 @@ class StateEvent {
         this.nodeId = dbFields.nodeId;
         this.nodeVersionId = dbFields.nodeVersionId;
         this.timestamp = dbFields.timestamp;
+    }
+}
+
+class CompleteTimelineEvent {
+    constructor(dbFields) {
+        var timelineEvent = {};
+        var sourceNode = {};
+        var targetNode = {};
+        var link = {};
+        var sourceNodeMeta = {displayName: null, avatarUrl: null, isAnonymous: null};
+        var targetNodeMeta = {displayName: null, avatarUrl: null, isAnonymous: null};
+
+        for (var key in dbFields) {
+            var parts = key.split('.');
+            switch (parts[0]) {
+                case 'timeline_events':
+                    timelineEvent[parts[1]] = dbFields[key];
+                    break;
+                case 'links':
+                    link[parts[1]] = dbFields[key];
+                    break;
+                case 'sourceNode':
+                    if (parts[1] == 'nodeVersion')
+                        sourceNodeMeta[parts[2]] = dbFields[key];
+                    else sourceNode[parts[1]] = dbFields[key];
+                    break;
+                case 'targetNode':
+                    if (parts[1] == 'nodeVersion')
+                        targetNodeMeta[parts[2]] = dbFields[key];
+                    else targetNode[parts[1]] = dbFields[key];
+                    break;
+                default:
+                    throw new Error("Unexpected key: " + key);
+            }
+        }
+
+        this.event = new TimelineEvent(timelineEvent);
+        this.link = new Link(link);
+        this.sourceNode = new Node(sourceNode);
+        this.targetNode = new Node(targetNode);
+        this.sourceNodeMeta = sourceNodeMeta;
+        this.targetNodeMeta = targetNodeMeta;
     }
 }
 
