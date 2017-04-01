@@ -65,7 +65,7 @@ class VoyagerBot {
     }
 
     _processTimeline(event, room, toStartOfTimeline, removed, data) {
-        if (event.type != 'm.room.message') return Promise.resolve();
+        if (event.getType() != 'm.room.message') return Promise.resolve();
 
         var senderId = event.getSender();
         if (senderId == this._client.credentials.userId) return Promise.resolve();
