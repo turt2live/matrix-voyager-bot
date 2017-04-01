@@ -1,5 +1,7 @@
 .idea/
 
+web-dist/
+
 db/*.db
 db/*.db-journal
 start.sh
