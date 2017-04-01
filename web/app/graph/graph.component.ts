@@ -16,10 +16,10 @@ export class GraphComponent implements OnInit {
             chart: {
                 type: 'forceDirectedGraph',
                 height: (function () {
-                    return nv.utils.windowSize().height
+                    return nv.utils.windowSize().height;
                 })(),
                 width: (function () {
-                    return nv.utils.windowSize().width
+                    return nv.utils.windowSize().width;
                 })(),
                 color: function () {
                     return "red";
