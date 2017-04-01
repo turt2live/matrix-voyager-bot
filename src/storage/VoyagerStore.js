@@ -43,9 +43,10 @@ class VoyagerStore {
      */
     createStateEvent(type, params) {
         return new Promise((resolve, reject) => {
-            var handler = (generatedId, err) => {
+            var self = this;
+            var handler = function (err) {
                 if (err)reject(err);
-                else this.getStateEvent(generatedId).then(resolve, reject);
+                else self.getStateEvent(this.lastID).then(resolve, reject);
             };
 
             switch (type) {
@@ -95,26 +96,28 @@ class VoyagerStore {
      */
     createNode(type, objectId, firstVersion, isReal = true, isRedacted = false) {
         return new Promise((resolve, reject)=> {
+            var self = this;
             this._db.run("INSERT INTO nodes (type, objectId, isReal, firstTimestamp, isRedacted) VALUES (?, ?, ?, ?, ?)",
-                type, objectId, isReal, 0, isRedacted, (generatedId, err) => {
-                    if (error) {
+                type, objectId, isReal, 0, isRedacted, function (err) {
+                    if (err) {
                         reject(err);
                         return;
                     }
 
-                    var nodeId = generatedId;
+                    var nodeId = this.lastID;
 
-                    this._db.run("INSERT INTO node_versions (nodeId, displayName, avatarUrl, isAnonymous) VALUES (?, ?, ?, ?)",
-                        nodeId, firstVersion.displayName, firstVersion.avatarUrl, firstVersion.isAnonymous, (nodeVersionId, err) => {
-                            if (error) {
+                    self._db.run("INSERT INTO node_versions (nodeId, displayName, avatarUrl, isAnonymous) VALUES (?, ?, ?, ?)",
+                        nodeId, firstVersion.displayName, firstVersion.avatarUrl, firstVersion.isAnonymous, function (err) {
+                            if (err) {
                                 reject(err);
                                 return
                             }
+                            var nodeVersionId = this.lastID;
 
-                            this.createStateEvent('node_added', {
+                            self.createStateEvent('node_added', {
                                 nodeId: nodeId,
                                 nodeVersionId: nodeVersionId
-                            }).then(() => this.getNodeById(nodeId)).then(resolve, reject);
+                            }).then(() => self.getNodeById(nodeId)).then(resolve, reject);
                         });
                 });
         });
@@ -195,15 +198,17 @@ class VoyagerStore {
      */
     createNodeVersion(node, fields) {
         return new Promise((resolve, reject) => {
+            var self = this;
             this._db.run("INSERT INTO node_versions (nodeId, displayName, avatarUrl, isAnonymous) VALUES (?, ?, ?, ?)",
-                node.id, fields.displayName || null, fields.avatarUrl || null, fields.isAnonymous || null, (nodeVersionId, err) => {
+                node.id, fields.displayName || null, fields.avatarUrl || null, fields.isAnonymous || null, function (err) {
+                    var nodeVersionId = this.lastID;
                     if (err) reject(err);
                     else {
-                        this.createStateEvent('node_updated', {
+                        self.createStateEvent('node_updated', {
                             nodeId: node.id,
                             nodeVersionId: nodeVersionId
                         }).then(() => {
-                            this.getNodeVersionById(nodeVersionId).then(resolve, reject);
+                            self.getNodeVersionById(nodeVersionId).then(resolve, reject);
                         }, reject);
                     }
                 });
@@ -238,12 +243,14 @@ class VoyagerStore {
      * @returns {Promise<Link>} resolves to the created link
      */
     createLink(sourceNode, targetNode, type, timestamp, isVisible = true, isRedacted = false) {
+        var self = this;
         return new Promise((resolve, reject) => {
             this._db.run("INSERT INTO links (type, sourceNodeId, targetNodeId, timestamp, isVisible, isRedacted) VALUES (?, ?, ?, ?, ?, ?)",
-                type, sourceNode.id, targetNode.id, timestamp, isVisible, isRedacted, (linkId, err) => {
+                type, sourceNode.id, targetNode.id, timestamp, isVisible, isRedacted, function (err) {
+                    var linkId = this.lastID;
                     if (err) reject(err);
-                    else this.createStateEvent('link_added', {linkId: linkId}).then(() => {
-                        this.getLinkById(linkId).then(resolve, reject);
+                    else self.createStateEvent('link_added', {linkId: linkId}).then(() => {
+                        self.getLinkById(linkId).then(resolve, reject);
                     });
                 });
         });
@@ -289,10 +296,11 @@ class VoyagerStore {
             }).then(() => {
                 return this._updateNodeTimestamp(targetNode, timestamp);
             }).then(() => {
+                var self = this;
                 this._db.run("INSERT INTO timeline_events (linkId, timestamp, message, matrixEventId) VALUES (?, ?, ?, ?)",
-                    link.id, timestamp, message, matrixEventId, (timelineEventId, err) => {
+                    link.id, timestamp, message, matrixEventId, function (err) {
                         if (err) reject(err);
-                        else this.getTimelineEventById(timelineEventId).then(resolve, reject);
+                        else self.getTimelineEventById(this.lastID).then(resolve, reject);
                     });
             });
         });
@@ -302,7 +310,7 @@ class VoyagerStore {
         return new Promise((resolve, reject) => {
             if (node.firstTimestamp <= timestamp) resolve();
             else {
-                this._db.run("UPDATE nodes SET firstTimestamp = ? WHERE id = ?", timestamp, node.id, (_, err) => {
+                this._db.run("UPDATE nodes SET firstTimestamp = ? WHERE id = ?", timestamp, node.id, (err) => {
                     if (err) reject(err);
                     else resolve();
                 });
@@ -354,7 +362,7 @@ class VoyagerStore {
      */
     redactNode(node) {
         return new Promise((resolve, reject) => {
-            this._db.run("UPDATE nodes SET isRedacted = 1 WHERE id = ?", node.id, (_, err) => {
+            this._db.run("UPDATE nodes SET isRedacted = 1 WHERE id = ?", node.id, (err) => {
                 if (err) reject(err);
                 else {
                     this.getCurrentNodeVersionForNode(node).then(version => {
@@ -392,7 +400,7 @@ class VoyagerStore {
      */
     redactLink(link) {
         return new Promise((resolve, reject) => {
-            this._db.run("UPDATE links SET isRedacted = 1 WHERE id = ?", link.id, (_, err) => {
+            this._db.run("UPDATE links SET isRedacted = 1 WHERE id = ?", link.id, (err) => {
                 if (err) reject(err);
                 else {
                     this.createStateEvent('link_removed', {linkId: link.id}).then(resolve, reject);
