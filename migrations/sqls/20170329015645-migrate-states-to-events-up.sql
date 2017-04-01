@@ -22,13 +22,13 @@ drop table _user_nodes;
 
 -- Create timeline events and links from old messages
 alter table links add column _legacy_link_id;
-insert into links (type, sourceNodeId, targetNodeId, isVisible, isRedacted, _legacy_link_id) select 'message', (select id from nodes where objectId = e.from_room_id), (select id from nodes where objectId = e.to_room_id), 1, 0, id from room_links as e where e.to_room_id is not null;
-insert into timeline_events (linkId, timestamp, message, matrixEventId) select links.id, (select e.timestamp from room_links as e where e.id = _legacy_link_id), (select e.message from room_links as e where e.id = _legacy_link_id), (select e.event_id from room_links as e where e.id = _legacy_link_id) from links;
+insert into links (type, sourceNodeId, targetNodeId, timestamp, isVisible, isRedacted, _legacy_link_id) select 'message', (select id from nodes where objectId = e.from_room_id), (select id from nodes where objectId = e.to_room_id), e.timestamp, 1, 0, id from room_links as e where e.to_room_id is not null;
+insert into timeline_events (linkId, timestamp, message, matrixEventId) select links.id, (select e.timestamp from room_links as e where e.id = links._legacy_link_id), (select e.message from room_links as e where e.id = links._legacy_link_id), (select e.event_id from room_links as e where e.id = links._legacy_link_id) from links;
 
 select * from membership_events;
 -- Create timeline events and links from old membership events
-insert into links (type, sourceNodeId, targetNodeId, isVisible, isRedacted, _legacy_link_id) select e.type, (select id from nodes where objectId = e.sender), (select id from nodes where objectId = e.room_id), (select case when e.unlisted = 1 then 0 else 1 end), (select case when e.type = 'kick' or e.type = 'ban' then 1 else 0 end), e.id from membership_events as e where e.room_id is not null;
-insert into timeline_events (linkId, timestamp, message, matrixEventId) select links.id, (select e.timestamp from membership_events as e where e.id = _legacy_link_id), (select e.message from membership_events as e where e.id = _legacy_link_id), (select e.event_id from membership_events as e where e.id = _legacy_event_id) from links where links.type <> 'message';
+insert into links (type, sourceNodeId, targetNodeId, timestamp, isVisible, isRedacted, _legacy_link_id) select e.type, (select id from nodes where objectId = e.sender), (select id from nodes where objectId = e.room_id), e.timestamp, (select case when e.unlisted = 1 then 0 else 1 end), (select case when e.type = 'kick' or e.type = 'ban' then 1 else 0 end), e.id from membership_events as e where e.room_id is not null;
+insert into timeline_events (linkId, timestamp, message, matrixEventId) select links.id, (select e.timestamp from membership_events as e where e.id = links._legacy_link_id), (select e.message from membership_events as e where e.id = links._legacy_link_id), (select e.event_id from membership_events as e where e.id = links._legacy_link_id) from links where links.type <> 'message';
 
 -- Create all the state events for links
 insert into state_events (type, linkId, timestamp) select 'link_added', links.id, (select e.timestamp from timeline_events as e where e.linkId = links.id) from links;
@@ -39,5 +39,5 @@ insert into state_events (type, linkId, timestamp) select 'link_removed', links.
 insert into node_versions (nodeId) select nodes.id from nodes;
 
 -- Create all the state events for nodes
-insert into state_events (type, nodeId, nodeVersionId, timestamp) select 'node_added', nodes.id, (select node_versions.id from node_versions where node_versions.node_id = nodes.node_id), nodes.firstTimestamp from nodes;
-insert into state_events (type, nodeId, nodeVersionId, timestamp) select 'node_removed', nodes.id, (select node_versions.id from node_versions where node_versions.node_id = nodes.node_id), (select max(e.timestamp) from timeline_events as e join links as e2 on e2.id = e.linkId where e2.targetNodeId = nodes.id and (e2.type = 'kick' or e2.type = 'ban')) from nodes where nodes.isRedacted = 1;
+insert into state_events (type, nodeId, nodeVersionId, timestamp) select 'node_added', nodes.id, (select node_versions.id from node_versions where node_versions.nodeId = nodes.id), nodes.firstTimestamp from nodes;
+insert into state_events (type, nodeId, nodeVersionId, timestamp) select 'node_removed', nodes.id, (select node_versions.id from node_versions where node_versions.nodeId = nodes.id), (select max(e.timestamp) from timeline_events as e join links as e2 on e2.id = e.linkId where e2.targetNodeId = nodes.id and (e2.type = 'kick' or e2.type = 'ban')) from nodes where nodes.isRedacted = 1;
