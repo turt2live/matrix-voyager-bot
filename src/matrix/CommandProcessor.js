@@ -33,16 +33,16 @@ class CommandProcessor {
         } else if (cmdArguments[0] == 'withdraw' || cmdArguments[0] == 'hideme') {
             return this._store.setEnrolled(event.getSender(), false).then(() => this._reply(event, "Your name and avatar will no longer appear on the graph."));
         } else if (cmdArguments[0] == 'linkme') {
-            return this._handleSelfLink(event, /*isLinking=*/true, args[1]);
+            return this._handleSelfLink(event, /*isLinking=*/true, cmdArguments[1]);
         } else if (cmdArguments[0] == 'unlinkme') {
-            return this._handleSelfLink(event, /*isLinking=*/false, args[1]);
+            return this._handleSelfLink(event, /*isLinking=*/false, cmdArguments[1]);
         } else return this._reply(event, "Unknown command. Try !voyager help");
     }
 
     _reply(event, message) {
         var sender = this._bot.getUser(event.getSender());
 
-        return this._bot.sendNotice(event.getRoomId(), sender.getDisplayName() + ": " + message);
+        return this._bot.sendNotice(event.getRoomId(), sender.displayName + ": " + message);
     }
 
     _sendHelp(event) {
@@ -57,27 +57,23 @@ class CommandProcessor {
 
     _handleSelfLink(event, isLinking, roomArg) {
         var alias = event.getRoomId();
-        var roomPromise = Promise.resolve(event.getRoomId());
-        if (roomArg) {
-            roomPromise = this._bot.joinRoom(roomArg).then(room => {
-                if (room) {
-                    var roomAlias = room.getCanonicalAlias();
-                    if (!roomAlias) roomAlias = room.getAliases()[0];
-                    if (roomAlias) alias = roomAlias;
-                    return Promise.resolve(room.room_id);
-                } else {
-                    return this._reply(event, "Could not find room " + roomArg).then(() => {
-                        throw new Error("Unknown room: " + roomArg);
-                    });
-                }
-            });
-        }
-
         var roomId;
         var userNode;
         var roomNode;
         var link;
-        return roomPromise.then(id=> {
+
+        return this._bot.joinRoom(roomArg || event.getRoomId()).then(room => {
+            if (room) {
+                var roomAlias = room.getCanonicalAlias();
+                if (!roomAlias) roomAlias = room.getAliases()[0];
+                if (roomAlias) alias = roomAlias;
+                return Promise.resolve(room.room_id);
+            } else {
+                return this._reply(event, "Could not find room " + roomArg).then(() => {
+                    throw new Error("Unknown room: " + roomArg);
+                });
+            }
+        }).then(id=> {
             roomId = id;
             return this._bot.getNode(event.getSender(), 'user');
         }).then(n=> {
