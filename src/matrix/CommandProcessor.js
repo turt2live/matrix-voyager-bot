@@ -18,23 +18,23 @@ class CommandProcessor {
     /**
      * Processes a command from Matrix
      * @param {MatrixEvent} event the event
-     * @param {string[]} arguments the arguments to the command
+     * @param {string[]} cmdArguments the arguments to the command
      * @returns {Promise<*>} resolves when processing complete
      */
-    processCommand(event, arguments) {
-        if (arguments.length == 0) {
+    processCommand(event, cmdArguments) {
+        if (cmdArguments.length == 0) {
             return this._reply(event, 'Unknown command. Try !voyager help');
         }
 
-        if (arguments[0] == 'help') {
+        if (cmdArguments[0] == 'help') {
             return this._sendHelp(event);
-        } else if (arguments[0] == 'enroll' || arguments[0] == 'showme') {
+        } else if (cmdArguments[0] == 'enroll' || cmdArguments[0] == 'showme') {
             return this._store.setEnrolled(event.getSender(), true).then(() =>this._reply(event, "Your name and avatar will appear on the graph."));
-        } else if (arguments[0] == 'withdraw' || arguments[0] == 'hideme') {
+        } else if (cmdArguments[0] == 'withdraw' || cmdArguments[0] == 'hideme') {
             return this._store.setEnrolled(event.getSender(), false).then(() => this._reply(event, "Your name and avatar will no longer appear on the graph."));
-        } else if (arguments[0] == 'linkme') {
+        } else if (cmdArguments[0] == 'linkme') {
             return this._handleSelfLink(event, /*isLinking=*/true, args[1]);
-        } else if (arguments[0] == 'unlinkme') {
+        } else if (cmdArguments[0] == 'unlinkme') {
             return this._handleSelfLink(event, /*isLinking=*/false, args[1]);
         } else return this._reply(event, "Unknown command. Try !voyager help");
     }
