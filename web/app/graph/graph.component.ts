@@ -3,7 +3,7 @@ import { Component, OnInit } from "@angular/core";
 declare let nv: any;
 
 @Component({
-    selector: 'graph',
+    selector: 'my-graph',
     templateUrl: './graph.component.html',
     styleUrls: ['./graph.component.scss'],
 })
@@ -25,7 +25,8 @@ export class GraphComponent implements OnInit {
                     return "red";
                 },
                 nodeExtras: function (node) {
-                    node && node
+                    if (!node) return;
+                    node
                         .append("text")
                         .attr("dx", 8)
                         .attr("dy", ".35em")
