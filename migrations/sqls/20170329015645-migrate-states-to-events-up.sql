@@ -29,6 +29,7 @@ select * from membership_events;
 -- Create timeline events and links from old membership events
 insert into links (type, sourceNodeId, targetNodeId, timestamp, isVisible, isRedacted, _legacy_link_id) select e.type, (select id from nodes where objectId = e.sender), (select id from nodes where objectId = e.room_id), e.timestamp, (select case when e.unlisted = 1 then 0 else 1 end), (select case when e.type = 'kick' or e.type = 'ban' then 1 else 0 end), e.id from membership_events as e where e.room_id is not null;
 insert into timeline_events (linkId, timestamp, message, matrixEventId) select links.id, (select e.timestamp from membership_events as e where e.id = links._legacy_link_id), (select e.message from membership_events as e where e.id = links._legacy_link_id), (select e.event_id from membership_events as e where e.id = links._legacy_link_id) from links where links.type <> 'message';
+update links set isRedacted = 1 where isVisible = 0 and type = 'self_link';
 
 -- Create all the state events for links
 insert into state_events (type, linkId, timestamp) select 'link_added', links.id, (select e.timestamp from timeline_events as e where e.linkId = links.id) from links;
