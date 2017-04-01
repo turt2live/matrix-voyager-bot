@@ -9,6 +9,7 @@ class VoyagerStore {
 
     constructor() {
         this._db = null;
+        this._enrolledIds = [];
     }
 
     /**
@@ -35,6 +36,55 @@ class VoyagerStore {
     }
 
     /**
+     * Creates a new state event
+     * @param {'node_added'|'node_removed'|'node_updated'|'link_added'|'link_removed'} type the type of event
+     * @param {{nodeId: Number, nodeVersionId: Number}|{linkId: Number}} params the params for the event, must match the event type
+     * @returns {Promise<StateEvent>} resolves to the created state event
+     */
+    createStateEvent(type, params) {
+        return new Promise((resolve, reject) => {
+            var handler = (generatedId, err) => {
+                if (err)reject(err);
+                else this.getStateEvent(generatedId).then(resolve, reject);
+            };
+
+            switch (type) {
+                case 'link_added':
+                case 'link_removed':
+                    this._db.run("INSERT INTO state_events (type, linkId, timestamp) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                        type, params.linkId, handler);
+                    break;
+                case 'node_added':
+                case 'node_removed':
+                case 'node_updated':
+                    this._db.run("INSERT INTO state_events (type, nodeId, nodeVersionId, timestamp) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+                        type, params.nodeId, params.nodeVersionId, handler);
+                    break;
+                default:
+                    reject(new Error("State event type not known: " + type));
+                    break;
+            }
+        });
+    }
+
+    /**
+     * Gets a state event from the data store
+     * @param {Number} id the event ID
+     * @returns {Promise<StateEvent>} resolves to the state event, or null if not found
+     */
+    getStateEvent(id) {
+        return new Promise((resolve, reject) => {
+            this._db.get("SELECT * FROM state_events WHERE id = ?", id, (err, row) => {
+                if (err)reject(err);
+                else {
+                    if (row) resolve(new StateEvent(row));
+                    else resolve(null);
+                }
+            });
+        });
+    }
+
+    /**
      * Creates a new Node
      * @param {'user'|'room'} type the type of Node
      * @param {string} objectId the object ID for the Node
@@ -44,8 +94,47 @@ class VoyagerStore {
      * @return {Promise<Node>} resolves to the created Node
      */
     createNode(type, objectId, firstVersion, isReal = true, isRedacted = false) {
-        // Note to self: Set firstTimestamp to 0
-        // Note to self: Add node_added state event
+        return new Promise((resolve, reject)=> {
+            this._db.run("INSERT INTO nodes (type, objectId, isReal, firstTimestamp, isRedacted) VALUES (?, ?, ?, ?, ?)",
+                type, objectId, isReal, 0, isRedacted, (generatedId, err) => {
+                    if (error) {
+                        reject(err);
+                        return;
+                    }
+
+                    var nodeId = generatedId;
+
+                    this._db.run("INSERT INTO node_versions (nodeId, displayName, avatarUrl, isAnonymous) VALUES (?, ?, ?, ?)",
+                        nodeId, firstVersion.displayName, firstVersion.avatarUrl, firstVersion.isAnonymous, (nodeVersionId, err) => {
+                            if (error) {
+                                reject(err);
+                                return
+                            }
+
+                            this.createStateEvent('node_added', {
+                                nodeId: nodeId,
+                                nodeVersionId: nodeVersionId
+                            }).then(() => this.getNodeById(nodeId)).then(resolve, reject);
+                        });
+                });
+        });
+    }
+
+    /**
+     * Gets a Node from the data store
+     * @param {Number} id the ID of the node
+     * @returns {Promise<Node>} resolves to the found node, or null if not found
+     */
+    getNodeById(id) {
+        return new Promise((resolve, reject) => {
+            this._db.get("SELECT * FROM nodes WHERE id = ?", id, (err, row) => {
+                if (err) reject(err);
+                else {
+                    if (row) resolve(new Node(row));
+                    else resolve(null);
+                }
+            });
+        });
     }
 
     /**
@@ -55,7 +144,16 @@ class VoyagerStore {
      * @returns {Promise<Node>} resolves to the found node, or null if not found
      */
     getNode(type, objectId) {
-
+        return new Promise((resolve, reject) => {
+            this._db.get("SELECT * FROM nodes WHERE type = ? AND objectId = ? LIMIT 1",
+                type, objectId, (err, row) => {
+                    if (err) reject(err);
+                    else {
+                        if (row) resolve(new Node(row));
+                        else resolve(null);
+                    }
+                });
+        });
     }
 
     /**
@@ -64,7 +162,7 @@ class VoyagerStore {
      * @returns {boolean} true if enrolled, false otherwise
      */
     isEnrolled(userId) {
-
+        return this._enrolledIds.indexOf(userId) !== -1;
     }
 
     /**
@@ -74,7 +172,59 @@ class VoyagerStore {
      * @returns {Promise} resolved when complete
      */
     setEnrolled(userId, isEnrolled) {
-        // Note to self: Add appropriate StateEvent
+        return new Promise((resolve, reject) => {
+            this.getNode('user', userId).then(node => {
+                if (!node) reject(new Error("User node not found for user " + userId));
+                else return this.createNodeVersion(node, {isAnonymous: isEnrolled})
+            }).then(()=> {
+                var idx = this._enrolledIds.indexOf(userId);
+                if (isEnrolled && idx === -1)
+                    this._enrolledIds.push(userId);
+                else if (!isEnrolled && idx !== -1)
+                    this._enrolledIds.splice(idx, 1);
+                resolve();
+            });
+        });
+    }
+
+    /**
+     * Creates a new node version
+     * @param {Node} node the node to append a version to
+     * @param {{displayName: String?, avatarUrl: String?, isAnonymous: boolean?}} fields the fields to update
+     * @returns {Promise<NodeVersion>} resolves with the created node version
+     */
+    createNodeVersion(node, fields) {
+        return new Promise((resolve, reject) => {
+            this._db.run("INSERT INTO node_versions (nodeId, displayName, avatarUrl, isAnonymous) VALUES (?, ?, ?, ?)",
+                node.id, fields.displayName || null, fields.avatarUrl || null, fields.isAnonymous || null, (nodeVersionId, err) => {
+                    if (err) reject(err);
+                    else {
+                        this.createStateEvent('node_updated', {
+                            nodeId: node.id,
+                            nodeVersionId: nodeVersionId
+                        }).then(() => {
+                            this.getNodeVersionById(nodeVersionId).then(resolve, reject);
+                        }, reject);
+                    }
+                });
+        });
+    }
+
+    /**
+     * Gets a node version from the data store
+     * @param {Number} id the node version ID to look up
+     * @returns {Promise<NodeVersion>} resolves to a node version, or null if not found
+     */
+    getNodeVersionById(id) {
+        return new Promise((resolve, reject) => {
+            this._db.get("SELECT * FROM node_versions WHERE id = ?", id, (err, row) => {
+                if (err) reject(err);
+                else {
+                    if (row) resolve(new NodeVersion(row));
+                    else resolve(null);
+                }
+            });
+        });
     }
 
     /**
@@ -82,12 +232,38 @@ class VoyagerStore {
      * @param {Node} sourceNode the source Node
      * @param {Node} targetNode the target Node
      * @param {'invite'|'message'|'self_link'|'kick'|'ban'} type the link type
+     * @param {number} timestamp the timestamp of the event
      * @param {boolean} isVisible true if the link is visible
      * @param {boolean} isRedacted true if the link should be redacted
      * @returns {Promise<Link>} resolves to the created link
      */
-    createLink(sourceNode, targetNode, type, isVisible = true, isRedacted = false) {
+    createLink(sourceNode, targetNode, type, timestamp, isVisible = true, isRedacted = false) {
+        return new Promise((resolve, reject) => {
+            this._db.run("INSERT INTO links (type, sourceNodeId, targetNodeId, timestamp, isVisible, isRedacted) VALUES (?, ?, ?, ?, ?, ?)",
+                type, sourceNode.id, targetNode.id, timestamp, isVisible, isRedacted, (linkId, err) => {
+                    if (err) reject(err);
+                    else this.createStateEvent('link_added', {linkId: linkId}).then(() => {
+                        this.getLinkById(linkId).then(resolve, reject);
+                    });
+                });
+        });
+    }
 
+    /**
+     * Gets a link from the data store
+     * @param {Number} id the link ID to look up
+     * @returns {Promise<Link>} resolves to the found link, or null if not found
+     */
+    getLinkById(id) {
+        return new Promise((resolve, reject) => {
+            this._db.get("SELECT * FROM links WHERE id = ?", id, (err, row) => {
+                if (err) reject(err);
+                else {
+                    if (row) resolve(new Link(row));
+                    else resolve(null);
+                }
+            });
+        });
     }
 
     /**
@@ -99,8 +275,56 @@ class VoyagerStore {
      * @returns {Promise<TimelineEvent>} resolves to the created timeline event
      */
     createTimelineEvent(link, timestamp, matrixEventId, message = null) {
-        // Note to self: Update firstTimestamp on Nodes if needed
-        // Note to self: Create link_added state event
+        return new Promise((resolve, reject) => {
+            var sourceNode;
+            var targetNode;
+
+            this.getNodeById(link.sourceNodeId).then(node => {
+                sourceNode = node;
+                return this.getNodeById(link.targetNodeId);
+            }).then(node => {
+                targetNode = node;
+
+                return this._updateNodeTimestamp(sourceNode, timestamp);
+            }).then(() => {
+                return this._updateNodeTimestamp(targetNode, timestamp);
+            }).then(() => {
+                this._db.run("INSERT INTO timeline_events (linkId, timestamp, message, matrixEventId) VALUES (?, ?, ?, ?)",
+                    link.id, timestamp, message, matrixEventId, (timelineEventId, err) => {
+                        if (err) reject(err);
+                        else this.getTimelineEventById(timelineEventId).then(resolve, reject);
+                    });
+            });
+        });
+    }
+
+    _updateNodeTimestamp(node, timestamp) {
+        return new Promise((resolve, reject) => {
+            if (node.firstTimestamp <= timestamp) resolve();
+            else {
+                this._db.run("UPDATE nodes SET firstTimestamp = ? WHERE id = ?", timestamp, node.id, (_, err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            }
+        });
+    }
+
+    /**
+     * Gets a timeline event from the data store
+     * @param {number} id the timeline event ID to lookup
+     * @returns {Promise<TimelineEvent>} resolves to the timeline event, or null if not found
+     */
+    getTimelineEventById(id) {
+        return new Promise((resolve, reject) => {
+            this._db.get("SELECT * FROM timeline_events WHERE id = ?", id, (err, row) => {
+                if (err) reject(err);
+                else {
+                    if (row) resolve(new TimelineEvent(row));
+                    else resolve(null);
+                }
+            });
+        });
     }
 
     /**
@@ -111,18 +335,16 @@ class VoyagerStore {
      * @returns {Promise<Link>} resolves with the found link, or null
      */
     findLink(sourceNode, targetNode, type) {
-
-    }
-
-    /**
-     * Creates a new StateEvent
-     * @param {'node_added'|'node_updated'|'node_removed'|'link_added'|'link_removed'} type the event type
-     * @param {Node|Link} object the Link or Node for the event
-     * @param {NodeVersion} version the Node version. Only applies if the object is a Node
-     * @returns {Promise<StateEvent>} resolves to the created state event
-     */
-    createStateEvent(type, object, version = null) {
-        // Note to self: validate object for type
+        return new Promise((resolve, reject) => {
+            this._db.get("SELECT * FROM links WHERE sourceNodeId = ? AND targetNodeId = ? AND type = ? LIMIT 1",
+                sourceNode.id, targetNode.id, type, (err, row) => {
+                    if (err) reject(err);
+                    else {
+                        if (row) resolve(new Link(row));
+                        else resolve(null);
+                    }
+                });
+        });
     }
 
     /**
@@ -131,7 +353,36 @@ class VoyagerStore {
      * @returns {Promise} resolves when the node has been updated
      */
     redactNode(node) {
-        // Note to self: Redact node & add applicable state event(s) for orphaned links/nodes
+        return new Promise((resolve, reject) => {
+            this._db.run("UPDATE nodes SET isRedacted = 1 WHERE id = ?", node.id, (_, err) => {
+                if (err) reject(err);
+                else {
+                    this.getCurrentNodeVersionForNode(node).then(version => {
+                        this.createStateEvent('node_removed', {
+                            nodeId: node.id,
+                            nodeVersionId: version.id
+                        }).then(resolve, reject);
+                    }, reject);
+                }
+            });
+        });
+    }
+
+    /**
+     * Gets the current node version for a given node from the data store
+     * @param {Node} node the node to look up the version of
+     * @returns {Promise<NodeVersion>} resolves to the found node version, or null if none was found
+     */
+    getCurrentNodeVersionForNode(node) {
+        return new Promise((resolve, reject) => {
+            this._db.get("SELECT * FROM node_version WHERE nodeId = ? ORDER BY id DESC LIMIT 1", node.id, (err, row) => {
+                if (err) reject(err);
+                else {
+                    if (row) resolve(new NodeVersion(row));
+                    else resolve(null);
+                }
+            });
+        });
     }
 
     /**
@@ -140,7 +391,14 @@ class VoyagerStore {
      * @returns {Promise} resolves when the link has been updated
      */
     redactLink(link) {
-        // Note to self: Redact link & add applicable state event(s) for orphaned links/nodes
+        return new Promise((resolve, reject) => {
+            this._db.run("UPDATE links SET isRedacted = 1 WHERE id = ?", link.id, (_, err) => {
+                if (err) reject(err);
+                else {
+                    this.createStateEvent('link_removed', {linkId: link.id}).then(resolve, reject);
+                }
+            });
+        });
     }
 }
 
@@ -159,7 +417,6 @@ class NodeVersion {
     constructor(dbFields) {
         this.id = dbFields.id;
         this.nodeId = dbFields.nodeId;
-        this.previousVersionId = dbFields.previousVersionId;
         this.displayName = dbFields.displayName;
         this.avatarUrl = dbFields.avatarUrl;
         this.isAnonymous = dbFields.isAnonymous;
@@ -172,6 +429,7 @@ class Link {
         this.type = dbFields.type;
         this.sourceNodeId = dbFields.sourceNodeId;
         this.targetNodeId = dbFields.targetNodeId;
+        this.timestamp = dbFields.timestamp;
         this.isVisible = dbFields.isVisible;
         this.isRedacted = dbFields.isRedacted;
     }
@@ -197,3 +455,5 @@ class StateEvent {
         this.timestamp = dbFields.timestamp;
     }
 }
+
+module.exports = VoyagerStore;

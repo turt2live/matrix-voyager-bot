@@ -35,6 +35,13 @@ class VoyagerBot {
         this._client.on('sync', this._onSync.bind(this));
     }
 
+    /**
+     * Starts the voyager bot
+     */
+    start() {
+        this._client.startClient({initialSyncLimit: 5, pollTimeout: 30 * 60 * 1000}); // pollTimeout is 30 minutes
+    }
+
     _onSync(state, prevState, data) {
         log.info("VoyagerBot", "Sync state: " + prevState + " -> " + state);
         if (state == "ERROR")
@@ -104,7 +111,7 @@ class VoyagerBot {
         }).then(node=> {
             if (!room)return Promise.resolve();
             sourceNode = node;
-            return this._store.createLink(sourceNode, targetNode, 'message');
+            return this._store.createLink(sourceNode, targetNode, 'message', event.getTs());
         }).then(link=> {
             return this._store.createTimelineEvent(link, event.getTs(), event.getId(), 'Matched: ' + matchedValue);
         });
@@ -120,7 +127,7 @@ class VoyagerBot {
             return this.getNode(event.getRoomId(), 'room');
         }).then(node => {
             targetNode = node;
-            return this._store.createLink(sourceNode, targetNode, 'invite');
+            return this._store.createLink(sourceNode, targetNode, 'invite', event.getTs());
         }).then(link=> {
             inviteLink = link;
             return this._store.createTimelineEvent(inviteLink, event.getTs(), event.getId());
@@ -149,7 +156,7 @@ class VoyagerBot {
             roomNode = node;
             return this._store.redactNode(roomNode);
         }).then(() => {
-            return this._store.createLink(userNode, roomNode, type, false, true);
+            return this._store.createLink(userNode, roomNode, type, event.getTs(), false, true);
         }).then(link => {
             kickbanLink = link;
             return this._store.createTimelineEvent(kickbanLink, event.getTs(), event.getId());
@@ -205,11 +212,11 @@ class VoyagerBot {
         return this._client.getUser(userId);
     }
 
-    sendNotice(roomId, message){
+    sendNotice(roomId, message) {
         return this._client.sendNotice(roomId, message);
     }
 
-    joinRoom(roomIdOrAlias){
+    joinRoom(roomIdOrAlias) {
         return this._client.joinRoom(roomIdOrAlias);
     }
 }

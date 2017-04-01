@@ -93,10 +93,10 @@ class CommandProcessor {
             if (!link && !isLinking) return this._reply(event, "You are not linked to " + alias);
 
             if (!link && isLinking) {
-                return this._store.createLink(userNode, roomNode, 'self_link')
+                return this._store.createLink(userNode, roomNode, 'self_link', event.getTs())
                     .then(link => this._store.createTimelineEvent(link, event.getTs(), event.getId()))
                     .then(() => this._store.setEnrolled(event.getSender(), true))
-                    .then(() => this._reply(event, "You have been linked to " + alias));
+                    .then(() => this._reply(event, "You have been linked to " + alias + " and are no longer anonymous"));
             }
 
             if (link && !isLinking) {
