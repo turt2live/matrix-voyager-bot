@@ -19,7 +19,7 @@ class ApiHandler {
 
         this._app.get('/api/v1/network', this._getNetwork.bind(this));
         this._app.get('/api/v1/nodes', this._getNodes.bind(this));
-        //this._app.get('/api/v1/nodes/:id', this._getNode.bind(this));
+        this._app.get('/api/v1/nodes/:id', this._getNode.bind(this));
         //this._app.get('/api/v1/events', this._getEvents.bind(this));
     }
 
@@ -77,6 +77,31 @@ class ApiHandler {
             var payload = nodes.map(r => this._nodeToJsonObject(r, r.currentMeta));
             response.setHeader("Content-Type", "application/json");
             response.send(JSON.stringify(payload));
+        }, err => {
+            log.error("ApiHandler", err);
+            response.sendStatus(500);
+        }).catch(err => {
+            log.error("ApiHandler", err);
+            response.sendStatus(500);
+        });
+    }
+
+    _getNode(request, response) {
+        this._store.getNodeById(request.params.id).then(node => {
+            if (!node) {
+                response.setHeader("Content-Type", "application/json");
+                response.status(404);
+                response.send("{}");
+            } else {
+                this._store.getCurrentNodeState(node).then(meta => {
+                    var payload = this._nodeToJsonObject(node, meta);
+                    response.setHeader("Content-Type", "application/json");
+                    response.send(JSON.stringify(payload));
+                }, err => {
+                    log.error("ApiHandler", err);
+                    response.sendStatus(500);
+                });
+            }
         }, err => {
             log.error("ApiHandler", err);
             response.sendStatus(500);
