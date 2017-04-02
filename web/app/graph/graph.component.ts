@@ -42,6 +42,7 @@ export class GraphComponent implements OnInit {
                     //         return d.name;
                     //     })
                     //     .style("font-size", "10px");
+                    node.classed('node', true);
                     node.selectAll("circle")
                         .style("fill", n => "url(#fillFor" + n.id + ")")
                         .style("stroke", "#fff")
@@ -49,6 +50,7 @@ export class GraphComponent implements OnInit {
                 },
                 linkExtras: (link) => {
                     if (!link) return;
+                    link.classed('link', true);
                     link.style("stroke", this.getColorForType);
                 },
                 callback: (graph) => {
@@ -59,46 +61,21 @@ export class GraphComponent implements OnInit {
                     let svg = d3.select("svg");
                     let defs = svg.append("defs");
 
-                    for (let node of this.data.nodes) {
-                        const fillKey = "fillFor" + node.id;
-                        const radius = node.type == 'room' ? 15 : 10;
+                    // let zoom = d3.behavior.zoom()
+                    //     .scaleExtent([0.005, 10])
+                    //     .on('zoom', () => {
+                    //         svg.selectAll("line.link")
+                    //             .attr('transform',
+                    //                 "translate(" + d3.event.translate[0] + "," + d3.event.translate[1] + ")" +
+                    //                 "scale(" + d3.event.scale + "," + d3.event.scale + ")");
+                    //         svg.selectAll("g.node")
+                    //             .attr('transform',
+                    //                 "translate(" + d3.event.translate[0] + "," + d3.event.translate[1] + ")" +
+                    //                 "scale(" + d3.event.scale + "," + d3.event.scale + ")");
+                    //     });
+                    // svg.call(zoom);
 
-                        let pattern = defs.append("pattern")
-                            .attr("id", fillKey)
-                            .attr("x", "0%").attr("y", "0%")
-                            .attr("width", "100%").attr("height", "100%")
-                            .attr("viewBox", "0 0 " + radius + " " + radius);
-                        pattern.append("rect")
-                            .attr("width", radius).attr("height", radius)
-                            .attr("fill", "#fff");
-
-                        if (node.avatarUrl && node.avatarUrl.trim().length > 0) {
-                            pattern.append("image")
-                                .attr("x", "0%").attr("y", "0%")
-                                .attr("width", radius).attr("height", radius)
-                                .attr("xlink:href", node.avatarUrl);
-                        } else {
-                            let text = node.name[1];
-                            if (!text || node.isAnonymous) {
-                                text = node.type == 'room' ? "#" : "@";
-                            }
-
-                            let size = node.type == 'room' ? 8 : 6;
-
-                            pattern.append("rect")
-                                .attr("width", radius).attr("height", radius)
-                                .attr("fill", this.getBackgroundForString(node.name));
-                            pattern.append("text")
-                                .attr("text-anchor", "middle")
-                                .attr("dominant-baseline", "central")
-                                .attr("alignment-baseline", "central")
-                                .attr("x", radius / 2).attr("y", radius / 2)
-                                .attr("font-family", "sans-serif")
-                                .attr("font-size", size)
-                                .attr("fill", "#fff")
-                                .text(text);
-                        }
-                    }
+                    this.buildFills(defs);
                 }
             }
         };
@@ -109,6 +86,49 @@ export class GraphComponent implements OnInit {
             network => this.processNetwork(network),
             error => this.errorMessage = <any>error
         );
+    }
+
+    private buildFills(defs) {
+        for (let node of this.data.nodes) {
+            const fillKey = "fillFor" + node.id;
+            const radius = node.type == 'room' ? 15 : 10;
+
+            let pattern = defs.append("pattern")
+                .attr("id", fillKey)
+                .attr("x", "0%").attr("y", "0%")
+                .attr("width", "100%").attr("height", "100%")
+                .attr("viewBox", "0 0 " + radius + " " + radius);
+            pattern.append("rect")
+                .attr("width", radius).attr("height", radius)
+                .attr("fill", "#fff");
+
+            if (node.avatarUrl && node.avatarUrl.trim().length > 0) {
+                pattern.append("image")
+                    .attr("x", "0%").attr("y", "0%")
+                    .attr("width", radius).attr("height", radius)
+                    .attr("xlink:href", node.avatarUrl);
+            } else {
+                let text = node.name[1];
+                if (!text || node.isAnonymous) {
+                    text = node.type == 'room' ? "#" : "@";
+                }
+
+                let size = node.type == 'room' ? 8 : 6;
+
+                pattern.append("rect")
+                    .attr("width", radius).attr("height", radius)
+                    .attr("fill", this.getBackgroundForString(node.name));
+                pattern.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("alignment-baseline", "central")
+                    .attr("x", radius / 2).attr("y", radius / 2)
+                    .attr("font-family", "sans-serif")
+                    .attr("font-size", size)
+                    .attr("fill", "#fff")
+                    .text(text);
+            }
+        }
     }
 
     private getBackgroundForString(str) {
