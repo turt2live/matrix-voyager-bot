@@ -521,7 +521,7 @@ class VoyagerStore {
                     this._db.get("SELECT COUNT(*) AS total FROM state_events WHERE timestamp > ?", since, (err, row) => {
                         if (err) reject(err);
                         else resolve({
-                            remaining: Math.min(0, (row.total || 0) - events.length),
+                            remaining: Math.max(0, (row.total || 0) - events.length),
                             events: events
                         });
                     });
@@ -597,7 +597,7 @@ class VoyagerStore {
                 this._db.get("SELECT COUNT(*) AS total FROM timeline_events WHERE timestamp > ?", since, (err, row) => {
                     if (err) reject(err);
                     else resolve({
-                        remaining: Math.min(0, (row.total || 0) - events.length),
+                        remaining: Math.max(0, (row.total || 0) - events.length),
                         events: events
                     });
                 });
