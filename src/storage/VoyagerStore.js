@@ -431,6 +431,106 @@ class VoyagerStore {
     }
 
     /**
+     * Gets all of the state events for the given range
+     * @param {Number} since the timestamp to start the search from, exclusive
+     * @param {Number} limit the total number of results to search for
+     * @returns {Promise<{remaining: Number, events: CompleteStateEvent[]}>} resolves to information about the results. May be an empty array
+     */
+    getStateEventsPaginated(since, limit) {
+        return new Promise((resolve, reject) => {
+            var events = [];
+            var remaining = 0;
+
+            // It's more efficient for us to look up all the fields possible in one
+            // query because it means we don't need to make 10,000 return trips to the
+            // database. However, the sqlite3 library is somewhat limited so we need to
+            // do the object mapping ourselves.
+            //
+            // The queries below get the StateEvent and Link or Node information depending
+            // on the event type.
+
+            var linkStateQuery = ""+
+                "SELECT  state_events.id AS 'state_events.id',\n" +
+                "        state_events.type AS 'state_events.type',\n" +
+                "        state_events.linkId AS 'state_events.linkId',\n" +
+                "        state_events.nodeId AS 'state_events.nodeId',\n" +
+                "        state_events.nodeVersionId AS 'state_events.nodeVersionId',\n" +
+                "        state_events.timestamp AS 'state_events.timestamp',\n" +
+                "        links.id AS 'links.id',\n" +
+                "        links.type AS 'links.type',\n" +
+                "        links.sourceNodeId AS 'links.sourceNodeId',\n" +
+                "        links.targetNodeId AS 'links.targetNodeId',\n" +
+                "        links.timestamp AS 'links.timestamp',\n" +
+                "        links.isVisible AS 'links.isVisible',\n" +
+                "        links.isRedacted AS 'links.isRedacted'\n" +
+                "FROM state_events\n" +
+                "JOIN links ON links.id = state_events.linkId\n" +
+                "WHERE state_events.timestamp > ?\n" +
+                "LIMIT ?";
+
+            var nodeStateQuery = ""+
+                "SELECT  state_events.id AS 'state_events.id',\n" +
+                "        state_events.type AS 'state_events.type',\n" +
+                "        state_events.linkId AS 'state_events.linkId',\n" +
+                "        state_events.nodeId AS 'state_events.nodeId',\n" +
+                "        state_events.nodeVersionId AS 'state_events.nodeVersionId',\n" +
+                "        state_events.timestamp AS 'state_events.timestamp',\n" +
+                "        nodes.id AS 'nodes.id',\n" +
+                "        nodes.type AS 'nodes.type',\n" +
+                "        nodes.objectId AS 'nodes.objectId',\n" +
+                "        nodes.isReal AS 'nodes.isReal',\n" +
+                "        nodes.firstTimestamp AS 'nodes.firstTimestamp',\n" +
+                "        nodes.isRedacted AS 'nodes.isRedacted',\n" +
+                "        (SELECT node_versions.displayName FROM node_versions WHERE node_versions.nodeId = state_events.nodeId AND node_versions.displayName IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) AS 'node_versions.displayName',\n" +
+                "        (SELECT node_versions.avatarUrl FROM node_versions WHERE node_versions.nodeId = state_events.nodeId AND node_versions.avatarUrl IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) AS 'node_versions.avatarUrl',\n" +
+                "        (SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = state_events.nodeId AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) AS 'node_versions.isAnonymous'\n" +
+                "FROM state_events\n" +
+                "JOIN nodes ON nodes.id = state_events.nodeId\n" +
+                "JOIN node_versions ON node_versions.id = state_events.nodeVersionId\n" +
+                "WHERE state_events.timestamp > ?\n" +
+                "LIMIT ?";
+
+            this._db.all(linkStateQuery, since, limit, (err, rows) => {
+               if(err) {
+                   reject(err);
+                   return;
+               }
+
+                var linkResults = (rows || []).map(r => new CompleteStateEvent(r));
+
+                this._db.all(nodeStateQuery, since, limit, (err, rows) => {
+                    if(err) {
+                        reject(err);
+                        return;
+                    }
+
+                    var nodeResults = (rows || []).map(r => new CompleteStateEvent(r));
+
+                    var events = [];
+                    for(var evt of linkResults) events.push(evt);
+                    for(var evt of nodeResults) events.push(evt);
+
+                    events.sort((a, b) => a.stateEvent.timestamp - b.stateEvent.timestamp); // ascending order
+
+                    // Because we were naughty in our query, we may have ended up with more than the expected number of
+                    // results. Because of this, we'll have to manually trim the array.
+                    if(events.length > limit) {
+                        events = events.splice(0, limit); // splice returns the deleted elements
+                    }
+
+                    this._db.get("SELECT COUNT(*) AS total FROM state_events WHERE timestamp > ?", since, (err, row) => {
+                        if (err) reject(err);
+                        else resolve({
+                            remaining: Math.min(0, (row.total || 0) - events.length),
+                            events: events
+                        });
+                    });
+                });
+            });
+        });
+    }
+
+    /**
      * Gets all of the timeline events for the given range
      * @param {Number} since the timestamp to start the search from, exclusive
      * @param {Number} limit the total number of results to search for
@@ -642,6 +742,44 @@ class CompleteNode extends Node {
             avatarUrl: dbFields.avatarUrl,
             isAnonymous: dbToBool(dbFields.isAnonymous)
         };
+    }
+}
+
+class CompleteStateEvent {
+    constructor(dbFields) {
+        var stateEvent = {};
+        var link = {};
+        var node = {};
+        var nodeVersion = {};
+
+        var hasLink = false;
+        var hasNode = false;
+
+        for(var key in dbFields) {
+            var parts=key.split('.');
+            switch(parts[0]) {
+                case 'state_events':
+                    stateEvent[parts[1]] = dbFields[key];
+                    break;
+                case 'links':
+                    hasLink = true;
+                    link[parts[1]] = dbFields[key];
+                    break;
+                case 'nodes':
+                    hasNode = true;
+                    node[parts[1]] = dbFields[key];
+                    break;
+                case 'node_versions':
+                    hasNode = true;
+                    nodeVersion[parts[1]] = dbFields[key];
+                    break;
+            }
+        }
+
+        this.stateEvent = new StateEvent(stateEvent);
+        this.link = hasLink ? new Link(link) : null;
+        this.node = hasNode ? new Node(node) : null;
+        this.nodeVersion = hasNode ? new NodeVersion(node) : null;
     }
 }
 
