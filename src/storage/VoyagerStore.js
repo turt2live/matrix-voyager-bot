@@ -674,8 +674,8 @@ function dbToBool(val) {
 }
 
 function valOrDBNull(val) {
-    if (typeof(val) === 'string' && val == '')
-        return val;
+    if (typeof(val) === 'string' && val == '') return val;
+    if (typeof(val) === 'boolean') return val;
     return val || null;
 }
 
