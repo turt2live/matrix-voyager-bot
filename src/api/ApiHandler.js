@@ -18,7 +18,7 @@ class ApiHandler {
         this._app.use(express.static('web-dist'));
 
         this._app.get('/api/v1/network', this._getNetwork.bind(this));
-        //this._app.get('/api/v1/nodes', this._getNodes.bind(this));
+        this._app.get('/api/v1/nodes', this._getNodes.bind(this));
         //this._app.get('/api/v1/nodes/:id', this._getNode.bind(this));
         //this._app.get('/api/v1/events', this._getEvents.bind(this));
     }
@@ -61,6 +61,20 @@ class ApiHandler {
                     links: links
                 }
             };
+            response.setHeader("Content-Type", "application/json");
+            response.send(JSON.stringify(payload));
+        }, err => {
+            log.error("ApiHandler", err);
+            response.sendStatus(500);
+        }).catch(err => {
+            log.error("ApiHandler", err);
+            response.sendStatus(500);
+        });
+    }
+
+    _getNodes(request, response) {
+        this._store.getAllNodes().then(nodes => {
+            var payload = nodes.map(r => this._nodeToJsonObject(r, r.currentMeta));
             response.setHeader("Content-Type", "application/json");
             response.send(JSON.stringify(payload));
         }, err => {

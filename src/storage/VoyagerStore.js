@@ -542,6 +542,32 @@ class VoyagerStore {
             });
         });
     }
+
+    /**
+     * Gets all known nodes from the store
+     * @returns {Promise<CompleteNode[]>} resolves to a (potentially empty) collection of nodes
+     */
+    getAllNodes() {
+        return new Promise((resolve, reject)=> {
+            var query = "" +
+                "SELECT nodes.*,\n" +
+                "(SELECT node_versions.displayName FROM node_versions WHERE node_versions.nodeId = nodes.id AND node_versions.displayName IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'displayName',\n" +
+                "(SELECT node_versions.avatarUrl FROM node_versions WHERE node_versions.nodeId = nodes.id AND node_versions.avatarUrl IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'avatarUrl',\n" +
+                "(SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = nodes.id AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'isAnonymous'\n" +
+                "FROM nodes";
+            this._db.all(query, (err, rows) => {
+                if (err) reject(err);
+                else {
+                    rows = rows || [];
+                    resolve(rows.map(r => new CompleteNode(r)));
+                }
+            });
+        });
+    }
+}
+
+function dbToBool(val) {
+    return val === 1 || val === true;
 }
 
 class Node {
@@ -549,9 +575,9 @@ class Node {
         this.id = dbFields.id;
         this.type = dbFields.type;
         this.objectId = dbFields.objectId;
-        this.isReal = dbFields.isReal;
+        this.isReal = dbToBool(dbFields.isReal);
         this.firstTimestamp = dbFields.firstTimestamp;
-        this.isRedacted = dbFields.isRedacted;
+        this.isRedacted = dbToBool(dbFields.isRedacted);
     }
 }
 
@@ -561,7 +587,7 @@ class NodeVersion {
         this.nodeId = dbFields.nodeId;
         this.displayName = dbFields.displayName;
         this.avatarUrl = dbFields.avatarUrl;
-        this.isAnonymous = dbFields.isAnonymous;
+        this.isAnonymous = dbToBool(dbFields.isAnonymous);
     }
 }
 
@@ -572,8 +598,8 @@ class Link {
         this.sourceNodeId = dbFields.sourceNodeId;
         this.targetNodeId = dbFields.targetNodeId;
         this.timestamp = dbFields.timestamp;
-        this.isVisible = dbFields.isVisible;
-        this.isRedacted = dbFields.isRedacted;
+        this.isVisible = dbToBool(dbFields.isVisible);
+        this.isRedacted = dbToBool(dbFields.isRedacted);
     }
 }
 
@@ -598,6 +624,18 @@ class StateEvent {
     }
 }
 
+class CompleteNode extends Node {
+    constructor(dbFields) {
+        super(dbFields);
+
+        this.currentMeta = {
+            displayName: dbFields.displayName,
+            avatarUrl: dbFields.avatarUrl,
+            isAnonymous: dbToBool(dbFields.isAnonymous)
+        };
+    }
+}
+
 class CompleteTimelineEvent {
     constructor(dbFields) {
         var timelineEvent = {};
@@ -617,14 +655,16 @@ class CompleteTimelineEvent {
                     link[parts[1]] = dbFields[key];
                     break;
                 case 'sourceNode':
-                    if (parts[1] == 'nodeVersion')
+                    if (parts[1] == 'nodeVersion') {
+                        if (parts[2] == 'isAnonymous') dbFields[key] = dbToBool(dbFields[key]);
                         sourceNodeMeta[parts[2]] = dbFields[key];
-                    else sourceNode[parts[1]] = dbFields[key];
+                    } else sourceNode[parts[1]] = dbFields[key];
                     break;
                 case 'targetNode':
-                    if (parts[1] == 'nodeVersion')
+                    if (parts[1] == 'nodeVersion') {
+                        if (parts[2] == 'isAnonymous') dbFields[key] = dbToBool(dbFields[key]);
                         targetNodeMeta[parts[2]] = dbFields[key];
-                    else targetNode[parts[1]] = dbFields[key];
+                    } else targetNode[parts[1]] = dbFields[key];
                     break;
                 default:
                     throw new Error("Unexpected key: " + key);
