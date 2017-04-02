@@ -107,7 +107,7 @@ class VoyagerStore {
      * Creates a new Node
      * @param {'user'|'room'} type the type of Node
      * @param {string} objectId the object ID for the Node
-     * @param {{displayName: string, avatarUrl: string, isAnonymous: boolean}} firstVersion the first version of the Node
+     * @param {{displayName: String, avatarUrl: String, isAnonymous: boolean}} firstVersion the first version of the Node
      * @param {boolean} isReal true if the node is a real node
      * @param {boolean} isRedacted true if the node should be redacted
      * @return {Promise<Node>} resolves to the created Node
@@ -498,6 +498,47 @@ class VoyagerStore {
                         events: events
                     });
                 });
+            });
+        });
+    }
+
+    /**
+     * Gets the current meta state of a Node
+     * @param {Node} node the node to lookup
+     * @returns {Promise<{displayName: String?, avatarUrl: String?, isAnonymous: boolean}>} resolves to the Node's state
+     */
+    getCurrentNodeState(node) {
+        return new Promise((resolve, reject) => {
+            var query = "SELECT \n" +
+                "(SELECT node_versions.displayName FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.displayName IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'displayName',\n" +
+                "(SELECT node_versions.avatarUrl FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.avatarUrl IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'avatarUrl',\n" +
+                "(SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'isAnonymous'";
+
+            this._db.get(query, node.id, node.id, node.id, (err, row) => {
+                if (err) reject(err);
+                else {
+                    row = row || {displayName: null, avatarUrl: null, isAnonymous: true};
+                    if (!row.isAnonymous) row.isAnonymous = false; // change null -> false
+
+                    resolve(row);
+                }
+            });
+        });
+    }
+
+    /**
+     * Gets all known nodes of the given type
+     * @param {'user'|'room'} type the type of Node to lookup
+     * @returns {Promise<Node[]>} resolves to a (potentially empty) collection of nodes
+     */
+    getNodesByType(type) {
+        return new Promise((resolve, reject) => {
+            this._db.all("SELECT * FROM nodes WHERE type = ?", type, (err, rows) => {
+                if (err) reject(err);
+                else {
+                    rows = rows || [];
+                    resolve(rows.map(r => new Node(r)));
+                }
             });
         });
     }
