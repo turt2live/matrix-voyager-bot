@@ -128,7 +128,13 @@ module.exports = function () {
         contentBase: './web/public',
         historyApiFallback: true,
         quiet: true,
-        stats: 'minimal'
+        stats: 'minimal',
+        proxy: {
+            '/api': {
+                target: 'http://localhost:8184',
+                secure: false
+            }
+        }
     };
 
     return config;
