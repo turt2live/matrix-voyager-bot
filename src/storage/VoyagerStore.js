@@ -326,7 +326,7 @@ class VoyagerStore {
 
     _updateNodeTimestamp(node, timestamp) {
         return new Promise((resolve, reject) => {
-            if (node.firstTimestamp <= timestamp) resolve();
+            if (node.firstTimestamp <= timestamp && node.firstTimestamp != 0) resolve();
             else {
                 this._db.run("UPDATE nodes SET firstTimestamp = ? WHERE id = ?", timestamp, node.id, (err) => {
                     if (err) reject(err);
