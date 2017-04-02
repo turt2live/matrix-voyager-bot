@@ -247,9 +247,9 @@ class VoyagerBot {
             version.avatarUrl = this._client.mxcUrlToHttp(conversation.user.avatarUrl, 128, 128, 'crop');
         }
 
-        if (version.avatarUrl && version.avatarUrl.trim().length == 0)
+        if (!version.avatarUrl || version.avatarUrl.trim().length == 0)
             version.avatarUrl = null;
-        if (version.displayName && version.displayName.trim().length == 0)
+        if (!version.displayName || version.displayName.trim().length == 0)
             version.displayName = null;
 
         return version;
@@ -258,7 +258,7 @@ class VoyagerBot {
     _getRoomVersion(room) {
         var version = {
             displayName: null,
-            avatarUrl: room.getAvatarUrl(this._client.getHomeserverUrl(), 128, 128, 'crop'),
+            avatarUrl: room.getAvatarUrl(this._client.getHomeserverUrl(), 128, 128, 'crop', false), // false = don't allow default icons
             isAnonymous: true
         };
 
@@ -396,11 +396,11 @@ class VoyagerBot {
         var updated = false;
 
         if (currentVersion.displayName != meta.displayName) {
-            newVersion.displayName = currentVersion.displayName;
+            newVersion.displayName = currentVersion.displayName || '';
             updated = true;
         }
         if (currentVersion.avatarUrl != meta.avatarUrl) {
-            newVersion.avatarUrl = currentVersion.avatarUrl;
+            newVersion.avatarUrl = currentVersion.avatarUrl || '';
             updated = true;
         }
         if (currentVersion.isAnonymous != meta.isAnonymous) {
