@@ -14,8 +14,6 @@ export class GraphComponent implements OnInit {
     data = {nodes: [], links: []};
     errorMessage = null;
 
-    private callbackHandled = false;
-
     constructor(private api: ApiService) {
     }
 
@@ -54,9 +52,6 @@ export class GraphComponent implements OnInit {
                     link.style("stroke", this.getColorForType);
                 },
                 callback: (graph) => {
-                    if (this.callbackHandled) return;
-                    this.callbackHandled = true;
-
                     graph.tooltip.enabled(false);
                     let svg = d3.select("svg");
                     let defs = svg.append("defs");
