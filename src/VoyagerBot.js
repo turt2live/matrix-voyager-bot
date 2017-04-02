@@ -264,7 +264,7 @@ class VoyagerBot {
 
         var joinEvent = room.currentState.getStateEvents('m.room.join_rules', '');
         if (joinEvent) {
-            version.isAnonymous = joinEvent.getContent().join_rule == 'public';
+            version.isAnonymous = joinEvent.getContent().join_rule !== 'public';
         }
 
         // Display name logic (according to matrix spec) | http://matrix.org/docs/spec/client_server/r0.2.0.html#id222
