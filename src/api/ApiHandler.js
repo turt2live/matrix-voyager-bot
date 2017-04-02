@@ -123,8 +123,8 @@ class ApiHandler {
 
         if (!obj.meta.isAnonymous) {
             obj.meta.objectId = node.objectId;
-            if (meta.displayName !== null) obj.meta.displayName = meta.displayName;
-            if (meta.avatarUrl !== null) obj.meta.avatarUrl = meta.avatarUrl;
+            if (meta.displayName !== null && meta.displayName !== '') obj.meta.displayName = meta.displayName;
+            if (meta.avatarUrl !== null && meta.avatarUrl !== '') obj.meta.avatarUrl = meta.avatarUrl;
         }
 
         return obj;
