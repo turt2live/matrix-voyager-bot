@@ -221,7 +221,7 @@ class VoyagerStore {
         return new Promise((resolve, reject) => {
             var self = this;
             this._db.run("INSERT INTO node_versions (nodeId, displayName, avatarUrl, isAnonymous) VALUES (?, ?, ?, ?)",
-                node.id, fields.displayName || null, fields.avatarUrl || null, fields.isAnonymous || null, function (err) {
+                node.id, valOrDBNull(fields.displayName), valOrDBNull(fields.avatarUrl), valOrDBNull(fields.isAnonymous), function (err) {
                     var nodeVersionId = this.lastID;
                     if (err) reject(err);
                     else {
@@ -571,6 +571,12 @@ class VoyagerStore {
 
 function dbToBool(val) {
     return val === 1 || val === true;
+}
+
+function valOrDBNull(val) {
+    if (typeof(val) === 'string' && val == '')
+        return val;
+    return val || null;
 }
 
 class Node {
