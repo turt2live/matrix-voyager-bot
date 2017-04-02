@@ -24,8 +24,7 @@ class VoyagerStore {
             });
             dbMigrate.up().then(() => {
                 this._db = new sqlite3.Database("./db/" + (process.env.NODE_ENV || "development") + ".db");
-                this._populateEnrolledUsers();
-                resolve();
+                this._populateEnrolledUsers().then(resolve, reject);
             }, err => {
                 log.error("VoyagerStore", err);
                 reject(err);
@@ -37,19 +36,23 @@ class VoyagerStore {
     }
 
     _populateEnrolledUsers() {
-        this._db.all("SELECT objectId FROM nodes WHERE type = 'user' AND (SELECT isAnonymous FROM node_versions WHERE node_versions.nodeId = nodes.id AND isAnonymous IS NOT NULL ORDER BY id DESC LIMIT 1) = 0", (err, rows)=> {
-            if (err) {
-                log.error("VoyagerStore", "Could not get enrolled users");
-                log.error("VoyagerStore", err);
-                return;
-            }
-            if (!rows) return;
+        return new Promise((resolve, reject) => {
+            this._db.all("SELECT objectId FROM nodes WHERE type = 'user' AND (SELECT isAnonymous FROM node_versions WHERE node_versions.nodeId = nodes.id AND isAnonymous IS NOT NULL ORDER BY id DESC LIMIT 1) = 0", (err, rows)=> {
+                if (err) {
+                    log.error("VoyagerStore", "Could not get enrolled users");
+                    log.error("VoyagerStore", err);
+                    reject(err);
+                    return;
+                }
+                if (!rows) return;
 
-            for (var row of rows) {
-                this._enrolledIds.push(row.objectId);
-            }
+                for (var row of rows) {
+                    this._enrolledIds.push(row.objectId);
+                }
 
-            log.info("VoyagerStore", "Populated enrolled users. Found " + this._enrolledIds.length + " users enrolled");
+                log.info("VoyagerStore", "Populated enrolled users. Found " + this._enrolledIds.length + " users enrolled");
+                resolve();
+            });
         });
     }
 
