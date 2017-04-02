@@ -29,7 +29,7 @@ class ApiHandler {
     }
 
     _getNetwork(request, response) {
-        var limit = Math.max(0, Math.max(10000, request.query.limit || 1000));
+        var limit = Math.max(0, Math.min(10000, request.query.limit || 1000));
         var since = Math.max(0, request.query.since || 0);
 
         var handledNodeIds = [];
