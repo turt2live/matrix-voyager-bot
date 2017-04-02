@@ -1,3 +1,6 @@
+-- Repair database state first
+delete from room_links where timestamp is null;
+
 -- Find all the room nodes first
 create table _room_nodes (room_id text, timestamp text, is_redacted integer);
 insert into _room_nodes select distinct e.from_room_id, 0, 0 from room_links as e;
