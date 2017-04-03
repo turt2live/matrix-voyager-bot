@@ -135,7 +135,7 @@ class ApiHandler {
         var remaining = 0;
 
         this._store.getStateEventsPaginated(since, limit).then(dto => {
-           remaining = dto.remaining;
+            remaining = dto.remaining;
 
             for (var event of dto.events) {
                 var obj = {
@@ -145,7 +145,7 @@ class ApiHandler {
                     meta: null
                 };
 
-                if(event.node && event.nodeVersion) {
+                if (event.node && event.nodeVersion) {
                     obj.nodeId = event.node.id;
                     obj.nodeVersionId = event.nodeVersion.id;
 
@@ -153,7 +153,7 @@ class ApiHandler {
                     obj.meta = tempMeta.meta;
                 }
 
-                if(event.link) {
+                if (event.link) {
                     obj.linkId = event.link.id;
 
                     var tempMeta = this._linkToJsonObject(event.link);

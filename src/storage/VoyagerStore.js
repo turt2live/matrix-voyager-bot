@@ -449,7 +449,7 @@ class VoyagerStore {
             // The queries below get the StateEvent and Link or Node information depending
             // on the event type.
 
-            var linkStateQuery = ""+
+            var linkStateQuery = "" +
                 "SELECT  state_events.id AS 'state_events.id',\n" +
                 "        state_events.type AS 'state_events.type',\n" +
                 "        state_events.linkId AS 'state_events.linkId',\n" +
@@ -468,7 +468,7 @@ class VoyagerStore {
                 "WHERE state_events.timestamp > ?\n" +
                 "LIMIT ?";
 
-            var nodeStateQuery = ""+
+            var nodeStateQuery = "" +
                 "SELECT  state_events.id AS 'state_events.id',\n" +
                 "        state_events.type AS 'state_events.type',\n" +
                 "        state_events.linkId AS 'state_events.linkId',\n" +
@@ -491,15 +491,15 @@ class VoyagerStore {
                 "LIMIT ?";
 
             this._db.all(linkStateQuery, since, limit, (err, rows) => {
-               if(err) {
-                   reject(err);
-                   return;
-               }
+                if (err) {
+                    reject(err);
+                    return;
+                }
 
                 var linkResults = (rows || []).map(r => new CompleteStateEvent(r));
 
                 this._db.all(nodeStateQuery, since, limit, (err, rows) => {
-                    if(err) {
+                    if (err) {
                         reject(err);
                         return;
                     }
@@ -507,14 +507,14 @@ class VoyagerStore {
                     var nodeResults = (rows || []).map(r => new CompleteStateEvent(r));
 
                     var events = [];
-                    for(var evt of linkResults) events.push(evt);
-                    for(var evt of nodeResults) events.push(evt);
+                    for (var evt of linkResults) events.push(evt);
+                    for (var evt of nodeResults) events.push(evt);
 
                     events.sort((a, b) => a.stateEvent.timestamp - b.stateEvent.timestamp); // ascending order
 
                     // Because we were naughty in our query, we may have ended up with more than the expected number of
                     // results. Because of this, we'll have to manually trim the array.
-                    if(events.length > limit) {
+                    if (events.length > limit) {
                         events = events.splice(0, limit); // splice returns the deleted elements
                     }
 
@@ -755,9 +755,9 @@ class CompleteStateEvent {
         var hasLink = false;
         var hasNode = false;
 
-        for(var key in dbFields) {
-            var parts=key.split('.');
-            switch(parts[0]) {
+        for (var key in dbFields) {
+            var parts = key.split('.');
+            switch (parts[0]) {
                 case 'state_events':
                     stateEvent[parts[1]] = dbFields[key];
                     break;
