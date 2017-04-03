@@ -103,7 +103,9 @@ export class GraphComponent implements OnInit {
                     .attr("width", radius).attr("height", radius)
                     .attr("xlink:href", node.avatarUrl);
             } else {
-                let text = node.name[1];
+                let text = node.name[0];
+                if (text == '!' || text == '@' || text == '#')
+                    text = node.name[1];
                 if (!text || node.isAnonymous) {
                     text = node.type == 'room' ? "#" : "@";
                 }
