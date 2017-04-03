@@ -40,7 +40,7 @@ insert into state_events (type, linkId, timestamp) select 'link_removed', links.
 
 -- Create placeholder versions for the nodes we know about
 -- These will later be populated by the bot on first start
-insert into node_versions (nodeId) select nodes.id from nodes;
+insert into node_versions (nodeId, isAnonymous) select nodes.id, case when (select count(*) from enrolled_users where user_id = nodes.objectId) > 0 then 0 else 1 end from nodes;
 
 -- Create all the state events for nodes
 insert into state_events (type, nodeId, nodeVersionId, timestamp) select 'node_added', nodes.id, (select node_versions.id from node_versions where node_versions.nodeId = nodes.id), nodes.firstTimestamp from nodes;
