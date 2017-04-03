@@ -36,11 +36,25 @@ class ApiHandler {
         var nodes = [];
         var links = [];
         var remaining = 0;
+        var redactedLinks = 0;
 
         this._store.getTimelineEventsPaginated(since, limit).then(dto => {
             remaining = dto.remaining;
 
+            var bannedRooms = [];
+
             for (var event of dto.events) {
+                if (event.link.type != 'kick' && event.link.type != 'ban') continue;
+
+                bannedRooms.push(event.targetNode.id);
+            }
+
+            for (var event of dto.events) {
+                if (event.link.isRedacted || bannedRooms.indexOf(event.sourceNode.id) !== -1 || bannedRooms.indexOf(event.targetNode.id) !== -1) {
+                    redactedLinks++;
+                    continue;
+                }
+
                 if (handledNodeIds.indexOf(event.sourceNode.id) === -1) {
                     nodes.push(this._nodeToJsonObject(event.sourceNode, event.sourceNodeMeta));
                     handledNodeIds.push(event.sourceNode.id);
@@ -50,12 +64,14 @@ class ApiHandler {
                     handledNodeIds.push(event.targetNode.id);
                 }
 
-                links.push(this._linkToJsonObject(event.link));
+                if (!event.targetNode.isRedacted && !event.sourceNode.isRedacted)
+                    links.push(this._linkToJsonObject(event.link));
             }
 
             var payload = {
                 total: links.length,
                 remaining: remaining,
+                redacted: redactedLinks,
                 results: {
                     nodes: nodes,
                     links: links
