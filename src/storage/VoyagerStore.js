@@ -199,7 +199,7 @@ class VoyagerStore {
         return new Promise((resolve, reject) => {
             this.getNode('user', userId).then(node => {
                 if (!node) reject(new Error("User node not found for user " + userId));
-                else return this.createNodeVersion(node, {isAnonymous: isEnrolled})
+                else return this.createNodeVersion(node, {isAnonymous: !isEnrolled})
             }).then(()=> {
                 var idx = this._enrolledIds.indexOf(userId);
                 if (isEnrolled && idx === -1)
