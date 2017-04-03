@@ -103,7 +103,7 @@ class VoyagerBot {
             return this.getNode(room.roomId, 'room');
         }, err => {
             if (err.httpStatus == 500 && retryCount < 5) {
-                return this._processRoomLink(event, matchedValue, ++retryCount);
+                return this._processMatchedLink(event, matchedValue, ++retryCount);
             }
 
             log.error("VoyagerBot", err);
