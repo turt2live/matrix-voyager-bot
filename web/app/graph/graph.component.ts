@@ -52,7 +52,7 @@ export class GraphComponent implements OnInit {
                     link.style("stroke", this.getColorForType);
                 },
                 callback: (graph) => {
-                    graph.tooltip.enabled(false);
+                    graph.tooltip.enabled(true);
                     let svg = d3.select("svg");
                     let defs = svg.append("defs");
 
