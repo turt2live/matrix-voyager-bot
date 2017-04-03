@@ -200,7 +200,7 @@ class VoyagerBot {
         var version = {
             displayName: null,
             avatarUrl: null,
-            isAnonymous: this._store.isEnrolled(user.userId)
+            isAnonymous: !this._store.isEnrolled(user.userId)
         };
 
         // User display logic is not defined by the spec, and is technically per-room.
