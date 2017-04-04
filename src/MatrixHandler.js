@@ -28,7 +28,12 @@ class MatrixHandler {
                 .catch(error => log.error("MatrixHandler", error));
         });
 
-        this._client.on('RoomMember.membership', event=> {
+        // this._client.on('RoomMember.membership', event=> {
+        //     return this._processMembership(event.event) // the actual event is nested for some reason
+        //         .catch(error => log.error("MatrixHandler", error));
+        // });
+
+        this._client.on('RoomState.members', event=>{
             return this._processMembership(event.event) // the actual event is nested for some reason
                 .catch(error => log.error("MatrixHandler", error));
         });
