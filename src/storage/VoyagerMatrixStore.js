@@ -250,9 +250,18 @@ class VoyagerMatrixStore { // implements StubStore
         this._reEmit(this._client, room, ["Room.name", "Room.timeline", "Room.redaction", "Room.receipt", "Room.tags", "Room.timelineReset", "Room.localEchoUpdated", "Room.accountData"]);
         this._reEmit(this._client, room.currentState, ["RoomState.events", "RoomState.members", "RoomState.newMember"]);
 
+        room.currentState.on("RoomState.members", (event, state, member) => {
+            if (member.__hasListener) return;
+            member.user = this._client.getUser(member.userId);
+            member.__hasListener = true;
+            this._reEmit(this._client, member, ["RoomMember.name", "RoomMember.typing", "RoomMember.powerLevel", "RoomMember.membership"]);
+        });
+
         // Logic borrowed from matrix-js-sdk
         room.currentState.on("RoomState.newMember", (event, state, member) => {
+            if (member.__hasListener) return;
             member.user = this._client.getUser(member.userId);
+            member.__hasListener = true;
             this._reEmit(this._client, member, ["RoomMember.name", "RoomMember.typing", "RoomMember.powerLevel", "RoomMember.membership"]);
         });
     }
