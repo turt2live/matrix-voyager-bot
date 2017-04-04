@@ -165,7 +165,7 @@ class WebHandler {
             throw err;
         }).then(events => {
             for (var event of events) {
-                if (unpublishedRoomIds.indexOf(event.to_room_id) !== -1 || unpublishedRoomIds.indexOf(event.to_room_id) !== -1)
+                if (unpublishedRoomIds.indexOf(event.to_room_id) !== -1 || unpublishedRoomIds.indexOf(event.from_room_id) !== -1)
                     continue; // Skip room node - we were kicked or banned, so it should be unpublished
 
                 var sourceRoomPublic = this._matrix.isPublicRoom(event.from_room_id);
