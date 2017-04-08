@@ -34,6 +34,8 @@ class VoyagerBot {
         this._client.on('Room.timeline', this._processTimeline.bind(this));
         this._client.on('RoomMember.membership', this._processMembership.bind(this));
         this._client.on('sync', this._onSync.bind(this));
+        this._client.on('RoomState.events', this._onRoomStateUpdated.bind(this));
+        this._client.on('Room', this._onRoom.bind(this));
     }
 
     /**
@@ -41,6 +43,15 @@ class VoyagerBot {
      */
     start() {
         this._client.startClient({initialSyncLimit: 5, pollTimeout: 30 * 60 * 1000}); // pollTimeout is 30 minutes
+    }
+
+    _onRoom(room) {
+        return this._tryUpdateRoomNodeVersion(room);
+    }
+
+    _onRoomStateUpdated(event, state) {
+        log.info("VoyagerBot", "Updating room state for " + event.getRoomId());
+        return this._tryUpdateRoomNodeVersion(this._client.getRoom(event.getRoomId()));
     }
 
     _onSync(state, prevState, data) {
@@ -64,6 +75,8 @@ class VoyagerBot {
             return this._onKick(event);
         } else if (newState == 'ban') {
             return this._onBan(event);
+        } else if(newState == 'join') {
+            return this._tryUpdateRoomNodeVersion(this._client.getRoom(event.getRoomId()));
         }
 
         return Promise.resolve();
@@ -138,6 +151,8 @@ class VoyagerBot {
             return this._store.createTimelineEvent(inviteLink, event.getTs(), event.getId());
         }).then(() => {
             return this._client.joinRoom(event.getRoomId());
+        }).then(room => {
+            return this._tryUpdateRoomNodeVersion(room);
         });
     }
 
@@ -182,17 +197,29 @@ class VoyagerBot {
 
     _createUserNode(userId) {
         var user = this._client.getUser(userId);
-        if (!user) throw new Error("Could not find user " + userId);
 
-        var version = this._getUserVersion(user);
+        var version = {
+            displayName: null,
+            avatarUrl: null,
+            isAnonymous: !this._store.isEnrolled(userId)
+        };
+
+        if (user) version = this._getUserVersion(user);
+
         return this._store.createNode('user', userId, version);
     }
 
     _createRoomNode(roomId) {
         var room = this._client.getRoom(roomId);
-        if (!room) throw new Error("Could not find room " + roomId);
 
-        var version = this._getRoomVersion(room);
+        var version = {
+            displayName: null,
+            avatarUrl: null,
+            isAnonymous: true
+        };
+
+        if (room) version = this._getRoomVersion(room);
+
         return this._store.createNode('room', roomId, version);
     }
 
@@ -356,12 +383,15 @@ class VoyagerBot {
     }
 
     _tryUpdateUserNodeVersion(user) {
-        if (!user) return;
+        if (!user) {
+            log.warn("VoyagerBot", "Try update user node failed: User was null");
+            return Promise.resolve();
+        }
 
         var userNode;
         var userMeta;
 
-        this.getNode(user.userId, 'user').then(node => {
+        return this.getNode(user.userId, 'user').then(node => {
             userNode = node;
 
             return this._store.getCurrentNodeState(userNode);
@@ -375,10 +405,15 @@ class VoyagerBot {
     }
 
     _tryUpdateRoomNodeVersion(room) {
+        if (!room) {
+            log.warn("VoyagerBot", "Try update room node failed: Room was null");
+            return Promise.resolve();
+        }
+
         var roomNode;
         var roomMeta;
 
-        this.getNode(room.roomId, 'room').then(node => {
+        return this.getNode(room.roomId, 'room').then(node => {
             roomNode = node;
 
             return this._store.getCurrentNodeState(roomNode);
