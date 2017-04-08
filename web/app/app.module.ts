@@ -8,15 +8,14 @@ import { GraphComponent } from "./graph/graph.component";
 import { ApiService } from "./shared";
 import { routing } from "./app.routing";
 import { removeNgStyles, createNewHosts } from "@angularclass/hmr";
-import { NvD3Module } from "angular2-nvd3";
+import { D3Service } from "d3-ng2-service";
 
 @NgModule({
     imports: [
         BrowserModule,
         HttpModule,
         FormsModule,
-        routing,
-        NvD3Module
+        routing
     ],
     declarations: [
         AppComponent,
@@ -24,7 +23,8 @@ import { NvD3Module } from "angular2-nvd3";
         GraphComponent
     ],
     providers: [
-        ApiService
+        ApiService,
+        D3Service
     ],
     bootstrap: [AppComponent]
 })

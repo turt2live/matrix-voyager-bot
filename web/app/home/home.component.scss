@@ -2,3 +2,11 @@
 * {
   color: #FFEF00;
 }
+
+my-graph {
+  top: 6px;
+  left: 6px;
+  position: absolute;
+  width: calc(100% - 12px);
+  height: calc(100% - 12px);
+}

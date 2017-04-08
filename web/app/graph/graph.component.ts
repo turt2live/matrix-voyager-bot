@@ -1,8 +1,7 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, OnInit, ElementRef } from "@angular/core";
 import { ApiService } from "../shared/api.service";
 import { VoyagerNetwork } from "../shared/voyager-network";
-
-declare let nv, d3: any;
+import { D3Service, D3, Selection, ForceLink, SimulationNodeDatum, SimulationLinkDatum } from "d3-ng2-service";
 
 @Component({
     selector: 'my-graph',
@@ -10,77 +9,123 @@ declare let nv, d3: any;
     styleUrls: ['./graph.component.scss'],
 })
 export class GraphComponent implements OnInit {
-    options; // set in ngOnInit
-    data = {nodes: [], links: []};
-    errorMessage = null;
+    private d3: D3;
+    private parentNativeElement: any;
+    private data: {links: NetworkLink[], nodes: NetworkNode[]};
 
-    constructor(private api: ApiService) {
+    constructor(private api: ApiService, element: ElementRef, d3Service: D3Service) {
+        this.d3 = d3Service.getD3();
+        this.parentNativeElement = element.nativeElement;
     }
 
     ngOnInit() {
-        this.options = {
-            chart: {
-                type: 'forceDirectedGraph',
-                height: (function () {
-                    return nv.utils.windowSize().height;
-                })(),
-                width: (function () {
-                    return nv.utils.windowSize().width;
-                })(),
-                linkDist: (link) => Math.sqrt(link.value) * 75,
-                charge: (node) => Math.max(-400, node.linkCount * -40),
-                radius: (node) => node.type == 'room' ? 15 : 10,
-                nodeExtras: function (node) {
-                    if (!node) return;
-                    // node
-                    //     .append("text")
-                    //     .attr("dx", 16)
-                    //     .attr("dy", ".35em")
-                    //     .text(function (d) {
-                    //         return d.name;
-                    //     })
-                    //     .style("font-size", "10px");
-                    node.classed('node', true);
-                    node.selectAll("circle")
-                        .style("fill", n => "url(#fillFor" + n.id + ")")
-                        .style("stroke", "#fff")
-                        .style("stroke-width", n => n.type == 'user' ? '1.5px' : "2px");
-                },
-                linkExtras: (link) => {
-                    if (!link) return;
-                    link.classed('link', true);
-                    link.style("stroke", this.getColorForType);
-                },
-                callback: (graph) => {
-                    graph.tooltip.enabled(true);
-                    let svg = d3.select("svg");
-                    let defs = svg.append("defs");
-
-                    // let zoom = d3.behavior.zoom()
-                    //     .scaleExtent([0.005, 10])
-                    //     .on('zoom', () => {
-                    //         svg.selectAll("line.link")
-                    //             .attr('transform',
-                    //                 "translate(" + d3.event.translate[0] + "," + d3.event.translate[1] + ")" +
-                    //                 "scale(" + d3.event.scale + "," + d3.event.scale + ")");
-                    //         svg.selectAll("g.node")
-                    //             .attr('transform',
-                    //                 "translate(" + d3.event.translate[0] + "," + d3.event.translate[1] + ")" +
-                    //                 "scale(" + d3.event.scale + "," + d3.event.scale + ")");
-                    //     });
-                    // svg.call(zoom);
-
-                    this.buildFills(defs);
-                }
-            }
-        };
-
-        this.data = {nodes: [], links: []};
+        let d3 = this.d3;
+        let d3ParentElement: Selection<any, any, any, any>;
 
         this.api.getNetwork().subscribe(
-            network => this.processNetwork(network),
-            error => this.errorMessage = <any>error
+            network => {
+                if (this.parentNativeElement == null) {
+                    throw new Error("Failed to get native element");
+                }
+
+                d3ParentElement = d3.select(this.parentNativeElement);
+
+                let svg = d3ParentElement.select<SVGSVGElement>("svg");
+                let bbox = d3ParentElement.node().getBoundingClientRect();
+                let width = bbox.width;
+                let height = bbox.height;
+
+                svg.attr("width", width).attr("height", height);
+
+                svg.call(d3.zoom()
+                    .scaleExtent([-1, 10])
+                    .on('zoom', () => {
+                        svg.select("g.links")
+                            .attr("transform",
+                                "translate(" + d3.event.transform.x + "," + d3.event.transform.y + ")" +
+                                "scale(" + d3.event.transform.k + "," + d3.event.transform.k + ")");
+                        svg.select("g.nodes")
+                            .attr("transform",
+                                "translate(" + d3.event.transform.x + "," + d3.event.transform.y + ")" +
+                                "scale(" + d3.event.transform.k + "," + d3.event.transform.k + ")");
+                    }));
+
+                this.processNetwork(network);
+
+                let defs = svg.select<SVGDefsElement>("defs");
+                this.buildFills(defs);
+
+                let simulation = d3.forceSimulation()
+                    .force("link", d3.forceLink<NetworkNode, NetworkLink>()
+                        .id(n => <any>n.id)
+                        .distance(k => Math.sqrt(k.value) * 75))
+                    .force("charge", d3.forceManyBody<NetworkNode>()
+                        .strength(n => Math.max(-400, n.linkCount * -40)))
+                    .force("center", d3.forceCenter(width / 2, height / 2))
+                    .force("collide", d3.forceCollide<NetworkNode>(n => n.type == 'room' ? 20 : 15).strength(0.5));
+
+                let links = svg.append("g")
+                    .attr("class", "links")
+                    .selectAll("path")
+                    .data(this.data.links).enter().append("svg:path")
+                    .attr("fill", "none")
+                    .attr("stroke-width", k => Math.sqrt(k.value))
+                    .attr("stroke", k => this.getColorForType(k.type))
+                    .attr("stroke-opacity", 0.7);
+
+                let nodes = svg.append("g")
+                    .attr("class", "nodes")
+                    .selectAll("circle")
+                    .data(this.data.nodes).enter().append("circle")
+                    .attr("fill", n => "url(#fillFor" + n.id + ")")
+                    .attr("r", n => n.type == 'room' ? 15 : 10)
+                    .attr("stroke", "#fff")
+                    .attr("stroke-width", n => n.type == 'room' ? '1.5px' : '1px')
+                    .call(d3.drag<SVGCircleElement, any>()
+                        .on("start", d => {
+                            if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+                            d.fx = d.x;
+                            d.fy = d.y;
+                        })
+                        .on("drag", d => {
+                            d.fx = d3.event.x;
+                            d.fy = d3.event.y;
+                        })
+                        .on("end", d => {
+                            if (!d3.event.active) simulation.alphaTarget(0);
+                            d.fx = null;
+                            d.fy = null;
+                        }));
+
+                simulation.nodes(this.data.nodes).on('tick', () => this.onTick(links, nodes));
+                simulation.force<ForceLink<NetworkNode, NetworkLink>>("link").links(this.data.links);
+            },
+            error => alert(<any>error)
         );
+    }
+
+    private onTick(links, nodes) {
+        nodes.attr("cx", d => d.x)
+            .attr("cy", d => d.y);
+
+        links.attr("d", d => {
+            let dx = (d.target.x - d.source.x) / 0.1;
+            let dy = (d.target.y - d.source.y) / 0.1;
+            let dr = Math.sqrt((dx * dx) + (dy * dy));
+
+            let hasRelatedLinks = d.relatedLinkTypes && d.relatedLinkTypes.length > 1;
+            if (!hasRelatedLinks && (d.inverseCount == 0 || d.value == 0)) {
+                return "M" + d.source.x + "," + d.source.y + " L" + d.target.x + "," + d.target.y;
+            }
+
+            let shouldInvert = hasRelatedLinks ? (d.relatedLinkTypes.indexOf(d.type) !== 0) : false;
+
+            let sx = shouldInvert ? d.target.x : d.source.x;
+            let sy = shouldInvert ? d.target.y : d.source.y;
+            let tx = shouldInvert ? d.source.x : d.target.x;
+            let ty = shouldInvert ? d.source.y : d.target.y;
+            return "M" + sx + "," + sy + "A" + dr + "," + dr + " 0 0,1 " + tx + "," + ty;
+        });
     }
 
     private buildFills(defs) {
@@ -159,7 +204,7 @@ export class GraphComponent implements OnInit {
         }
     }
 
-    private  processNetwork(network: VoyagerNetwork) {
+    private processNetwork(network: VoyagerNetwork) {
         const nodes = [];
         const links = [];
         const nodeIndexMap = {};
@@ -179,14 +224,26 @@ export class GraphComponent implements OnInit {
         }
 
         let linkMap = {};
+        let linkTypesMap = {};
         for (let networkLink of network.links) {
             const key = networkLink.meta.sourceNodeId + " to " + networkLink.meta.targetNodeId + " for " + networkLink.meta.type;
+            const typeKey = networkLink.meta.sourceNodeId + " and " + networkLink.meta.targetNodeId;
+            const inverseTypeKey = networkLink.meta.sourceNodeId + " and " + networkLink.meta.targetNodeId;
+
+            let typeArray = linkTypesMap[typeKey] ? linkTypesMap[typeKey] : linkTypesMap[inverseTypeKey];
+            if (!typeArray)
+                typeArray = linkTypesMap[typeKey] = [];
+
+            if (typeArray.indexOf(networkLink.meta.type) === -1)
+                typeArray.push(networkLink.meta.type);
+
             if (!linkMap[key]) {
                 linkMap[key] = {
                     count: 0,
                     sourceNodeId: networkLink.meta.sourceNodeId,
                     targetNodeId: networkLink.meta.targetNodeId,
-                    type: networkLink.meta.type
+                    type: networkLink.meta.type,
+                    relatedLinkTypes: typeArray
                 };
             }
 
@@ -195,18 +252,46 @@ export class GraphComponent implements OnInit {
 
         for (let linkKey in linkMap) {
             const aggregateLink = linkMap[linkKey];
+            const inverseLinkKey = aggregateLink.targetNodeId + " to " + aggregateLink.sourceNodeId + " for " + aggregateLink.type;
+            const oppositeAggregateLink = linkMap[inverseLinkKey];
+
             let link = {
-                source: nodeIndexMap[aggregateLink.sourceNodeId],
-                target: nodeIndexMap[aggregateLink.targetNodeId],
+                sourceNode: nodeIndexMap[aggregateLink.sourceNodeId],
+                targetNode: nodeIndexMap[aggregateLink.targetNodeId],
+                source: aggregateLink.sourceNodeId,
+                target: aggregateLink.targetNodeId,
                 value: aggregateLink.count,
-                type: aggregateLink.type
+                type: aggregateLink.type,
+                inverseCount: oppositeAggregateLink ? oppositeAggregateLink.count : 0,
+                relatedLinkTypes: aggregateLink.relatedLinkTypes
             };
             links.push(link);
 
-            nodes[link.source].linkCount++;
-            nodes[link.target].linkCount++;
+            nodes[link.sourceNode].linkCount++;
+            nodes[link.targetNode].linkCount++;
         }
 
         this.data = {links: links, nodes: nodes};
     }
+}
+
+class NetworkNode implements SimulationNodeDatum {
+    id: number;
+    name: string;
+    group: string;
+    type: string;
+    avatarUrl: string;
+    isAnonymous: boolean;
+    linkCount: number;
+}
+
+class NetworkLink implements SimulationLinkDatum<NetworkNode> {
+    source: number;
+    target: number;
+    sourceNode: NetworkNode;
+    targetNode: NetworkNode;
+    value: number;
+    type: string;
+    inverseCount: number;
+    relatedLinkTypes: string[];
 }
