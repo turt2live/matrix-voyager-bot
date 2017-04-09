@@ -3,6 +3,8 @@
 </svg>
 <div class="tooltip node-tooltip">
     <strong>{{ highlightedNode ? highlightedNode.name : '' }}</strong>
+    <br/>
+    {{ highlightedNode ? highlightedNode.primaryAlias : '' }}
 </div>
 <div class="tooltip link-tooltip">
     <strong>{{ highlightedLink ? (

@@ -299,7 +299,8 @@ class VoyagerBot {
         var version = {
             displayName: null,
             avatarUrl: room.getAvatarUrl(this._client.getHomeserverUrl(), 128, 128, 'crop', false), // false = don't allow default icons
-            isAnonymous: true
+            isAnonymous: true,
+            primaryAlias: room.getCanonicalAlias()
         };
 
         var joinEvent = room.currentState.getStateEvents('m.room.join_rules', '');
@@ -471,6 +472,10 @@ class VoyagerBot {
         }
         if (currentVersion.isAnonymous != meta.isAnonymous) {
             newVersion.isAnonymous = currentVersion.isAnonymous;
+            updated = true;
+        }
+        if (currentVersion.primaryAlias != meta.primaryAlias) {
+            newVersion.primaryAlias = currentVersion.primaryAlias || '';
             updated = true;
         }
 

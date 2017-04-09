@@ -10,4 +10,5 @@ export class NodeMeta {
     displayName: string; // optional
     avatarUrl: string; // optional
     objectId: string; // optional
+    primaryAlias: string; // optional
 }

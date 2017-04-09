@@ -268,6 +268,7 @@ export class GraphComponent implements OnInit {
                 type: networkNode.meta.type,
                 avatarUrl: networkNode.meta.avatarUrl,
                 isAnonymous: networkNode.meta.isAnonymous,
+                primaryAlias: networkNode.meta.primaryAlias,
                 linkCount: 0,
                 directLinks: []
             };
@@ -345,6 +346,7 @@ class NetworkNode implements SimulationNodeDatum {
     avatarUrl: string;
     isAnonymous: boolean;
     linkCount: number;
+    primaryAlias: string;
     directLinks: NetworkLink[];
 }
 

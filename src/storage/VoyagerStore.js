@@ -110,7 +110,7 @@ class VoyagerStore {
      * Creates a new Node
      * @param {'user'|'room'} type the type of Node
      * @param {string} objectId the object ID for the Node
-     * @param {{displayName: String, avatarUrl: String, isAnonymous: boolean}} firstVersion the first version of the Node
+     * @param {{displayName: String, avatarUrl: String, isAnonymous: boolean, primaryAlias: String}} firstVersion the first version of the Node
      * @param {boolean} isReal true if the node is a real node
      * @param {boolean} isRedacted true if the node should be redacted
      * @return {Promise<Node>} resolves to the created Node
@@ -127,8 +127,8 @@ class VoyagerStore {
 
                     var nodeId = this.lastID;
 
-                    self._db.run("INSERT INTO node_versions (nodeId, displayName, avatarUrl, isAnonymous) VALUES (?, ?, ?, ?)",
-                        nodeId, firstVersion.displayName, firstVersion.avatarUrl, firstVersion.isAnonymous, function (err) {
+                    self._db.run("INSERT INTO node_versions (nodeId, displayName, avatarUrl, isAnonymous, primaryAlias) VALUES (?, ?, ?, ?, ?)",
+                        nodeId, firstVersion.displayName, firstVersion.avatarUrl, firstVersion.isAnonymous, firstVersion.primaryAlias, function (err) {
                             if (err) {
                                 reject(err);
                                 return
@@ -214,14 +214,14 @@ class VoyagerStore {
     /**
      * Creates a new node version
      * @param {Node} node the node to append a version to
-     * @param {{displayName: String?, avatarUrl: String?, isAnonymous: boolean?}} fields the fields to update
+     * @param {{displayName: String?, avatarUrl: String?, isAnonymous: boolean?, primaryAlias: String?}} fields the fields to update
      * @returns {Promise<NodeVersion>} resolves with the created node version
      */
     createNodeVersion(node, fields) {
         return new Promise((resolve, reject) => {
             var self = this;
-            this._db.run("INSERT INTO node_versions (nodeId, displayName, avatarUrl, isAnonymous) VALUES (?, ?, ?, ?)",
-                node.id, valOrDBNull(fields.displayName), valOrDBNull(fields.avatarUrl), valOrDBNull(fields.isAnonymous), function (err) {
+            this._db.run("INSERT INTO node_versions (nodeId, displayName, avatarUrl, isAnonymous, primaryAlias) VALUES (?, ?, ?, ?, ?)",
+                node.id, valOrDBNull(fields.displayName), valOrDBNull(fields.avatarUrl), valOrDBNull(fields.isAnonymous), valOrDBNull(fields.primaryAlias), function (err) {
                     var nodeVersionId = this.lastID;
                     if (err) reject(err);
                     else {
@@ -483,7 +483,8 @@ class VoyagerStore {
                 "        nodes.isRedacted AS 'nodes.isRedacted',\n" +
                 "        (SELECT node_versions.displayName FROM node_versions WHERE node_versions.nodeId = state_events.nodeId AND node_versions.displayName IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) AS 'node_versions.displayName',\n" +
                 "        (SELECT node_versions.avatarUrl FROM node_versions WHERE node_versions.nodeId = state_events.nodeId AND node_versions.avatarUrl IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) AS 'node_versions.avatarUrl',\n" +
-                "        (SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = state_events.nodeId AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) AS 'node_versions.isAnonymous'\n" +
+                "        (SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = state_events.nodeId AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) AS 'node_versions.isAnonymous',\n" +
+                "        (SELECT node_versions.primaryAlias FROM node_versions WHERE node_versions.nodeId = state_events.nodeId AND node_versions.primaryAlias IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) AS 'node_versions.primaryAlias'\n" +
                 "FROM state_events\n" +
                 "JOIN nodes ON nodes.id = state_events.nodeId\n" +
                 "JOIN node_versions ON node_versions.id = state_events.nodeVersionId\n" +
@@ -570,6 +571,7 @@ class VoyagerStore {
                 "        (SELECT node_versions.displayName FROM node_versions WHERE node_versions.nodeId = links.sourceNodeId AND node_versions.displayName IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'sourceNode.nodeVersion.displayName',\n" +
                 "        (SELECT node_versions.avatarUrl FROM node_versions WHERE node_versions.nodeId = links.sourceNodeId AND node_versions.avatarUrl IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'sourceNode.nodeVersion.avatarUrl',\n" +
                 "        (SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = links.sourceNodeId AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'sourceNode.nodeVersion.isAnonymous',\n" +
+                "        (SELECT node_versions.primaryAlias FROM node_versions WHERE node_versions.nodeId = links.sourceNodeId AND node_versions.primaryAlias IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'sourceNode.nodeVersion.primaryAlias',\n" +
                 "        targetNode.id AS 'targetNode.id',\n" +
                 "        targetNode.type AS 'targetNode.type',\n" +
                 "        targetNode.objectId AS 'targetNode.objectId',\n" +
@@ -578,7 +580,8 @@ class VoyagerStore {
                 "        targetNode.isRedacted AS 'targetNode.isRedacted',\n" +
                 "        (SELECT node_versions.displayName FROM node_versions WHERE node_versions.nodeId = links.targetNodeId AND node_versions.displayName IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'targetNode.nodeVersion.displayName',\n" +
                 "        (SELECT node_versions.avatarUrl FROM node_versions WHERE node_versions.nodeId = links.targetNodeId AND node_versions.avatarUrl IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'targetNode.nodeVersion.avatarUrl',\n" +
-                "        (SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = links.targetNodeId AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'targetNode.nodeVersion.isAnonymous'\n" +
+                "        (SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = links.targetNodeId AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'targetNode.nodeVersion.isAnonymous',\n" +
+                "        (SELECT node_versions.primaryAlias FROM node_versions WHERE node_versions.nodeId = links.targetNodeId AND node_versions.primaryAlias IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'targetNode.nodeVersion.primaryAlias'\n" +
                 "FROM timeline_events\n" +
                 "JOIN links ON links.id = timeline_events.linkId\n" +
                 "JOIN nodes AS sourceNode ON sourceNode.id = links.sourceNodeId\n" +
@@ -608,19 +611,20 @@ class VoyagerStore {
     /**
      * Gets the current meta state of a Node
      * @param {Node} node the node to lookup
-     * @returns {Promise<{displayName: String?, avatarUrl: String?, isAnonymous: boolean}>} resolves to the Node's state
+     * @returns {Promise<{displayName: String?, avatarUrl: String?, isAnonymous: boolean, primaryAlias: String?}>} resolves to the Node's state
      */
     getCurrentNodeState(node) {
         return new Promise((resolve, reject) => {
             var query = "SELECT \n" +
                 "(SELECT node_versions.displayName FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.displayName IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'displayName',\n" +
                 "(SELECT node_versions.avatarUrl FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.avatarUrl IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'avatarUrl',\n" +
-                "(SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'isAnonymous'";
+                "(SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'isAnonymous',"+
+                "(SELECT node_versions.primaryAlias FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.primaryAlias IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'primaryAlias'";
 
             this._db.get(query, node.id, node.id, node.id, (err, row) => {
                 if (err) reject(err);
                 else {
-                    row = row || {displayName: null, avatarUrl: null, isAnonymous: true};
+                    row = row || {displayName: null, avatarUrl: null, isAnonymous: true, primaryAlias: null};
                     if (!row.isAnonymous) row.isAnonymous = false; // change null -> false
 
                     resolve(row);
@@ -656,7 +660,8 @@ class VoyagerStore {
                 "SELECT nodes.*,\n" +
                 "(SELECT node_versions.displayName FROM node_versions WHERE node_versions.nodeId = nodes.id AND node_versions.displayName IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'displayName',\n" +
                 "(SELECT node_versions.avatarUrl FROM node_versions WHERE node_versions.nodeId = nodes.id AND node_versions.avatarUrl IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'avatarUrl',\n" +
-                "(SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = nodes.id AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'isAnonymous'\n" +
+                "(SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = nodes.id AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'isAnonymous',\n" +
+                "(SELECT node_versions.primaryAlias FROM node_versions WHERE node_versions.nodeId = nodes.id AND node_versions.primaryAlias IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'primaryAlias'\n" +
                 "FROM nodes";
             this._db.all(query, (err, rows) => {
                 if (err) reject(err);
@@ -697,6 +702,7 @@ class NodeVersion {
         this.displayName = dbFields.displayName;
         this.avatarUrl = dbFields.avatarUrl;
         this.isAnonymous = dbToBool(dbFields.isAnonymous);
+        this.primaryAlias = dbFields.primaryAlias;
     }
 }
 
@@ -740,7 +746,8 @@ class CompleteNode extends Node {
         this.currentMeta = {
             displayName: dbFields.displayName,
             avatarUrl: dbFields.avatarUrl,
-            isAnonymous: dbToBool(dbFields.isAnonymous)
+            isAnonymous: dbToBool(dbFields.isAnonymous),
+            primaryAlias: dbFields.primaryAlias
         };
     }
 }
@@ -789,8 +796,8 @@ class CompleteTimelineEvent {
         var sourceNode = {};
         var targetNode = {};
         var link = {};
-        var sourceNodeMeta = {displayName: null, avatarUrl: null, isAnonymous: null};
-        var targetNodeMeta = {displayName: null, avatarUrl: null, isAnonymous: null};
+        var sourceNodeMeta = {displayName: null, avatarUrl: null, isAnonymous: null, primaryAlias: null};
+        var targetNodeMeta = {displayName: null, avatarUrl: null, isAnonymous: null, primaryAlias: null};
 
         for (var key in dbFields) {
             var parts = key.split('.');

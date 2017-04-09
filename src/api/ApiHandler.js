@@ -195,6 +195,7 @@ class ApiHandler {
             obj.meta.objectId = node.objectId;
             if (meta.displayName !== null && (meta.displayName !== '' && !allowEmptyStrings)) obj.meta.displayName = meta.displayName;
             if (meta.avatarUrl !== null && (meta.avatarUrl !== '' && !allowEmptyStrings)) obj.meta.avatarUrl = meta.avatarUrl;
+            if (meta.primaryAlias !== null && (meta.primaryAlias !== '' && !allowEmptyStrings)) obj.meta.primaryAlias = meta.primaryAlias;
         }
 
         return obj;
