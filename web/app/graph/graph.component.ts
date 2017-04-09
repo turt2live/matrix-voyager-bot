@@ -14,6 +14,7 @@ export class GraphComponent implements OnInit {
     private data: {links: NetworkLink[], nodes: NetworkNode[], nodeLinks: string[]};
 
     public highlightedNode: NetworkNode = null;
+    public highlightedLink: NetworkLink = null;
 
     constructor(private api: ApiService, element: ElementRef, d3Service: D3Service) {
         this.d3 = d3Service.getD3();
@@ -32,7 +33,8 @@ export class GraphComponent implements OnInit {
 
                 d3ParentElement = d3.select(this.parentNativeElement);
 
-                let tooltip = d3ParentElement.select<HTMLDivElement>("div.tooltip");
+                let nodeTooltip = d3ParentElement.select<HTMLDivElement>("div.tooltip.node-tooltip");
+                let linkTooltip = d3ParentElement.select<HTMLDivElement>("div.tooltip.link-tooltip");
 
                 let svg = d3ParentElement.select<SVGSVGElement>("svg");
                 let bbox = d3ParentElement.node().getBoundingClientRect();
@@ -105,15 +107,28 @@ export class GraphComponent implements OnInit {
                     this.fade(n, 0.1, nodes, links);
 
                     this.highlightedNode = n;
-                    tooltip.transition().duration(200).style("opacity", 0.9);
-                    tooltip.style("left", d3.event.pageX + "px");
-                    tooltip.style("top", d3.event.pageY + "px");
+                    nodeTooltip.transition().duration(200).style("opacity", 0.9);
+                    nodeTooltip.style("left", d3.event.pageX + "px");
+                    nodeTooltip.style("top", d3.event.pageY + "px");
                 });
 
                 nodes.on('mouseout', n => {
                     this.fade(n, 1, nodes, links);
 
-                    tooltip.transition().duration(500).style('opacity', 0);
+                    // this.highlightedNode = null;
+                    nodeTooltip.transition().duration(500).style('opacity', 0);
+                });
+
+                links.on('mouseover', k => {
+                    this.highlightedLink = k;
+                    linkTooltip.transition().duration(200).style("opacity", 0.9);
+                    linkTooltip.style("left", d3.event.pageX + "px");
+                    linkTooltip.style("top", d3.event.pageY + "px");
+                });
+
+                links.on('mouseout', () => {
+                    // this.highlightedLink = null;
+                    linkTooltip.transition().duration(500).style("opacity", 0);
                 });
 
                 simulation.nodes(this.data.nodes).on('tick', () => this.onTick(links, nodes));

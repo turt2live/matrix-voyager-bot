@@ -1,6 +1,12 @@
 <svg>
     <defs></defs>
 </svg>
-<div class="tooltip">
+<div class="tooltip node-tooltip">
     <strong>{{ highlightedNode ? highlightedNode.name : '' }}</strong>
+</div>
+<div class="tooltip link-tooltip">
+    <strong>{{ highlightedLink ? (
+        highlightedLink.value + ' ' + highlightedLink.type.replace(s/_/g, ' ') + (highlightedLink.value !== 1 ? 's' : '') +
+        ' from ' + highlightedLink.source.name + ' to ' + highlightedLink.target.name
+        ) : '' }}</strong>
 </div>

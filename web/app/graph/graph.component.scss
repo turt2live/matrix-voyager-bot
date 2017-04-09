@@ -6,12 +6,19 @@ div.tooltip {
   position: absolute;
   text-align: center;
   padding: 5px;
-  background: #bfdbff;
-  border: 1px solid #98c3f9;
   border-radius: 3px;
   pointer-events: none;
-  z-index: 99999;
   opacity: 0;
   color: #000;
   font-size: 14px;
+}
+
+div.tooltip.node-tooltip {
+  background: #bfdbff;
+  border: 1px solid #98c3f9;
+}
+
+div.tooltip.link-tooltip {
+  background: #bfdbff;
+  border: 1px solid #98c3f9;
 }
