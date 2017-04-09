@@ -11,7 +11,7 @@ import { D3Service, D3, Selection, ForceLink, SimulationNodeDatum, SimulationLin
 export class GraphComponent implements OnInit {
     private d3: D3;
     private parentNativeElement: any;
-    private data: {links: NetworkLink[], nodes: NetworkNode[]};
+    private data: {links: NetworkLink[], nodes: NetworkNode[], nodeLinks: string[]};
 
     constructor(private api: ApiService, element: ElementRef, d3Service: D3Service) {
         this.d3 = d3Service.getD3();
@@ -97,6 +97,9 @@ export class GraphComponent implements OnInit {
                             d.fy = null;
                         }));
 
+                nodes.on('mouseover', this.fade(0.1, nodes, links));
+                nodes.on('mouseout', this.fade(1, nodes, links));
+
                 simulation.nodes(this.data.nodes).on('tick', () => this.onTick(links, nodes));
                 simulation.force<ForceLink<NetworkNode, NetworkLink>>("link").links(this.data.links);
             },
@@ -126,6 +129,24 @@ export class GraphComponent implements OnInit {
             let ty = shouldInvert ? d.source.y : d.target.y;
             return "M" + sx + "," + sy + "A" + dr + "," + dr + " 0 0,1 " + tx + "," + ty;
         });
+    }
+
+    private fade(opacity: number, nodes, links) {
+        return d => {
+            nodes.attr('stroke-opacity', n => this.isConnected(d, n) ? 1 : opacity);
+            nodes.attr('fill-opacity', n => this.isConnected(d, n) ? 1 : opacity);
+
+            links.attr("stroke-opacity", k => (k.source === d || k.target === d ? 1 : opacity));
+        };
+    }
+
+    private isConnected(node1: NetworkNode, node2: NetworkNode) {
+        if (node1.id == node2.id) return true;
+
+        const sourceToTarget = node1.id + "," + node2.id;
+        const targetToSource = node2.id + "," + node1.id;
+
+        return this.data.nodeLinks.indexOf(sourceToTarget) !== -1 || this.data.nodeLinks.indexOf(targetToSource) !== -1;
     }
 
     private buildFills(defs) {
@@ -208,6 +229,7 @@ export class GraphComponent implements OnInit {
         const nodes = [];
         const links = [];
         const nodeIndexMap = {};
+        const nodeLinksMap = [];
 
         for (let networkNode of network.nodes) {
             let node = {
@@ -217,7 +239,8 @@ export class GraphComponent implements OnInit {
                 type: networkNode.meta.type,
                 avatarUrl: networkNode.meta.avatarUrl,
                 isAnonymous: networkNode.meta.isAnonymous,
-                linkCount: 0
+                linkCount: 0,
+                directLinks: []
             };
             nodeIndexMap[networkNode.id] = nodes.length;
             nodes.push(node);
@@ -267,11 +290,21 @@ export class GraphComponent implements OnInit {
             };
             links.push(link);
 
-            nodes[link.sourceNode].linkCount++;
-            nodes[link.targetNode].linkCount++;
+            let sourceNode = nodes[link.sourceNode];
+            let targetNode = nodes[link.targetNode];
+
+            sourceNode.linkCount++;
+            targetNode.linkCount++;
+            sourceNode.directLinks.push(link);
+            targetNode.directLinks.push(link);
+
+            if (nodeLinksMap.indexOf(sourceNode.id + "," + targetNode.id) === -1)
+                nodeLinksMap.push(sourceNode.id + "," + targetNode.id);
+            if (nodeLinksMap.indexOf(targetNode.id + "," + sourceNode.id) === -1)
+                nodeLinksMap.push(targetNode.id + "," + sourceNode.id);
         }
 
-        this.data = {links: links, nodes: nodes};
+        this.data = {links: links, nodes: nodes, nodeLinks: nodeLinksMap};
     }
 }
 
@@ -283,13 +316,14 @@ class NetworkNode implements SimulationNodeDatum {
     avatarUrl: string;
     isAnonymous: boolean;
     linkCount: number;
+    directLinks: NetworkLink[];
 }
 
 class NetworkLink implements SimulationLinkDatum<NetworkNode> {
-    source: number;
-    target: number;
-    sourceNode: NetworkNode;
-    targetNode: NetworkNode;
+    sourceNode: number;
+    targetNode: number;
+    source: NetworkNode;
+    target: NetworkNode;
     value: number;
     type: string;
     inverseCount: number;
