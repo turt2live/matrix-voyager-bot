@@ -91,7 +91,7 @@ class CommandProcessor {
             return this._bot.getNode(event.getSender(), 'user');
         }).then(n=> {
             userNode = n;
-            return this._bot.getNode(event.getRoomId(), 'room');
+            return this._bot.getNode(roomId, 'room');
         }).then(n=> {
             roomNode = n;
             return this._store.findLink(userNode, roomNode, 'self_link');
