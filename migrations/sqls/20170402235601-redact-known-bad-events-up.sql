@@ -1,0 +1,1 @@
+update links set isRedacted = 1 where id in (select linkId from timeline_events where matrixEventId = '$1490298427314CIwPU:matrix.magnap.dk');

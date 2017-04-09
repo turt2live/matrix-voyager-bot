@@ -1,15 +1,14 @@
-var MatrixHandler = require("./src/MatrixHandler");
-var WebHandler = require("./src/WebHandler");
-var DataStore = require("./src/DataStore");
+var VoyagerBot = require("./src/VoyagerBot");
+var VoyagerStore = require("./src/storage/VoyagerStore");
+var ApiHandler = require("./src/api/ApiHandler");
 var log = require("npmlog");
 
-log.info("index", "Preparing database");
-
-var db = new DataStore();
+log.info("index", "Bootstrapping bot");
+var db = new VoyagerStore();
 db.prepare().then(() => {
-    var matrix = new MatrixHandler(db);
-    matrix.listen();
+    var bot = new VoyagerBot(db);
+    bot.start();
 
-    var web = new WebHandler(db, matrix);
-    web.listen();
+    var api = new ApiHandler(db);
+    api.start();
 });
