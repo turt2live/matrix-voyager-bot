@@ -404,7 +404,7 @@ class VoyagerStore {
      */
     getCurrentNodeVersionForNode(node) {
         return new Promise((resolve, reject) => {
-            this._db.get("SELECT * FROM node_version WHERE nodeId = ? ORDER BY id DESC LIMIT 1", node.id, (err, row) => {
+            this._db.get("SELECT * FROM node_versions WHERE nodeId = ? ORDER BY id DESC LIMIT 1", node.id, (err, row) => {
                 if (err) reject(err);
                 else {
                     if (row) resolve(new NodeVersion(row));
