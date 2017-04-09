@@ -36,6 +36,9 @@ class VoyagerBot {
         this._client.on('sync', this._onSync.bind(this));
         this._client.on('RoomState.events', this._onRoomStateUpdated.bind(this));
         this._client.on('Room', this._onRoom.bind(this));
+        this._client.on('User.avatarUrl', this._onUserUpdatedGeneric.bind(this));
+        this._client.on('User.displayName', this._onUserUpdatedGeneric.bind(this));
+        this._client.on('RoomState.members', this._onRoomMemberUpdated.bind(this));
     }
 
     /**
@@ -43,6 +46,14 @@ class VoyagerBot {
      */
     start() {
         this._client.startClient({initialSyncLimit: 5, pollTimeout: 30 * 60 * 1000}); // pollTimeout is 30 minutes
+    }
+
+    _onRoomMemberUpdated(event, state, member) {
+        return this._tryUpdateUserNodeVersion(member);
+    }
+
+    _onUserUpdatedGeneric(event, user) {
+        return this._tryUpdateUserNodeVersion(user);
     }
 
     _onRoom(room) {
@@ -75,7 +86,7 @@ class VoyagerBot {
             return this._onKick(event);
         } else if (newState == 'ban') {
             return this._onBan(event);
-        } else if(newState == 'join') {
+        } else if (newState == 'join') {
             return this._tryUpdateRoomNodeVersion(this._client.getRoom(event.getRoomId()));
         }
 
@@ -272,8 +283,8 @@ class VoyagerBot {
         }
 
         if (conversation) {
-            version.displayName = conversation.user.rawDisplayName; // Don't use disambiguated version
-            version.avatarUrl = this._client.mxcUrlToHttp(conversation.user.avatarUrl, 128, 128, 'crop');
+            version.displayName = conversation.user.name; // Don't use disambiguated version
+            version.avatarUrl = conversation.user.getAvatarUrl(this._client.getHomeserverUrl(), 128, 128, 'crop', false);
         }
 
         if (!version.avatarUrl || version.avatarUrl.trim().length == 0)
@@ -389,6 +400,7 @@ class VoyagerBot {
             log.warn("VoyagerBot", "Try update user node failed: User was null");
             return Promise.resolve();
         }
+        log.info("VoyagerBot", "Attempting an update for user node: " + user.userId);
 
         var userNode;
         var userMeta;
@@ -411,6 +423,7 @@ class VoyagerBot {
             log.warn("VoyagerBot", "Try update room node failed: Room was null");
             return Promise.resolve();
         }
+        log.info("VoyagerBot", "Attempting an update for room node: " + room.roomId);
 
         var roomNode;
         var roomMeta;
