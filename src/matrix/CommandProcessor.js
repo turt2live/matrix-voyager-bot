@@ -47,11 +47,13 @@ class CommandProcessor {
 
     _sendHelp(event) {
         return this._bot.sendNotice(event.getRoomId(),
-            "!voyager showme     - Sets your name and avatar to be visible on the graph\n" +
-            "!voyager hideme     - Hides your name and avatar from the graph\n" +
-            "!voyager linkme     - Links your user account to this current room on the graph\n" +
-            "!voyager unlinkme   - Removes your self-links from the current room on the graph\n" +
-            "!voyager help       - This menu"
+            "!voyager showme          - Sets your name and avatar to be visible on the graph\n" +
+            "!voyager hideme          - Hides your name and avatar from the graph\n" +
+            "!voyager linkme [room]   - Links your user account to the specified room (defaults to current room)\n" +
+            "!voyager unlinkme [room] - Removes your self-links from the specified room (defaults to current room)\n" +
+            "!voyager help            - This menu\n" +
+            "\n" +
+            "View the current graph online at https://voyager.t2bot.io"
         );
     }
 
