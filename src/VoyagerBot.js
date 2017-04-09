@@ -32,7 +32,7 @@ class VoyagerBot {
         mtxStore.setClient(this._client);
 
         this._client.on('Room.timeline', this._processTimeline.bind(this));
-        this._client.on('RoomMember.membership', this._processMembership.bind(this));
+        this._client.on('RoomState.members', this._processMembership.bind(this));
         this._client.on('sync', this._onSync.bind(this));
         this._client.on('RoomState.events', this._onRoomStateUpdated.bind(this));
         this._client.on('Room', this._onRoom.bind(this));
@@ -64,7 +64,7 @@ class VoyagerBot {
         }
     }
 
-    _processMembership(event, member, oldMembership) {
+    _processMembership(event, state, member) {
         if (member.userId != this._client.credentials.userId)
             return Promise.resolve(); // not applicable for us
 
@@ -168,6 +168,8 @@ class VoyagerBot {
         var roomNode;
         var userNode;
         var kickbanLink;
+
+        log.info("VoyagerBot", "Recording " + type + " for " + event.getRoomId() + " made by " + event.getSender());
 
         return this.getNode(event.getSender(), 'user').then(node=> {
             userNode = node;
