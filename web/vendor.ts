@@ -6,4 +6,4 @@ import "@angular/http";
 import "@angular/router";
 import "rxjs";
 import "@angularclass/hmr";
-import "angular2-nvd3";
+import "ng2-d3-service";
