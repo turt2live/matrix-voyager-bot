@@ -70,7 +70,15 @@ class CommandProcessor {
                 var roomAlias = room.getCanonicalAlias();
                 if (!roomAlias) roomAlias = room.getAliases()[0];
                 if (roomAlias) alias = roomAlias;
-                return Promise.resolve(room.room_id);
+
+                var sender = room.getMember(event.getSender());
+                if (!sender || sender.membership !== 'join') {
+                    return this._reply(event, "You do not appear to be in the room " + roomArg).then(() => {
+                        throw new Error("Sender not in room: " + roomArg);
+                    });
+                }
+
+                return Promise.resolve(room.roomId);
             } else {
                 return this._reply(event, "Could not find room " + roomArg).then(() => {
                     throw new Error("Unknown room: " + roomArg);
