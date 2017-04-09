@@ -377,8 +377,24 @@ class VoyagerBot {
         return this._client.sendNotice(roomId, message);
     }
 
-    joinRoom(roomIdOrAlias) {
-        return this._client.joinRoom(roomIdOrAlias);
+    lookupRoom(roomIdOrAlias) {
+        return new Promise((resolve, reject) => {
+            var rooms = this._client.getRooms();
+
+            for (var room of rooms) {
+                var self = room.getMember(this._client.credentials.userId);
+                if (!self || self.membership !== 'join') continue;
+
+                if (room.roomId == roomIdOrAlias
+                    || room.getAliases().indexOf(roomIdOrAlias) !== -1
+                    || room.getCanonicalAlias() == roomIdOrAlias) {
+                    resolve(room);
+                    return;
+                }
+            }
+
+            resolve(null);
+        });
     }
 
     _tryUpdateNodeVersions() {

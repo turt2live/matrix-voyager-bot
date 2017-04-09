@@ -62,7 +62,10 @@ class CommandProcessor {
         var roomNode;
         var link;
 
-        return this._bot.joinRoom(roomArg || event.getRoomId()).then(room => {
+        if (!roomArg)
+            roomArg = event.getRoomId();
+
+        return this._bot.lookupRoom(roomArg).then(room => {
             if (room) {
                 var roomAlias = room.getCanonicalAlias();
                 if (!roomAlias) roomAlias = room.getAliases()[0];
