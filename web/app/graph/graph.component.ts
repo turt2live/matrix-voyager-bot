@@ -13,6 +13,8 @@ export class GraphComponent implements OnInit {
     private parentNativeElement: any;
     private data: {links: NetworkLink[], nodes: NetworkNode[], nodeLinks: string[]};
 
+    public highlightedNode: NetworkNode = null;
+
     constructor(private api: ApiService, element: ElementRef, d3Service: D3Service) {
         this.d3 = d3Service.getD3();
         this.parentNativeElement = element.nativeElement;
@@ -29,6 +31,8 @@ export class GraphComponent implements OnInit {
                 }
 
                 d3ParentElement = d3.select(this.parentNativeElement);
+
+                let tooltip = d3ParentElement.select<HTMLDivElement>("div.tooltip");
 
                 let svg = d3ParentElement.select<SVGSVGElement>("svg");
                 let bbox = d3ParentElement.node().getBoundingClientRect();
@@ -97,8 +101,20 @@ export class GraphComponent implements OnInit {
                             d.fy = null;
                         }));
 
-                nodes.on('mouseover', this.fade(0.1, nodes, links));
-                nodes.on('mouseout', this.fade(1, nodes, links));
+                nodes.on('mouseover', n => {
+                    this.fade(n, 0.1, nodes, links);
+
+                    this.highlightedNode = n;
+                    tooltip.transition().duration(200).style("opacity", 0.9);
+                    tooltip.style("left", d3.event.pageX + "px");
+                    tooltip.style("top", d3.event.pageY + "px");
+                });
+
+                nodes.on('mouseout', n => {
+                    this.fade(n, 1, nodes, links);
+
+                    tooltip.transition().duration(500).style('opacity', 0);
+                });
 
                 simulation.nodes(this.data.nodes).on('tick', () => this.onTick(links, nodes));
                 simulation.force<ForceLink<NetworkNode, NetworkLink>>("link").links(this.data.links);
@@ -131,13 +147,11 @@ export class GraphComponent implements OnInit {
         });
     }
 
-    private fade(opacity: number, nodes, links) {
-        return d => {
-            nodes.attr('stroke-opacity', n => this.isConnected(d, n) ? 1 : opacity);
-            nodes.attr('fill-opacity', n => this.isConnected(d, n) ? 1 : opacity);
+    private fade(selfNode, opacity: number, nodes, links) {
+        nodes.attr('stroke-opacity', n => this.isConnected(selfNode, n) ? 1 : opacity);
+        nodes.attr('fill-opacity', n => this.isConnected(selfNode, n) ? 1 : opacity);
 
-            links.attr("stroke-opacity", k => (k.source === d || k.target === d ? 1 : opacity));
-        };
+        links.attr("stroke-opacity", k => (k.source === selfNode || k.target === selfNode ? 1 : opacity));
     }
 
     private isConnected(node1: NetworkNode, node2: NetworkNode) {
