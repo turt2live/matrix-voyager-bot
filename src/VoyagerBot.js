@@ -458,10 +458,24 @@ class VoyagerBot {
             return this._tryUpdateNodeVersion(roomNode, roomMeta, realVersion);
         });
     }
+    
+    _replaceNulls(obj, defs) {
+        for (var key in obj) {
+            if (obj[key] === null || obj[key] === undefined) {
+                if (defs[key] !== null && defs[key] !== undefined) {
+                    obj[key] = defs[key];
+                }
+            }
+        }
+    }
 
     _tryUpdateNodeVersion(node, meta, currentVersion) {
         var newVersion = {};
         var updated = false;
+        
+        var defaults = {displayName: '', avatarUrl: '', isAnonymous: true, primaryAlias: ''};
+        this._replaceNulls(meta, defaults);
+        this._replaceNulls(currentVersion, defaults);
 
         if (currentVersion.displayName != meta.displayName) {
             newVersion.displayName = currentVersion.displayName || '';
@@ -486,7 +500,7 @@ class VoyagerBot {
             // TODO: Remove debugging
             var oldValues = {};
             for (var key in newVersion) {
-                oldValues[key] = currentVersion[key];
+                oldValues[key] = meta[key];
             }
             log.info("VoyagerBot", "Old meta for node " + node.objectId + " was (diff only): " + JSON.stringify(oldValues));
             
