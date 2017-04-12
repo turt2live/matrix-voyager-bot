@@ -138,10 +138,11 @@ class VoyagerBot {
 
             return this.getNode(event.getRoomId(), 'room');
         }).then(node=> {
-            if (!room)return Promise.resolve();
+            if (!room) return Promise.resolve();
             sourceNode = node;
             return this._store.createLink(sourceNode, targetNode, 'message', event.getTs());
         }).then(link=> {
+            if (!link) return Promise.resolve();
             return this._store.createTimelineEvent(link, event.getTs(), event.getId(), 'Matched: ' + matchedValue);
         });
     }
@@ -481,6 +482,14 @@ class VoyagerBot {
 
         if (updated) {
             log.info("VoyagerBot", "Updating meta for node " + node.objectId + " to: " + JSON.stringify(newVersion));
+            
+            // TODO: Remove debugging
+            var oldValues = {};
+            for (var key in newVersion) {
+                oldValues[key] = currentVersion[key];
+            }
+            log.info("VoyagerBot", "Old meta for node " + node.objectId + " was (diff only): " + JSON.stringify(oldValues));
+            
             return this._store.createNodeVersion(node, newVersion);
         }
 
