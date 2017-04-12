@@ -473,7 +473,11 @@ class VoyagerBot {
         var newVersion = {};
         var updated = false;
         
-        var defaults = {displayName: '', avatarUrl: '', isAnonymous: true, primaryAlias: ''};
+        var defaults = {displayName: '', avatarUrl: '', isAnonymous: true};
+        if (node.type == 'room') {
+            defaults.primaryAlias = '';
+        }
+        
         this._replaceNulls(meta, defaults);
         this._replaceNulls(currentVersion, defaults);
 
