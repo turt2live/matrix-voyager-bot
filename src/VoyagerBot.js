@@ -458,7 +458,7 @@ class VoyagerBot {
             return this._tryUpdateNodeVersion(roomNode, roomMeta, realVersion);
         });
     }
-    
+
     _replaceNulls(obj, defs) {
         for (var key in obj) {
             if (obj[key] === null || obj[key] === undefined) {
@@ -472,12 +472,13 @@ class VoyagerBot {
     _tryUpdateNodeVersion(node, meta, currentVersion) {
         var newVersion = {};
         var updated = false;
-        
+
         var defaults = {displayName: '', avatarUrl: '', isAnonymous: true};
         if (node.type == 'room') {
             defaults.primaryAlias = '';
         }
-        
+
+        // Ensure that `null != ''` doesn't end up triggering an update
         this._replaceNulls(meta, defaults);
         this._replaceNulls(currentVersion, defaults);
 
@@ -500,14 +501,13 @@ class VoyagerBot {
 
         if (updated) {
             log.info("VoyagerBot", "Updating meta for node " + node.objectId + " to: " + JSON.stringify(newVersion));
-            
-            // TODO: Remove debugging
+
             var oldValues = {};
             for (var key in newVersion) {
                 oldValues[key] = meta[key];
             }
-            log.info("VoyagerBot", "Old meta for node " + node.objectId + " was (diff only): " + JSON.stringify(oldValues));
-            
+            log.info("VoyagerBot", "Old meta for node " + node.objectId + " was (changed properties only): " + JSON.stringify(oldValues));
+
             return this._store.createNodeVersion(node, newVersion);
         }
 

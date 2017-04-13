@@ -621,7 +621,7 @@ class VoyagerStore {
                 "(SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'isAnonymous',"+
                 "(SELECT node_versions.primaryAlias FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.primaryAlias IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'primaryAlias'";
 
-            this._db.get(query, node.id, node.id, node.id, (err, row) => {
+            this._db.get(query, node.id, node.id, node.id, node.id, (err, row) => {
                 if (err) reject(err);
                 else {
                     row = row || {displayName: null, avatarUrl: null, isAnonymous: true, primaryAlias: null};
