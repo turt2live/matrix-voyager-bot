@@ -48,6 +48,8 @@ class ApiHandler {
             log.info("ApiHandler", "Looking up events in bucket " + bucketStart + " (original bucket: " + originalBucketStart + ") for query since=" + since + " limit=" + limit);
             var value = this._cache.get("bucket-" + bucketStart);
 
+            value = undefined; // HACK: Disable caching for now - needs more work
+
             if (value === undefined) {
                 log.info("ApiHandler", "Caching events since " + since + " up to " + limit + " results");
                 this._store.getTimelineEventsPaginated(since, limit).then(dto => {
@@ -64,11 +66,11 @@ class ApiHandler {
                         eventCache.ids.push(event.event.id);
 
                         log.info("ApiHandler", "Updating cache for bucket " + bucket + ". Adding event " + event.event.id + " to bring total count to " + eventCache.events.length);
-                        this._cache.set("bucket-" + bucket, eventCache);
+                        //this._cache.set("bucket-" + bucket, eventCache); // HACK: Disable caching for now - needs more work
 
                         if (bucketMap.indexOf(bucket) === -1) {
                             bucketMap.push(bucket);
-                            this._cache.set('buckets', bucketMap);
+                            // this._cache.set('buckets', bucketMap); // HACK: Disable caching for now - needs more work
                         }
                     }
                     log.info("ApiHandler", "Done caching request for events since " + since + " up to " + limit + " results");
@@ -91,7 +93,7 @@ class ApiHandler {
                     var newLimit = limit - results.length;
                     log.info("ApiHandler", "Not enough events found in bucket " + bucketStart + " - attempting to get " + newLimit + " more events");
 
-                    this._getNetworkCache(bucketStart + 1, newLimit).then(dto => {
+                    this._getNetworkCache(maxTimestamp, newLimit).then(dto => {
                         log.info("ApiHandler", "Considering " + dto.events.length + " events from recursive call for more events");
                         for (var item of dto.events) {
                             results.push(item);
