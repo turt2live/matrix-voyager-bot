@@ -19,6 +19,7 @@ class VoyagerBot {
         var localStorage = new LocalStorage("db/voyager_local_storage", 100 * 1024 * 1024); // quota is 100mb
         var mtxStore = new VoyagerMatrixStore(localStorage);
 
+        this._nodeUpdateQueue = [];
         this._store = store;
         this._commandProcessor = new CommandProcessor(this, store);
 
@@ -72,6 +73,9 @@ class VoyagerBot {
 
         if (state == "PREPARED") {
             this._tryUpdateNodeVersions();
+
+            this._processNodeVersions();
+            setInterval(() => this._processNodeVersions(), 15000);
         }
     }
 
@@ -399,16 +403,35 @@ class VoyagerBot {
         });
     }
 
+    _processNodeVersions() {
+        var processLimit = this._nodeUpdateQueue.splice(0, 2500);
+        log.info("VoyagerBot", "Processing " + processLimit.length + " pending node updates. " + this._nodeUpdateQueue.length + " remaining");
+        for (var obj of processLimit) {
+            switch (obj.type) {
+                case "room":
+                    this._tryUpdateRoomNodeVersion(obj.node);
+                    break;
+                case "user":
+                    this._tryUpdateUserNodeVersion(obj.node);
+                    break;
+                default:
+                    log.warn("VoyagerBot", "Could not handle node in update queue: " + JSON.stringify(obj));
+                    break;
+            }
+        }
+        log.info("VoyagerBot", "Processed " + processLimit.length + " node updates. " + this._nodeUpdateQueue.length + " remaining");
+    }
+
     _tryUpdateNodeVersions() {
         var rooms = this._client.getRooms();
         for (var room of rooms) {
-            this._tryUpdateRoomNodeVersion(room);
+            this._nodeUpdateQueue.push({node: room, type: 'room'});
         }
 
         this._store.getNodesByType('user').then(users=> {
             for (var user of users) {
                 var mtxUser = this._client.getUser(user.objectId);
-                this._tryUpdateUserNodeVersion(mtxUser);
+                this._nodeUpdateQueue.push({node: mtxUser, type: 'user'});
             }
         });
     }
