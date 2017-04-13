@@ -42,7 +42,8 @@ class ApiHandler {
                 bucketIdx = bucketMap.length - 1;
 
             var originalBucketStart = bucketStart;
-            bucketStart = bucketMap[bucketIdx];
+            if (bucketIdx >= 0)
+                bucketStart = bucketMap[bucketIdx];
 
             log.info("ApiHandler", "Looking up events in bucket " + bucketStart + " (original bucket: " + originalBucketStart + ") for query since=" + since + " limit=" + limit);
             var value = this._cache.get("bucket-" + bucketStart);
