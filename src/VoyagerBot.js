@@ -412,7 +412,7 @@ class VoyagerBot {
         }
 
         this._processingNodes = true;
-        var nodesToProcess = this._nodeUpdateQueue.splice(0, 500);
+        var nodesToProcess = this._nodeUpdateQueue.splice(0, 2500);
         var i = 0;
 
         log.info("VoyagerBot", "Processing " + nodesToProcess.length + " pending node updates. " + this._nodeUpdateQueue.length + " remaining");
