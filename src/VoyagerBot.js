@@ -406,29 +406,38 @@ class VoyagerBot {
     }
 
     _processNodeVersions() {
-        if(this._processingNodes) {
+        if (this._processingNodes) {
             log.warn("VoyagerBot", "Already processing nodes from queue - skipping interval check");
             return;
         }
 
         this._processingNodes = true;
-        var processLimit = this._nodeUpdateQueue.splice(0, 500);
-        log.info("VoyagerBot", "Processing " + processLimit.length + " pending node updates. " + this._nodeUpdateQueue.length + " remaining");
-        for (var obj of processLimit) {
+        var nodesToProcess = this._nodeUpdateQueue.splice(0, 500);
+        var i = 0;
+
+        log.info("VoyagerBot", "Processing " + nodesToProcess.length + " pending node updates. " + this._nodeUpdateQueue.length + " remaining");
+
+        var processPendingNode = (obj) => {
             switch (obj.type) {
                 case "room":
-                    this._tryUpdateRoomNodeVersion(obj.node);
-                    break;
+                    return this._tryUpdateRoomNodeVersion(obj.node);
                 case "user":
-                    this._tryUpdateUserNodeVersion(obj.node);
-                    break;
+                    return this._tryUpdateUserNodeVersion(obj.node);
                 default:
                     log.warn("VoyagerBot", "Could not handle node in update queue: " + JSON.stringify(obj));
-                    break;
+                    return Promise.resolve();
             }
-        }
-        log.info("VoyagerBot", "Processed " + processLimit.length + " node updates. " + this._nodeUpdateQueue.length + " remaining");
-        this._processingNodes = false;
+        };
+
+        var handler = () => {
+            if (i < nodesToProcess.length) {
+                processPendingNode(nodesToProcess[i++]).then(handler);
+            } else {
+                log.info("VoyagerBot", "Processed " + nodesToProcess.length + " node updates. " + this._nodeUpdateQueue.length + " remaining");
+                this._processingNodes = false;
+            }
+        };
+        handler();
     }
 
     _tryUpdateNodeVersions() {

@@ -36,8 +36,9 @@ class VoyagerStore {
     }
 
     _populateEnrolledUsers() {
+        log.info("VoyagerStore", "Populating enrolled users list...");
         return new Promise((resolve, reject) => {
-            this._db.all("SELECT objectId FROM nodes WHERE type = 'user' AND (SELECT isAnonymous FROM node_versions WHERE node_versions.nodeId = nodes.id AND isAnonymous IS NOT NULL ORDER BY id DESC LIMIT 1) = 0", (err, rows)=> {
+            this._db.all("SELECT objectId FROM nodes WHERE type = 'user' AND (SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = nodes.id AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) = 0", (err, rows)=> {
                 if (err) {
                     log.error("VoyagerStore", "Could not get enrolled users");
                     log.error("VoyagerStore", err);
