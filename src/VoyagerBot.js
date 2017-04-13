@@ -52,20 +52,24 @@ class VoyagerBot {
     }
 
     _onRoomMemberUpdated(event, state, member) {
-        return this._tryUpdateUserNodeVersion(member);
+        this._nodeUpdateQueue.push({node: member, type: 'user'});
+        return Promise.resolve();
     }
 
     _onUserUpdatedGeneric(event, user) {
-        return this._tryUpdateUserNodeVersion(user);
+        this._nodeUpdateQueue.push({node: user, type: 'user'});
+        return Promise.resolve();
     }
 
     _onRoom(room) {
-        return this._tryUpdateRoomNodeVersion(room);
+        this._nodeUpdateQueue.push({node: room, type: 'room'});
+        return Promise.resolve();
     }
 
     _onRoomStateUpdated(event, state) {
         log.info("VoyagerBot", "Updating room state for " + event.getRoomId());
-        return this._tryUpdateRoomNodeVersion(this._client.getRoom(event.getRoomId()));
+        this._nodeUpdateQueue.push({node: this._client.getRoom(event.getRoomId()), type: 'room'});
+        return Promise.resolve();
     }
 
     _onSync(state, prevState, data) {
@@ -93,7 +97,8 @@ class VoyagerBot {
         } else if (newState == 'ban') {
             return this._onBan(event);
         } else if (newState == 'join') {
-            return this._tryUpdateRoomNodeVersion(this._client.getRoom(event.getRoomId()));
+            this._nodeUpdateQueue.push({node: this._client.getRoom(event.getRoomId()), type: 'room'});
+            return Promise.resolve();
         }
 
         return Promise.resolve();
