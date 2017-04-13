@@ -533,6 +533,20 @@ class VoyagerStore {
     }
 
     /**
+     * Gets the number of timeline events that occur after the given timestamp
+     * @param {Number} timestamp the timestamp to search from
+     * @returns {Promise<number>} resolves to the number of remaining events
+     */
+    getCountTimelineEventsAfter(timestamp) {
+        return new Promise((resolve, reject)=> {
+            this._db.get("SELECT COUNT(*) AS total FROM timeline_events WHERE timestamp > ?", timestamp, (err, row) => {
+                if (err) reject(err);
+                else resolve(row.total);
+            });
+        });
+    }
+
+    /**
      * Gets all of the timeline events for the given range
      * @param {Number} since the timestamp to start the search from, exclusive
      * @param {Number} limit the total number of results to search for
@@ -541,7 +555,6 @@ class VoyagerStore {
     getTimelineEventsPaginated(since, limit) {
         return new Promise((resolve, reject) => {
             var events = [];
-            var remaining = 0;
 
             // It's more efficient for us to look up all the fields possible in one
             // query because it means we don't need to make 10,000 return trips to the
@@ -619,7 +632,7 @@ class VoyagerStore {
             var query = "SELECT \n" +
                 "(SELECT node_versions.displayName FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.displayName IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'displayName',\n" +
                 "(SELECT node_versions.avatarUrl FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.avatarUrl IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'avatarUrl',\n" +
-                "(SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'isAnonymous',"+
+                "(SELECT node_versions.isAnonymous FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.isAnonymous IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'isAnonymous'," +
                 "(SELECT node_versions.primaryAlias FROM node_versions WHERE node_versions.nodeId = ? AND node_versions.primaryAlias IS NOT NULL ORDER BY node_versions.id DESC LIMIT 1) as 'primaryAlias'";
 
             this._db.get(query, node.id, node.id, node.id, node.id, (err, row) => {
