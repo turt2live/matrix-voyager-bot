@@ -20,6 +20,8 @@ class VoyagerBot {
         var mtxStore = new VoyagerMatrixStore(localStorage);
 
         this._nodeUpdateQueue = [];
+        this._processingNodes = false;
+
         this._store = store;
         this._commandProcessor = new CommandProcessor(this, store);
 
@@ -404,7 +406,13 @@ class VoyagerBot {
     }
 
     _processNodeVersions() {
-        var processLimit = this._nodeUpdateQueue.splice(0, 2500);
+        if(this._processingNodes) {
+            log.warn("VoyagerBot", "Already processing nodes from queue - skipping interval check");
+            return;
+        }
+
+        this._processingNodes = true;
+        var processLimit = this._nodeUpdateQueue.splice(0, 500);
         log.info("VoyagerBot", "Processing " + processLimit.length + " pending node updates. " + this._nodeUpdateQueue.length + " remaining");
         for (var obj of processLimit) {
             switch (obj.type) {
@@ -420,6 +428,7 @@ class VoyagerBot {
             }
         }
         log.info("VoyagerBot", "Processed " + processLimit.length + " node updates. " + this._nodeUpdateQueue.length + " remaining");
+        this._processingNodes = false;
     }
 
     _tryUpdateNodeVersions() {
@@ -496,10 +505,7 @@ class VoyagerBot {
         var newVersion = {};
         var updated = false;
 
-        var defaults = {displayName: '', avatarUrl: '', isAnonymous: true};
-        if (node.type == 'room') {
-            defaults.primaryAlias = '';
-        }
+        var defaults = {displayName: '', avatarUrl: '', isAnonymous: true, primaryAlias: ''};
 
         // Ensure that `null != ''` doesn't end up triggering an update
         this._replaceNulls(meta, defaults);
@@ -517,7 +523,7 @@ class VoyagerBot {
             newVersion.isAnonymous = currentVersion.isAnonymous;
             updated = true;
         }
-        if (currentVersion.primaryAlias != meta.primaryAlias) {
+        if (currentVersion.primaryAlias != meta.primaryAlias && node.type == 'room') {
             newVersion.primaryAlias = currentVersion.primaryAlias || '';
             updated = true;
         }
