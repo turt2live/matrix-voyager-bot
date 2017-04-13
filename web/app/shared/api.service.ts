@@ -1,5 +1,5 @@
 import { Injectable } from "@angular/core";
-import { VoyagerNetwork } from "./voyager-network";
+import { PaginatedVoyagerNetwork } from "./voyager-network";
 import { Http, Response } from "@angular/http";
 import { Observable } from "rxjs";
 
@@ -8,15 +8,15 @@ export class ApiService {
     constructor(private http: Http) {
     }
 
-    getNetwork(): Observable<VoyagerNetwork> {
-        return this.http.get("/api/v1/network")
+    getNetwork(since = 0, limit = 10000): Observable<PaginatedVoyagerNetwork> {
+        return this.http.get("/api/v1/network", {params: {since: since, limit: limit}})
             .map(this.extractData)
             .catch(this.handleError);
     }
 
     private extractData(res: Response) {
         let body = res.json();
-        return body.results || {};
+        return body || {};
     }
 
     private handleError(error: Response|any) {

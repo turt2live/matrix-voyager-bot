@@ -22,120 +22,159 @@ export class GraphComponent implements OnInit {
     }
 
     ngOnInit() {
+        let commonNetwork = <VoyagerNetworkHelper>{
+            links: [],
+            nodes: [],
+            maxLinkTimestamp: 0,
+            handledLinkIds: [],
+            handledNodeIds: []
+        };
+
+        this.appendNetwork(0, commonNetwork);
+    }
+
+    private appendNetwork(since: number, resultsSoFar: VoyagerNetworkHelper) {
+        this.api.getNetwork(since).subscribe(result => {
+            let timestampChanged = false;
+
+            for (let i = 0; i < result.results.links.length; i++) {
+                let link = result.results.links[i];
+                if (resultsSoFar.handledLinkIds.indexOf(link.id) !== -1) continue;
+
+                if (link.timestamp > resultsSoFar.maxLinkTimestamp) {
+                    resultsSoFar.maxLinkTimestamp = link.timestamp;
+                    timestampChanged = true;
+                }
+
+                resultsSoFar.handledLinkIds.push(link.id);
+                resultsSoFar.links.push(link);
+            }
+            for (let i = 0; i < result.results.nodes.length; i++) {
+                let node = result.results.nodes[i];
+                if (resultsSoFar.handledNodeIds.indexOf(node.id) !== -1) continue;
+
+                resultsSoFar.handledNodeIds.push(node.id);
+                resultsSoFar.nodes.push(node);
+            }
+
+            if (result.remaining > 0 && timestampChanged) {
+                this.appendNetwork(resultsSoFar.maxLinkTimestamp, resultsSoFar);
+            } else {
+                this.processNetworkData(resultsSoFar);
+            }
+        }, error => alert(<any>error));
+    }
+
+    private processNetworkData(network: VoyagerNetwork) {
         let d3 = this.d3;
         let d3ParentElement: Selection<any, any, any, any>;
 
-        this.api.getNetwork().subscribe(
-            network => {
-                if (this.parentNativeElement == null) {
-                    throw new Error("Failed to get native element");
-                }
+        if (this.parentNativeElement == null) {
+            throw new Error("Failed to get native element");
+        }
 
-                d3ParentElement = d3.select(this.parentNativeElement);
+        d3ParentElement = d3.select(this.parentNativeElement);
 
-                let nodeTooltip = d3ParentElement.select<HTMLDivElement>("div.tooltip.node-tooltip");
-                let linkTooltip = d3ParentElement.select<HTMLDivElement>("div.tooltip.link-tooltip");
+        let nodeTooltip = d3ParentElement.select<HTMLDivElement>("div.tooltip.node-tooltip");
+        let linkTooltip = d3ParentElement.select<HTMLDivElement>("div.tooltip.link-tooltip");
 
-                let svg = d3ParentElement.select<SVGSVGElement>("svg");
-                let bbox = d3ParentElement.node().getBoundingClientRect();
-                let width = bbox.width;
-                let height = bbox.height;
+        let svg = d3ParentElement.select<SVGSVGElement>("svg");
+        let bbox = d3ParentElement.node().getBoundingClientRect();
+        let width = bbox.width;
+        let height = bbox.height;
 
-                svg.attr("width", width).attr("height", height);
+        svg.attr("width", width).attr("height", height);
 
-                svg.call(d3.zoom()
-                    .scaleExtent([-1, 10])
-                    .on('zoom', () => {
-                        svg.select("g.links")
-                            .attr("transform",
-                                "translate(" + d3.event.transform.x + "," + d3.event.transform.y + ")" +
-                                "scale(" + d3.event.transform.k + "," + d3.event.transform.k + ")");
-                        svg.select("g.nodes")
-                            .attr("transform",
-                                "translate(" + d3.event.transform.x + "," + d3.event.transform.y + ")" +
-                                "scale(" + d3.event.transform.k + "," + d3.event.transform.k + ")");
-                    }));
+        svg.call(d3.zoom()
+            .scaleExtent([-1, 10])
+            .on('zoom', () => {
+                svg.select("g.links")
+                    .attr("transform",
+                        "translate(" + d3.event.transform.x + "," + d3.event.transform.y + ")" +
+                        "scale(" + d3.event.transform.k + "," + d3.event.transform.k + ")");
+                svg.select("g.nodes")
+                    .attr("transform",
+                        "translate(" + d3.event.transform.x + "," + d3.event.transform.y + ")" +
+                        "scale(" + d3.event.transform.k + "," + d3.event.transform.k + ")");
+            }));
 
-                this.processNetwork(network);
+        this.processNetwork(network);
 
-                let defs = svg.select<SVGDefsElement>("defs");
-                this.buildFills(defs);
+        let defs = svg.select<SVGDefsElement>("defs");
+        this.buildFills(defs);
 
-                let simulation = d3.forceSimulation()
-                    .force("link", d3.forceLink<NetworkNode, NetworkLink>()
-                        .id(n => <any>n.id)
-                        .distance(k => Math.sqrt(k.value) * 75))
-                    .force("charge", d3.forceManyBody<NetworkNode>()
-                        .strength(n => Math.max(-400, n.linkCount * -40)))
-                    .force("center", d3.forceCenter(width / 2, height / 2))
-                    .force("collide", d3.forceCollide<NetworkNode>(n => n.type == 'room' ? 20 : 15).strength(0.5));
+        let simulation = d3.forceSimulation()
+            .force("link", d3.forceLink<NetworkNode, NetworkLink>()
+                .id(n => <any>n.id)
+                .distance(k => Math.sqrt(k.value) * 75))
+            .force("charge", d3.forceManyBody<NetworkNode>()
+                .strength(n => Math.max(-400, n.linkCount * -40)))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collide", d3.forceCollide<NetworkNode>(n => n.type == 'room' ? 20 : 15).strength(0.5));
 
-                let links = svg.append("g")
-                    .attr("class", "links")
-                    .selectAll("path")
-                    .data(this.data.links).enter().append("svg:path")
-                    .attr("fill", "none")
-                    .attr("stroke-width", k => Math.sqrt(k.value))
-                    .attr("stroke", k => this.getColorForType(k.type))
-                    .attr("stroke-opacity", 0.7);
+        let links = svg.append("g")
+            .attr("class", "links")
+            .selectAll("path")
+            .data(this.data.links).enter().append("svg:path")
+            .attr("fill", "none")
+            .attr("stroke-width", k => Math.sqrt(k.value))
+            .attr("stroke", k => this.getColorForType(k.type))
+            .attr("stroke-opacity", 0.7);
 
-                let nodes = svg.append("g")
-                    .attr("class", "nodes")
-                    .selectAll("circle")
-                    .data(this.data.nodes).enter().append("circle")
-                    .attr("fill", n => "url(#fillFor" + n.id + ")")
-                    .attr("r", n => n.type == 'room' ? 15 : 10)
-                    .attr("stroke", "#fff")
-                    .attr("stroke-width", n => n.type == 'room' ? '1.5px' : '1px')
-                    .call(d3.drag<SVGCircleElement, any>()
-                        .on("start", d => {
-                            if (!d3.event.active) simulation.alphaTarget(0.3).restart();
-                            d.fx = d.x;
-                            d.fy = d.y;
-                        })
-                        .on("drag", d => {
-                            d.fx = d3.event.x;
-                            d.fy = d3.event.y;
-                        })
-                        .on("end", d => {
-                            if (!d3.event.active) simulation.alphaTarget(0);
-                            d.fx = null;
-                            d.fy = null;
-                        }));
+        let nodes = svg.append("g")
+            .attr("class", "nodes")
+            .selectAll("circle")
+            .data(this.data.nodes).enter().append("circle")
+            .attr("fill", n => "url(#fillFor" + n.id + ")")
+            .attr("r", n => n.type == 'room' ? 15 : 10)
+            .attr("stroke", "#fff")
+            .attr("stroke-width", n => n.type == 'room' ? '1.5px' : '1px')
+            .call(d3.drag<SVGCircleElement, any>()
+                .on("start", d => {
+                    if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+                    d.fx = d.x;
+                    d.fy = d.y;
+                })
+                .on("drag", d => {
+                    d.fx = d3.event.x;
+                    d.fy = d3.event.y;
+                })
+                .on("end", d => {
+                    if (!d3.event.active) simulation.alphaTarget(0);
+                    d.fx = null;
+                    d.fy = null;
+                }));
 
-                nodes.on('mouseover', n => {
-                    this.fade(n, 0.1, nodes, links);
+        nodes.on('mouseover', n => {
+            this.fade(n, 0.1, nodes, links);
 
-                    this.highlightedNode = n;
-                    nodeTooltip.transition().duration(200).style("opacity", 0.9);
-                    nodeTooltip.style("left", d3.event.pageX + "px");
-                    nodeTooltip.style("top", d3.event.pageY + "px");
-                });
+            this.highlightedNode = n;
+            nodeTooltip.transition().duration(200).style("opacity", 0.9);
+            nodeTooltip.style("left", d3.event.pageX + "px");
+            nodeTooltip.style("top", d3.event.pageY + "px");
+        });
 
-                nodes.on('mouseout', n => {
-                    this.fade(n, 1, nodes, links);
+        nodes.on('mouseout', n => {
+            this.fade(n, 1, nodes, links);
 
-                    // this.highlightedNode = null;
-                    nodeTooltip.transition().duration(500).style('opacity', 0);
-                });
+            // this.highlightedNode = null;
+            nodeTooltip.transition().duration(500).style('opacity', 0);
+        });
 
-                links.on('mouseover', k => {
-                    this.highlightedLink = k;
-                    linkTooltip.transition().duration(200).style("opacity", 0.9);
-                    linkTooltip.style("left", d3.event.pageX + "px");
-                    linkTooltip.style("top", d3.event.pageY + "px");
-                });
+        links.on('mouseover', k => {
+            this.highlightedLink = k;
+            linkTooltip.transition().duration(200).style("opacity", 0.9);
+            linkTooltip.style("left", d3.event.pageX + "px");
+            linkTooltip.style("top", d3.event.pageY + "px");
+        });
 
-                links.on('mouseout', () => {
-                    // this.highlightedLink = null;
-                    linkTooltip.transition().duration(500).style("opacity", 0);
-                });
+        links.on('mouseout', () => {
+            // this.highlightedLink = null;
+            linkTooltip.transition().duration(500).style("opacity", 0);
+        });
 
-                simulation.nodes(this.data.nodes).on('tick', () => this.onTick(links, nodes));
-                simulation.force<ForceLink<NetworkNode, NetworkLink>>("link").links(this.data.links);
-            },
-            error => alert(<any>error)
-        );
+        simulation.nodes(this.data.nodes).on('tick', () => this.onTick(links, nodes));
+        simulation.force<ForceLink<NetworkNode, NetworkLink>>("link").links(this.data.links);
     }
 
     private onTick(links, nodes) {
@@ -359,4 +398,10 @@ class NetworkLink implements SimulationLinkDatum<NetworkNode> {
     type: string;
     inverseCount: number;
     relatedLinkTypes: string[];
+}
+
+class VoyagerNetworkHelper extends VoyagerNetwork {
+    handledNodeIds: number[];
+    handledLinkIds: number[];
+    maxLinkTimestamp: number;
 }
