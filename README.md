@@ -20,7 +20,7 @@ Questions? Ask away in [#voyager-bot:matrix.org](https://matrix.to/#/#voyager-bo
 1. Clone this repository
 2. `npm install`
 3. Copy `config/default.yaml` to `config/production.yaml`
-4. Edit the values of `config/production.yaml` to match your needs
+4. Edit the values of `config/production.yaml` and `config/database.json` to match your needs
 5. Run the bot with `NODE_ENV=production node index.js`
 
 # But... why?
@@ -33,7 +33,5 @@ There are 2 options to remove the bot from the room:
 1. Kick it (someone can still invite it back or relink an alias of the room)
 2. Ban it (if you'd like it to stay gone)
 
-The bot does record who kicked/banned it and what the reason given was. This information is published to the network graph.
-
-If you'd like your room removed from the graph entirely, please open a ticket or contact `@travis:t2l.io` on matrix.
+The bot does record who kicked/banned it and what the reason given was. The bot will remove any applicable nodes from the graph.
 
