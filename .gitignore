@@ -13,6 +13,9 @@ app/test2.json
 config/production.yaml
 config/development.yaml
 
+config/database-orig.json
+config/database-target.json
+
 db/sync-token
 db/localstorage
 db/voyager_local_storage*

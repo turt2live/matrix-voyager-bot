@@ -7,7 +7,7 @@ var fs = require('fs');
 var path = require('path');
 var Promise;
 
-var dbConfig = require("../config/database.json");
+var dbConfig = require(process.env.VOYAGER_DB_CONF_MIGRATE || "../config/database.json");
 var dbConfigEnv = dbConfig[process.env.NODE_ENV || 'development'];
 
 /**

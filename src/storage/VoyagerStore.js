@@ -391,7 +391,10 @@ class VoyagerStore {
      * @returns {Promise<NodeVersion>} resolves to the found node version, or null if none was found
      */
     getCurrentNodeVersionForNode(node) {
-        return this.__NodeVersions.findOne({where: {nodeId: node.id}, order: 'id DESC'}).then(nv => nv ? new NodeVersion(nv) : null);
+        return this.__NodeVersions.findOne({
+            where: {nodeId: node.id},
+            order: 'id DESC'
+        }).then(nv => nv ? new NodeVersion(nv) : null);
     }
 
     /**
@@ -609,14 +612,22 @@ function calculateNodeMeta(node) {
     };
 }
 
+function timestamp(val) {
+    if(typeof(val) === 'number') {
+        return val;
+    } else if(typeof(val) === 'string') {
+        return new Date(val).getTime();
+    } else return (val || new Date(0)).getTime();
+}
+
 class Node {
     constructor(dbFields) {
         this.id = dbFields.id;
         this.type = dbFields.type;
         this.objectId = dbFields.objectId;
         this.isReal = dbToBool(dbFields.isReal);
-        this.firstTimestamp = dbFields.firstTimestamp;
         this.isRedacted = dbToBool(dbFields.isRedacted);
+        this.firstTimestamp = timestamp(dbFields.firstTimestamp);
     }
 }
 
@@ -637,9 +648,9 @@ class Link {
         this.type = dbFields.type;
         this.sourceNodeId = dbFields.sourceNodeId;
         this.targetNodeId = dbFields.targetNodeId;
-        this.timestamp = dbFields.timestamp.getTime();
         this.isVisible = dbToBool(dbFields.isVisible);
         this.isRedacted = dbToBool(dbFields.isRedacted);
+        this.timestamp = timestamp(dbFields.timestamp);
     }
 }
 
@@ -647,9 +658,9 @@ class TimelineEvent {
     constructor(dbFields) {
         this.id = dbFields.id;
         this.linkId = dbFields.linkId;
-        this.timestamp = dbFields.timestamp.getTime();
         this.message = dbFields.message;
         this.matrixEventId = dbFields.matrixEventId;
+        this.timestamp = timestamp(dbFields.timestamp);
     }
 }
 
@@ -660,7 +671,7 @@ class StateEvent {
         this.linkId = dbFields.linkId;
         this.nodeId = dbFields.nodeId;
         this.nodeVersionId = dbFields.nodeVersionId;
-        this.timestamp = dbFields.timestamp.getTime();
+        this.timestamp = timestamp(dbFields.timestamp);
     }
 }
 
@@ -695,3 +706,10 @@ class CompleteTimelineEvent {
 }
 
 module.exports = VoyagerStore;
+module.exports.models = {
+    Node: Node,
+    Link: Link,
+    NodeVersion: NodeVersion,
+    TimelineEvent: TimelineEvent,
+    StateEvent: StateEvent
+};
