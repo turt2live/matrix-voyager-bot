@@ -75,10 +75,10 @@ class VoyagerStore {
         this.__Nodes.hasMany(this.__NodeVersions, {foreignKey: 'nodeId', targetKey: 'nodeId'});
         this.__NodeVersions.belongsTo(this.__Nodes, {foreignKey: 'nodeId'});
 
-        this.__Links.belongsTo(this.__Nodes, {foreignKey: 'sourceNodeId'});
-        this.__Links.belongsTo(this.__Nodes, {foreignKey: 'targetNodeId'});
-        this.__Nodes.hasMany(this.__Links, {foreignKey: 'id', targetKey: 'sourceNodeId'});
-        this.__Nodes.hasMany(this.__Links, {foreignKey: 'id', targetKey: 'targetNodeId'});
+        this.__Links.belongsTo(this.__Nodes, {foreignKey: 'sourceNodeId', as: 'sourceNode'});
+        this.__Links.belongsTo(this.__Nodes, {foreignKey: 'targetNodeId', as: 'targetNode'});
+        this.__Nodes.hasMany(this.__Links, {foreignKey: 'id', targetKey: 'sourceNodeId', as: 'sourceNode'});
+        this.__Nodes.hasMany(this.__Links, {foreignKey: 'id', targetKey: 'targetNodeId', as: 'targetNode'});
 
         this.__StateEvents.belongsTo(this.__Links, {foreignKey: 'linkId'});
         this.__StateEvents.belongsTo(this.__Nodes, {foreignKey: 'nodeId'});
@@ -424,7 +424,7 @@ class VoyagerStore {
         return this.__StateEvents.findAndCountAll({
             where: {
                 linkId: {$not: null},
-                timestamp: {$gt: since}
+                timestamp: {$gt: new Date(since)}
             },
             include: [{
                 model: this.__Links,
@@ -477,7 +477,7 @@ class VoyagerStore {
      * @returns {Promise<number>} resolves to the number of remaining events
      */
     getCountTimelineEventsAfter(timestamp) {
-        return this.__TimelineEvents.count({where: {timestamp: {$gt: timestamp}}});
+        return this.__TimelineEvents.count({where: {timestamp: {$gt: new Date(timestamp)}}});
     }
 
     /**
@@ -489,7 +489,7 @@ class VoyagerStore {
     getTimelineEventsPaginated(since, limit) {
         return this.__TimelineEvents.findAndCountAll({
             where: {
-                timestamp: {$gt: since}
+                timestamp: {$gt: new Date(since)}
             },
             include: [{
                 model: this.__Links,
@@ -700,8 +700,8 @@ class CompleteTimelineEvent {
         this.link = new Link(dbFields.link);
         this.sourceNode = new Node(dbFields.link.sourceNode);
         this.targetNode = new Node(dbFields.link.targetNode);
-        this.sourceNodeMeta = calculateNodeMeta(this.sourceNode);
-        this.targetNodeMeta = calculateNodeMeta(this.targetNode);
+        this.sourceNodeMeta = calculateNodeMeta(dbFields.link.sourceNode);
+        this.targetNodeMeta = calculateNodeMeta(dbFields.link.targetNode);
     }
 }
 
