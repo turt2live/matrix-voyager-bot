@@ -20,17 +20,17 @@ exports.up = function (db) {
         type: {type: 'string', notNull: true},
         linkId: {
             type: 'int',
-            foreignKey: {name: 'fk_state_events_links', table: 'links', mapping: 'id'},
+            foreignKey: {name: 'fk_state_events_links', table: 'links', mapping: 'id', rules: {onDelete: 'CASCADE', onUpdate: 'CASCADE'}},
             notNull: false
         },
         nodeId: {
             type: 'int',
-            foreignKey: {name: 'fk_state_events_nodes', table: 'nodes', mapping: 'id'},
+            foreignKey: {name: 'fk_state_events_nodes', table: 'nodes', mapping: 'id', rules: {onDelete: 'CASCADE', onUpdate: 'CASCADE'}},
             notNull: false
         },
         nodeVersionId: {
             type: 'int',
-            foreignKey: {name: 'fk_state_events_node_versions', table: 'node_versions', mapping: 'id'},
+            foreignKey: {name: 'fk_state_events_node_versions', table: 'node_versions', mapping: 'id', rules: {onDelete: 'CASCADE', onUpdate: 'CASCADE'}},
             notNull: false
         },
         timestamp: {type: 'timestamp', notNull: true}

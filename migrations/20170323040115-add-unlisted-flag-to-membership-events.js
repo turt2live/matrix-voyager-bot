@@ -15,7 +15,7 @@ exports.setup = function (options, seedLink) {
 };
 
 exports.up = function (db) {
-    return db.addColumn('membership_events', 'unlisted', {type: 'boolean', defaultValue: 0});
+    return db.addColumn('membership_events', 'unlisted', {type: 'boolean', defaultValue: false});
 };
 
 exports.down = function (db) {

@@ -7,6 +7,9 @@ var fs = require('fs');
 var path = require('path');
 var Promise;
 
+var dbConfig = require("../config/database.json");
+var dbConfigEnv = dbConfig[process.env.NODE_ENV || 'development'];
+
 /**
  * We receive the dbmigrate dependency from dbmigrate initially.
  * This enables us to not have to rely on NODE_PATH.
@@ -19,7 +22,7 @@ exports.setup = function (options, seedLink) {
 };
 
 exports.up = function (db) {
-    var filePath = path.join(__dirname, 'sqls', '20170329015645-migrate-states-to-events-up.sql');
+    var filePath = path.join(__dirname, 'sqls', dbConfigEnv.driver, '20170329015645-migrate-states-to-events-up.sql');
     return new Promise(function (resolve, reject) {
         fs.readFile(filePath, {encoding: 'utf-8'}, function (err, data) {
             if (err) return reject(err);

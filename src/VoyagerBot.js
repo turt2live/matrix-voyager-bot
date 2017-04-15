@@ -52,22 +52,25 @@ class VoyagerBot {
     }
 
     _onRoomMemberUpdated(event, state, member) {
+        log.info("VoyagerBot", "Queuing update of user " + member.userId);
         this._nodeUpdateQueue.push({node: member, type: 'user'});
         return Promise.resolve();
     }
 
     _onUserUpdatedGeneric(event, user) {
+        log.info("VoyagerBot", "Queuing update of user " + user.userId);
         this._nodeUpdateQueue.push({node: user, type: 'user'});
         return Promise.resolve();
     }
 
     _onRoom(room) {
+        log.info("VoyagerBot", "Queuing update of room " + event.getRoomId());
         this._nodeUpdateQueue.push({node: room, type: 'room'});
         return Promise.resolve();
     }
 
     _onRoomStateUpdated(event, state) {
-        log.info("VoyagerBot", "Updating room state for " + event.getRoomId());
+        log.info("VoyagerBot", "Queuing update of room state for " + event.getRoomId());
         this._nodeUpdateQueue.push({node: this._client.getRoom(event.getRoomId()), type: 'room'});
         return Promise.resolve();
     }

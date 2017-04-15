@@ -20,12 +20,12 @@ exports.up = function (db) {
         type: {type: 'string', notNull: true},
         sourceNodeId: {
             type: 'int',
-            foreignKey: {name: 'fk_links_source_node_id_nodes_node_id', table: 'nodes', mapping: 'id'},
+            foreignKey: {name: 'fk_links_source_node_id_nodes_node_id', table: 'nodes', mapping: 'id', rules: {onDelete: 'CASCADE', onUpdate: 'CASCADE'}},
             notNull: true
         },
         targetNodeId: {
             type: 'int',
-            foreignKey: {name: 'fk_links_target_node_id_nodes_node_id', table: 'nodes', mapping: 'id'},
+            foreignKey: {name: 'fk_links_target_node_id_nodes_node_id', table: 'nodes', mapping: 'id', rules: {onDelete: 'CASCADE', onUpdate: 'CASCADE'}},
             notNull: true
         },
         timestamp: {type: 'timestamp', notNull: true},

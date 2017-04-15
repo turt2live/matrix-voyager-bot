@@ -7,7 +7,10 @@
     "filename": "db/development.db"
   },
   "production": {
-    "driver": "sqlite3",
-    "filename": "db/production.db"
+    "driver": "pg",
+    "host": "localhost",
+    "database": "voyager",
+    "username": "voyager",
+    "password": "voyager"
   }
 }

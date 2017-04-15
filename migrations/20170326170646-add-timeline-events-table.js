@@ -19,7 +19,7 @@ exports.up = function (db) {
         id: {type: 'int', primaryKey: true, autoIncrement: true, notNull: true},
         linkId: {
             type: 'int',
-            foreignKey: {name: 'fk_timeline_events_links', table: 'links', mapping: 'id'},
+            foreignKey: {name: 'fk_timeline_events_links', table: 'links', mapping: 'id', rules: {onDelete: 'CASCADE', onUpdate: 'CASCADE'}},
             notNull: true
         },
         message: {type: 'string', notNull: false},

@@ -17,7 +17,7 @@ exports.setup = function (options, seedLink) {
 exports.up = function (db) {
     return db.createTable('node_versions', {
         id: {type: 'int', primaryKey: true, autoIncrement: true, notNull: true},
-        nodeId: {type: 'int', foreignKey: {name: 'fk_node_version_node', table: 'nodes', mapping: 'id'}, notNull: true},
+        nodeId: {type: 'int', foreignKey: {name: 'fk_node_version_node', table: 'nodes', mapping: 'id', rules: {onDelete: 'CASCADE', onUpdate: 'CASCADE'}}, notNull: true},
         displayName: {type: 'string', notNull: false},
         avatarUrl: {type: 'string', notNull: false},
         isAnonymous: {type: 'boolean', notNull: false}
