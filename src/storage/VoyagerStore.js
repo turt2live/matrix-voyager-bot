@@ -679,7 +679,7 @@ class CompleteNode extends Node {
     constructor(dbFields) {
         super(dbFields);
 
-        this.currentMeta = calculateNodeMeta(dbFields.nodeVersions);
+        this.currentMeta = calculateNodeMeta(dbFields);
     }
 }
 
