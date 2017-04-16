@@ -82,12 +82,17 @@ setupOrm(args[0], sourceDbConfigEnv).then(orm => source = orm).then(() => source
     return sourceModels.Nodes.findAll();
 }).then(nodes => {
     return promiseIter(nodes.map(r => new DbModels.Node(r)), n => {
+        var nodeMeta = null;
         return sourceModels.NodeMeta.findOne({where: {nodeId: n.id}})
             .then(meta => targetModels.NodeMeta.create(new DbModels.NodeMeta(meta)))
             .then(meta => {
+                nodeMeta = meta;
                 n.firstTimestamp = new Date(n.firstTimestamp);
                 n.nodeMetaId = meta.id;
                 return targetModels.Nodes.create(n);
+            }).then(node => {
+                nodeMeta.nodeId = node.id;
+                return nodeMeta.save();
             });
     });
 }).then(() => {
