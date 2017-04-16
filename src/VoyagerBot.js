@@ -358,6 +358,7 @@ class VoyagerBot {
                 allMembers.push(member);
                 if (member.membership == 'invite' || member.membership == 'join')
                     joinedMembers.push(member);
+                if (!member.displayName) member.displayName = member.name;
             }
 
             joinedMembers.sort(naturalSort({caseSensitive: false}));
