@@ -82,9 +82,13 @@ setupOrm(args[0], sourceDbConfigEnv).then(orm => source = orm).then(() => source
     return sourceModels.Nodes.findAll();
 }).then(nodes => {
     return promiseIter(nodes.map(r => new DbModels.Node(r)), n => {
-        n.firstTimestamp = new Date(n.firstTimestamp);
-        n.nodeMetaId = null; // we'll populate this later
-        return targetModels.Nodes.create(n);
+        return sourceModels.NodeMeta.findOne({where: {nodeId: n.id}})
+            .then(meta => targetModels.NodeMeta.create(meta))
+            .then(meta => {
+                n.firstTimestamp = new Date(n.firstTimestamp);
+                n.nodeMetaId = meta.id;
+                return targetModels.Nodes.create(n);
+            });
     });
 }).then(() => {
     log.info("migratedb", "Fetching all Node Meta...");
