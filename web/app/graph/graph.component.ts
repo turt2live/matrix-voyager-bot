@@ -18,6 +18,7 @@ export class GraphComponent implements OnInit {
 
     public highlightedNode: NetworkNode = null;
     public highlightedLink: NetworkLink = null;
+    private isDragging = false;
 
     constructor(private api: ApiService, element: ElementRef, d3Service: D3Service, private modalService: NgbModal) {
         this.d3 = d3Service.getD3();
@@ -138,6 +139,7 @@ export class GraphComponent implements OnInit {
                     if (!d3.event.active) simulation.alphaTarget(0.3).restart();
                     d.fx = d.x;
                     d.fy = d.y;
+                    this.isDragging = true;
                 })
                 .on("drag", d => {
                     d.fx = d3.event.x;
@@ -147,6 +149,7 @@ export class GraphComponent implements OnInit {
                     if (!d3.event.active) simulation.alphaTarget(0);
                     d.fx = null;
                     d.fy = null;
+                    this.isDragging = false;
                 }));
 
         nodes.on('click', n => {
@@ -170,6 +173,8 @@ export class GraphComponent implements OnInit {
         });
 
         nodes.on('mouseout', n => {
+            if (this.isDragging) return; // Don't release node when dragging
+
             this.fade(n, 1, nodes, links);
 
             // this.highlightedNode = null;
