@@ -17,6 +17,7 @@
     "npmlog": "^4.0.2",
     "pg": "^6.1.5",
     "pg-hstore": "^2.3.2",
+    "promise-map": "^1.2.0",
     "reflect-metadata": "^0.1.10",
     "sequelize": "^3.30.4",
     "sqlite3": "^3.1.8",

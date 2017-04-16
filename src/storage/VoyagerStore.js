@@ -2,6 +2,7 @@ var DBMigrate = require("db-migrate");
 var log = require("npmlog");
 var Sequelize = require('sequelize');
 var dbConfig = require("../../config/database.json");
+var map = require("promise-map");
 
 /**
  * Primary storage for Voyager.
@@ -69,6 +70,7 @@ class VoyagerStore {
         this.__Nodes = this._orm.import(__dirname + "/models/nodes");
         this.__StateEvents = this._orm.import(__dirname + "/models/state_events");
         this.__TimelineEvents = this._orm.import(__dirname + "/models/timeline_events");
+        this.__NodeMeta = this._orm.import(__dirname + "/models/node_meta");
 
         // Relationships
 
@@ -89,17 +91,17 @@ class VoyagerStore {
 
         this.__TimelineEvents.belongsTo(this.__Links, {foreignKey: 'linkId'});
         this.__Links.hasMany(this.__TimelineEvents, {foreignKey: 'id', targetKey: 'linkId'});
+
+        this.__Nodes.belongsTo(this.__NodeMeta, {as: 'nodeMeta', foreignKey: 'nodeMetaId'});
+        this.__NodeMeta.belongsTo(this.__Nodes, {as: 'nodeMeta', foreignKey: 'nodeId'});
     }
 
     _populateEnrolledUsers() {
         log.info("VoyagerStore", "Populating enrolled users list...");
         return this.__Nodes.findAll({
             include: [{
-                model: this.__NodeVersions,
-                where: {
-                    isAnonymous: {$not: null}
-                },
-                as: 'nodeVersions'
+                model: this.__NodeMeta,
+                as: 'nodeMeta'
             }],
             where: {
                 type: 'user',
@@ -107,14 +109,7 @@ class VoyagerStore {
             }
         }).then(results => {
             for (var result of results) {
-                var primaryVersion = null;
-                for (var version of (result.nodeVersions || [])) {
-                    if (!primaryVersion || primaryVersion.id < version.id)
-                        primaryVersion = version;
-                }
-
-                if (!primaryVersion || primaryVersion.isAnonymous) continue;
-
+                if (!result.nodeMeta || result.nodeMeta.isAnonymous) continue;
                 this._enrolledIds.push(result.objectId);
             }
             log.info("VoyagerStore", "Populated enrolled users. Found " + this._enrolledIds.length + " users enrolled");
@@ -171,12 +166,22 @@ class VoyagerStore {
      */
     createNode(type, objectId, firstVersion, isReal = true, isRedacted = false) {
         var node = null;
-        return this.__Nodes.create({
-            type: type,
-            objectId: objectId,
-            isReal: isReal,
-            isRedacted: isRedacted,
-            firstTimestamp: new Date(0)
+        var nodeMeta = null;
+        return this.__NodeMeta.create({
+            displayName: firstVersion.displayName,
+            avatarUrl: firstVersion.avatarUrl,
+            isAnonymous: firstVersion.isAnonymous,
+            primaryAlias: firstVersion.primaryAlias
+        }).then(meta => {
+            nodeMeta = meta;
+            return this.__Nodes.create({
+                type: type,
+                objectId: objectId,
+                isReal: isReal,
+                isRedacted: isRedacted,
+                firstTimestamp: new Date(0),
+                nodeMetaId: nodeMeta.id
+            });
         }).then(n => {
             node = n;
             return this.__NodeVersions.create({
@@ -185,13 +190,14 @@ class VoyagerStore {
                 avatarUrl: firstVersion.avatarUrl,
                 isAnonymous: firstVersion.isAnonymous,
                 primaryAlias: firstVersion.primaryAlias
-            }, {
-                fields: ['nodeId', 'displayName', 'avatarUrl', 'isAnonymous', 'primaryAlias']
             });
         }).then(nv => this.createStateEvent('node_added', {
             nodeId: node.id,
             nodeVersionId: nv.id
-        })).then(() => this.getNodeById(node.id));
+        })).then(() => {
+            nodeMeta.nodeId = node.id;
+            return nodeMeta.save();
+        }).then(() => this.getNodeById(node.id));
     }
 
     /**
@@ -261,6 +267,32 @@ class VoyagerStore {
                 nodeId: node.id,
                 nodeVersionId: nodeVersion.id
             });
+        }).then(() => this.__NodeMeta.findOne({where: {nodeId: node.id}})).then(nodeMeta => {
+            var displayName = valOrDBNull(fields.displayName);
+            var avatarUrl = valOrDBNull(fields.avatarUrl);
+            var isAnonymous = valOrDBNull(fields.isAnonymous);
+            var primaryAlias = valOrDBNull(fields.primaryAlias);
+            var changed = false;
+
+            if (displayName !== null && nodeMeta.displayName != displayName) {
+                nodeMeta.displayName = displayName;
+                changed = true;
+            }
+            if (avatarUrl !== null && nodeMeta.avatarUrl != avatarUrl) {
+                nodeMeta.avatarUrl = avatarUrl;
+                changed = true;
+            }
+            if (isAnonymous !== null && nodeMeta.isAnonymous != isAnonymous) {
+                nodeMeta.isAnonymous = isAnonymous;
+                changed = true;
+            }
+            if (primaryAlias !== null && nodeMeta.primaryAlias != primaryAlias) {
+                nodeMeta.primaryAlias = primaryAlias;
+                changed = true;
+            }
+
+            if (changed)return nodeMeta.save();
+            else return Promise.resolve();
         }).then(() => this.getNodeVersionById(nodeVersion.id));
     }
 
@@ -440,11 +472,10 @@ class VoyagerStore {
                 },
                 include: [{
                     model: this.__Nodes,
-                    as: 'node',
-                    include: [{
-                        model: this.__NodeVersions,
-                        as: 'nodeVersions'
-                    }]
+                    as: 'node'
+                }, {
+                    model: this.__NodeVersions,
+                    as: 'nodeVersion'
                 }],
                 limit: limit
             });
@@ -498,15 +529,15 @@ class VoyagerStore {
                     model: this.__Nodes,
                     as: 'sourceNode',
                     include: [{
-                        model: this.__NodeVersions,
-                        as: 'nodeVersions'
+                        model: this.__NodeMeta,
+                        as: 'nodeMeta'
                     }]
                 }, {
                     model: this.__Nodes,
                     as: 'targetNode',
                     include: [{
-                        model: this.__NodeVersions,
-                        as: 'nodeVersions'
+                        model: this.__NodeMeta,
+                        as: 'nodeMeta'
                     }]
                 }]
             }],
@@ -526,15 +557,10 @@ class VoyagerStore {
      * @returns {Promise<{displayName: String?, avatarUrl: String?, isAnonymous: boolean, primaryAlias: String?}>} resolves to the Node's state
      */
     getCurrentNodeState(node) {
-        return this.__NodeVersions.findAll({
-            where: {
-                nodeId: node.id
-            }
-        }).then(versions => {
-            var dto = {nodeVersions: versions};
-            var meta = calculateNodeMeta(dto);
+        return this.__NodeMeta.findOne({where: {nodeId: node.id}}).then(meta => {
+            if (!meta) meta = {displayName: null, avatarUrl: null, isAnonymous: true, primaryAlias: null};
             if (!meta.isAnonymous) meta.isAnonymous = false; // change null -> false
-            return meta;
+            return new NodeMeta(meta);
         });
     }
 
@@ -557,13 +583,11 @@ class VoyagerStore {
      */
     getAllNodes() {
         return this.__Nodes.findAll({
-            include: {
-                model: this.__NodeVersions,
-                as: 'nodeVersions'
-            }
-        }).then(nodes => {
-            return nodes.map(r => new CompleteNode(r));
-        });
+            include: [{
+                model: this.__NodeMeta,
+                as: 'nodeMeta'
+            }]
+        }).then(rows => rows.map(r => new CompleteNode(r)));
     }
 }
 
@@ -577,45 +601,10 @@ function valOrDBNull(val) {
     return val || null;
 }
 
-function calculateNodeMeta(node) {
-    var nv = {
-        displayName: {val: null, id: 0},
-        avatarUrl: {val: null, id: 0},
-        isAnonymous: {val: false, id: 0},
-        primaryAlias: {val: null, id: 0}
-    };
-
-    for (var version of node.nodeVersions) {
-        if (version.displayName !== null && version.id > nv.displayName.id) {
-            nv.displayName.val = version.displayName;
-            nv.displayName.id = version.id;
-        }
-        if (version.avatarUrl !== null && version.id > nv.avatarUrl.id) {
-            nv.avatarUrl.val = version.avatarUrl;
-            nv.avatarUrl.id = version.id;
-        }
-        if (version.isAnonymous !== null && version.id > nv.isAnonymous.id) {
-            nv.isAnonymous.val = version.isAnonymous;
-            nv.isAnonymous.id = version.id;
-        }
-        if (version.primaryAlias !== null && version.id > nv.primaryAlias.id) {
-            nv.primaryAlias.val = version.primaryAlias;
-            nv.primaryAlias.id = version.id;
-        }
-    }
-
-    return {
-        displayName: nv.displayName.val,
-        avatarUrl: nv.avatarUrl.val,
-        isAnonymous: nv.isAnonymous.val,
-        primaryAlias: nv.primaryAlias.val
-    };
-}
-
 function timestamp(val) {
-    if(typeof(val) === 'number') {
+    if (typeof(val) === 'number') {
         return val;
-    } else if(typeof(val) === 'string') {
+    } else if (typeof(val) === 'string') {
         return new Date(val).getTime();
     } else return (val || new Date(0)).getTime();
 }
@@ -628,6 +617,15 @@ class Node {
         this.isReal = dbToBool(dbFields.isReal);
         this.isRedacted = dbToBool(dbFields.isRedacted);
         this.firstTimestamp = timestamp(dbFields.firstTimestamp);
+    }
+}
+
+class NodeMeta {
+    constructor(dbFields) {
+        this.displayName = dbFields.displayName;
+        this.avatarUrl = dbFields.avatarUrl;
+        this.isAnonymous = dbToBool(dbFields.isAnonymous);
+        this.primaryAlias = dbFields.primaryAlias;
     }
 }
 
@@ -679,18 +677,17 @@ class CompleteNode extends Node {
     constructor(dbFields) {
         super(dbFields);
 
-        this.currentMeta = calculateNodeMeta(dbFields);
+        this.currentMeta = new NodeMeta(dbFields.nodeMeta);
     }
 }
 
 class CompleteStateEvent {
     constructor(dbFields) {
-        this.stateEvent = dbFields;
-        this.link = dbFields.link || null;
-        this.node = dbFields.node || null;
+        this.stateEvent = new StateEvent(dbFields);
 
-        if (this.node)
-            this.nodeVersion = calculateNodeMeta(this.node);
+        if (dbFields.link) this.link = new Link(dbFields.link);
+        if (dbFields.node) this.node = new Node(dbFields.node);
+        if (dbFields.nodeVersion) this.nodeVersion = new NodeVersion(dbFields.nodeVersion);
     }
 }
 
@@ -700,8 +697,8 @@ class CompleteTimelineEvent {
         this.link = new Link(dbFields.link);
         this.sourceNode = new Node(dbFields.link.sourceNode);
         this.targetNode = new Node(dbFields.link.targetNode);
-        this.sourceNodeMeta = calculateNodeMeta(dbFields.link.sourceNode);
-        this.targetNodeMeta = calculateNodeMeta(dbFields.link.targetNode);
+        this.sourceNodeMeta = new NodeMeta(dbFields.link.sourceNode.nodeMeta);
+        this.targetNodeMeta = new NodeMeta(dbFields.link.targetNode.nodeMeta);
     }
 }
 
@@ -710,6 +707,7 @@ module.exports.models = {
     Node: Node,
     Link: Link,
     NodeVersion: NodeVersion,
+    NodeMeta: NodeMeta,
     TimelineEvent: TimelineEvent,
     StateEvent: StateEvent
 };

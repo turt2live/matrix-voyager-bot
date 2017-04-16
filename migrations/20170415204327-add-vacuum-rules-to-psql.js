@@ -22,33 +22,22 @@ exports.setup = function (options, seedLink) {
 };
 
 exports.up = function (db) {
-    var filePath = path.join(__dirname, 'sqls', dbConfigEnv.driver, '20170402235601-redact-known-bad-events-up.sql');
+    var filePath = path.join(__dirname, 'sqls', dbConfigEnv.driver, '20170415204327-add-vacuum-rules-to-psql-up.sql');
     return new Promise(function (resolve, reject) {
         fs.readFile(filePath, {encoding: 'utf-8'}, function (err, data) {
             if (err) return reject(err);
             console.log('received data: ' + data);
 
+            console.log("!!!! It is recommended to run `VACUUM ANALYZE <table name>` ON ALL TABLES. See migration script for example.");
             resolve(data);
         });
-    })
-        .then(function (data) {
-            return db.runSql(data);
-        });
+    }).then(function (data) {
+        return db.runSql(data);
+    });
 };
 
 exports.down = function (db) {
-    var filePath = path.join(__dirname, 'sqls', dbConfigEnv.driver, '20170402235601-redact-known-bad-events-down.sql');
-    return new Promise(function (resolve, reject) {
-        fs.readFile(filePath, {encoding: 'utf-8'}, function (err, data) {
-            if (err) return reject(err);
-            console.log('received data: ' + data);
-
-            resolve(data);
-        });
-    })
-        .then(function (data) {
-            return db.runSql(data);
-        });
+    throw new Error("Unsupported");
 };
 
 exports._meta = {

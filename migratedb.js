@@ -51,6 +51,7 @@ function bindModels(orm) {
     models.Links = orm.import(__dirname + "/src/storage/models/links");
     models.NodeVersions = orm.import(__dirname + "/src/storage/models/node_versions");
     models.Nodes = orm.import(__dirname + "/src/storage/models/nodes");
+    models.NodeMeta = orm.import(__dirname + "/src/storage/models/node_meta");
     models.StateEvents = orm.import(__dirname + "/src/storage/models/state_events");
     models.TimelineEvents = orm.import(__dirname + "/src/storage/models/timeline_events");
     return models;
@@ -75,15 +76,26 @@ var targetModels = null;
 
 // This process is incredibly slow, however it is only intended to be run once.
 setupOrm(args[0], sourceDbConfigEnv).then(orm => source = orm).then(() => sourceModels = bindModels(source)).then(() => {
-  return setupOrm(args[1], targetDbConfigEnv).then(orm => target = orm).then(() => targetModels = bindModels(target));
+    return setupOrm(args[1], targetDbConfigEnv).then(orm => target = orm).then(() => targetModels = bindModels(target));
 }).then(() => {
     log.info("migratedb", "Fetching all Nodes...");
     return sourceModels.Nodes.findAll();
 }).then(nodes => {
     return promiseIter(nodes.map(r => new DbModels.Node(r)), n => {
         n.firstTimestamp = new Date(n.firstTimestamp);
+        n.nodeMetaId = null; // we'll populate this later
         return targetModels.Nodes.create(n);
     });
+}).then(() => {
+    log.info("migratedb", "Fetching all Node Meta...");
+    return sourceModels.NodeMeta.findAll();
+}).then(metas => {
+    return promiseIter(metas.map(r => new DbModels.NodeMeta(r)), m => {
+        return targetModels.NodeMeta.create(m);
+    });
+}).then(() => {
+    log.info("migratedb", "Updating node meta references...");
+    return target.query('UPDATE nodes SET "nodeMetaId" = (SELECT node_meta.id FROM node_meta WHERE "nodeId" = nodes.id)', {type: Sequelize.QueryTypes.UPDATE});
 }).then(() => {
     log.info("migratedb", "Fetching all Links...");
     return sourceModels.Links.findAll();
@@ -116,15 +128,12 @@ setupOrm(args[0], sourceDbConfigEnv).then(orm => source = orm).then(() => source
         return targetModels.StateEvents.create(e);
     });
 }).then(() => {
-    if(targetDbConfigEnv.driver == 'pg') {
+    if (targetDbConfigEnv.driver == 'pg') {
         log.info("migratedb", "Updating sequences...");
-        return  target.query("SELECT setval('links_id_seq', COALESCE((SELECT MAX(id)+1 FROM links), 1), false)", {type: Sequelize.QueryTypes.SELECT})
-            //.then(() => target.query("SELECT setval('enrolled_users_id_seq', COALESCE((SELECT MAX(id)+1 FROM enrolled_users), 1), false)", {type: Sequelize.QueryTypes.SELECT}))
-            //.then(() => target.query("SELECT setval('membership_events_id_seq', COALESCE((SELECT MAX(id)+1 FROM membership_events), 1), false)", {type: Sequelize.QueryTypes.SELECT}))
-            //.then(() => target.query("SELECT setval('migrations_seq', COALESCE((SELECT MAX(id)+1 FROM migrations), 1), false)", {type: Sequelize.QueryTypes.SELECT}))
+        return target.query("SELECT setval('links_id_seq', COALESCE((SELECT MAX(id)+1 FROM links), 1), false)", {type: Sequelize.QueryTypes.SELECT})
             .then(() => target.query("SELECT setval('node_versions_id_seq', COALESCE((SELECT MAX(id)+1 FROM node_versions), 1), false)", {type: Sequelize.QueryTypes.SELECT}))
             .then(() => target.query("SELECT setval('nodes_id_seq', COALESCE((SELECT MAX(id)+1 FROM nodes), 1), false)", {type: Sequelize.QueryTypes.SELECT}))
-            //.then(() => target.query("SELECT setval('room_links_id_seq', COALESCE((SELECT MAX(id)+1 FROM room_links), 1), false)", {type: Sequelize.QueryTypes.SELECT}))
+            .then(() => target.query("SELECT setval('node_meta_id_seq', COALESCE((SELECT MAX(id)+1 FROM node_meta), 1), false)", {type: Sequelize.QueryTypes.SELECT}))
             .then(() => target.query("SELECT setval('state_events_id_seq', COALESCE((SELECT MAX(id)+1 FROM state_events), 1), false)", {type: Sequelize.QueryTypes.SELECT}))
             .then(() => target.query("SELECT setval('timeline_events_id_seq', COALESCE((SELECT MAX(id)+1 FROM timeline_events), 1), false)", {type: Sequelize.QueryTypes.SELECT}))
     }

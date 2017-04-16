@@ -7,6 +7,15 @@ module.exports = function (sequelize, DataTypes) {
             primaryKey: true,
             field: 'id'
         },
+        nodeMetaId: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            field: 'nodeMetaId',
+            references: {
+                model: "nodeMeta",
+                key: "id"
+            }
+        },
         type: {
             type: DataTypes.STRING,
             allowNull: false,
