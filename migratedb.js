@@ -83,23 +83,13 @@ setupOrm(args[0], sourceDbConfigEnv).then(orm => source = orm).then(() => source
 }).then(nodes => {
     return promiseIter(nodes.map(r => new DbModels.Node(r)), n => {
         return sourceModels.NodeMeta.findOne({where: {nodeId: n.id}})
-            .then(meta => targetModels.NodeMeta.create(meta))
+            .then(meta => targetModels.NodeMeta.create(new DbModels.NodeMeta(meta)))
             .then(meta => {
                 n.firstTimestamp = new Date(n.firstTimestamp);
                 n.nodeMetaId = meta.id;
                 return targetModels.Nodes.create(n);
             });
     });
-}).then(() => {
-    log.info("migratedb", "Fetching all Node Meta...");
-    return sourceModels.NodeMeta.findAll();
-}).then(metas => {
-    return promiseIter(metas.map(r => new DbModels.NodeMeta(r)), m => {
-        return targetModels.NodeMeta.create(m);
-    });
-}).then(() => {
-    log.info("migratedb", "Updating node meta references...");
-    return target.query('UPDATE nodes SET "nodeMetaId" = (SELECT node_meta.id FROM node_meta WHERE "nodeId" = nodes.id)', {type: Sequelize.QueryTypes.UPDATE});
 }).then(() => {
     log.info("migratedb", "Fetching all Links...");
     return sourceModels.Links.findAll();

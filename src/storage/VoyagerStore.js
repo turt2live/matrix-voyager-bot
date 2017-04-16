@@ -658,6 +658,7 @@ class NodeMeta {
         this.avatarUrl = dbFields.avatarUrl;
         this.isAnonymous = dbToBool(dbFields.isAnonymous);
         this.primaryAlias = dbFields.primaryAlias;
+        this.nodeId = dbFields.nodeId;
     }
 }
 
