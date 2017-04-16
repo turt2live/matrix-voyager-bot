@@ -32,88 +32,6 @@ class ApiHandler {
         log.info("ApiHandler", "API Listening on " + config.get("web.address") + ":" + config.get("web.port"));
     }
 
-    _getNetworkCache(since, limit) {
-        return new Promise((resolve, reject) => {
-            var bucketStart = Math.floor(moment.duration(since, 'milliseconds').asHours());
-
-            var bucketMap = this._cache.get("buckets") || [];
-            var bucketIdx = sortedIndex(bucketMap, bucketStart);
-            if (bucketIdx >= bucketMap.length)
-                bucketIdx = bucketMap.length - 1;
-
-            var originalBucketStart = bucketStart;
-            if (bucketIdx >= 0)
-                bucketStart = bucketMap[bucketIdx];
-
-            log.info("ApiHandler", "Looking up events in bucket " + bucketStart + " (original bucket: " + originalBucketStart + ") for query since=" + since + " limit=" + limit);
-            var value = this._cache.get("bucket-" + bucketStart);
-
-            value = undefined; // HACK: Disable caching for now - needs more work
-
-            if (value === undefined) {
-                log.info("ApiHandler", "Caching events since " + since + " up to " + limit + " results");
-                this._store.getTimelineEventsPaginated(since, limit).then(dto => {
-                    for (var event of dto.events) {
-                        var bucket = Math.floor(moment.duration(event.event.timestamp, 'milliseconds').asHours());
-                        var eventCache = this._cache.get("bucket-" + bucket) || {ids: [], events: []};
-
-                        if (eventCache.ids.indexOf(event.event.id) !== -1) {
-                            log.info("ApiHandler", "Duplicate event " + event.event.id + " discovered - skipping cache for bucket " + bucket);
-                            continue;
-                        }
-
-                        eventCache.events.push(event);
-                        eventCache.ids.push(event.event.id);
-
-                        log.info("ApiHandler", "Updating cache for bucket " + bucket + ". Adding event " + event.event.id + " to bring total count to " + eventCache.events.length);
-                        //this._cache.set("bucket-" + bucket, eventCache); // HACK: Disable caching for now - needs more work
-
-                        if (bucketMap.indexOf(bucket) === -1) {
-                            bucketMap.push(bucket);
-                            // this._cache.set('buckets', bucketMap); // HACK: Disable caching for now - needs more work
-                        }
-                    }
-                    log.info("ApiHandler", "Done caching request for events since " + since + " up to " + limit + " results");
-                    resolve(dto);
-                }, err => reject(err));
-            } else {
-                var results = [];
-                var maxTimestamp = 0;
-
-                for (var event of value.events) {
-                    if (results.length >= limit) break;
-
-                    if (event.timestamp > maxTimestamp)
-                        maxTimestamp = event.timestamp;
-
-                    results.push(event);
-                }
-
-                if (results.length < limit && maxTimestamp > 0) {
-                    var newLimit = limit - results.length;
-                    log.info("ApiHandler", "Not enough events found in bucket " + bucketStart + " - attempting to get " + newLimit + " more events");
-
-                    this._getNetworkCache(maxTimestamp, newLimit).then(dto => {
-                        log.info("ApiHandler", "Considering " + dto.events.length + " events from recursive call for more events");
-                        for (var item of dto.events) {
-                            results.push(item);
-                        }
-
-                        resolve(item);
-                    }, err => reject(err));
-                } else {
-                    log.info("ApiHandler", "Serving cached result for bucket start " + bucketStart + " (since " + since + " up to " + limit + " results)");
-                    this._store.getCountTimelineEventsAfter(maxTimestamp).then(remaining => {
-                        resolve({
-                            events: results,
-                            remaining: remaining
-                        });
-                    }, err => reject(err));
-                }
-            }
-        });
-    }
-
     _getNetwork(request, response) {
         var limit = Math.max(0, Math.min(10000, request.query.limit || 1000));
         var since = Math.max(0, request.query.since || 0);
@@ -125,7 +43,7 @@ class ApiHandler {
         var redactedLinks = 0;
 
         log.info("ApiHandler", "Getting events for query since=" + since + " limit=" + limit);
-        this._getNetworkCache(since, limit).then(dto => {
+        this._store.getTimelineEventsPaginated(since, limit).then(dto => {
             log.info("ApiHandler", "Got " + dto.events.length + " events (" + dto.remaining + " remaining) for query since=" + since + " limit=" + limit);
 
             remaining = dto.remaining;
