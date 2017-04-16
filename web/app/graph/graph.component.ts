@@ -1,12 +1,15 @@
 import { Component, OnInit, ElementRef } from "@angular/core";
 import { ApiService } from "../shared/api.service";
 import { VoyagerNetwork } from "../shared/voyager-network";
-import { D3Service, D3, Selection, ForceLink, SimulationNodeDatum, SimulationLinkDatum } from "d3-ng2-service";
+import { D3Service, D3, Selection, ForceLink } from "d3-ng2-service";
+import { NgbModal } from "@ng-bootstrap/ng-bootstrap";
+import { NetworkLink, NetworkNode } from "./network-dto";
+import { GraphDialogComponent } from "./graph-dialog/graph-dialog.component";
 
 @Component({
     selector: 'my-graph',
     templateUrl: './graph.component.html',
-    styleUrls: ['./graph.component.scss'],
+    styleUrls: ['./graph.component.scss']
 })
 export class GraphComponent implements OnInit {
     private d3: D3;
@@ -16,7 +19,7 @@ export class GraphComponent implements OnInit {
     public highlightedNode: NetworkNode = null;
     public highlightedLink: NetworkLink = null;
 
-    constructor(private api: ApiService, element: ElementRef, d3Service: D3Service) {
+    constructor(private api: ApiService, element: ElementRef, d3Service: D3Service, private modalService: NgbModal) {
         this.d3 = d3Service.getD3();
         this.parentNativeElement = element.nativeElement;
     }
@@ -129,6 +132,7 @@ export class GraphComponent implements OnInit {
             .attr("r", n => n.type == 'room' ? 15 : 10)
             .attr("stroke", "#fff")
             .attr("stroke-width", n => n.type == 'room' ? '1.5px' : '1px')
+            .attr("cursor", "pointer")
             .call(d3.drag<SVGCircleElement, any>()
                 .on("start", d => {
                     if (!d3.event.active) simulation.alphaTarget(0.3).restart();
@@ -144,6 +148,17 @@ export class GraphComponent implements OnInit {
                     d.fx = null;
                     d.fy = null;
                 }));
+
+        nodes.on('click', n => {
+            if (n) {
+                console.log("Dialog disabled");
+                return;
+            }
+            let modalInstance = this.modalService.open(GraphDialogComponent);
+            modalInstance.componentInstance.node = n;
+            svg.style("z-index", -1);
+            modalInstance.result.then(() => svg.style("z-index", 0), () => svg.style("z-index", 0));
+        });
 
         nodes.on('mouseover', n => {
             this.fade(n, 0.1, nodes, links);
@@ -375,29 +390,6 @@ export class GraphComponent implements OnInit {
 
         this.data = {links: links, nodes: nodes, nodeLinks: nodeLinksMap};
     }
-}
-
-class NetworkNode implements SimulationNodeDatum {
-    id: number;
-    name: string;
-    group: string;
-    type: string;
-    avatarUrl: string;
-    isAnonymous: boolean;
-    linkCount: number;
-    primaryAlias: string;
-    directLinks: NetworkLink[];
-}
-
-class NetworkLink implements SimulationLinkDatum<NetworkNode> {
-    sourceNode: number;
-    targetNode: number;
-    source: NetworkNode;
-    target: NetworkNode;
-    value: number;
-    type: string;
-    inverseCount: number;
-    relatedLinkTypes: string[];
 }
 
 class VoyagerNetworkHelper extends VoyagerNetwork {
