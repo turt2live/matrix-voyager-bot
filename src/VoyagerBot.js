@@ -89,7 +89,7 @@ class VoyagerBot {
     }
 
     _processMembership(event, state, member) {
-        if (member.userId != this._client.credentials.userId)
+        if (member.userId != this._client.credentials.userId || event.getType() !== 'm.room.member')
             return Promise.resolve(); // not applicable for us
 
         var newState = member.membership;
@@ -164,17 +164,17 @@ class VoyagerBot {
     _onInvite(event) {
         var sourceNode;
         var targetNode;
-        var inviteLink;
 
         return this.getNode(event.getSender(), 'user').then(node=> {
             sourceNode = node;
             return this.getNode(event.getRoomId(), 'room');
         }).then(node => {
             targetNode = node;
-            return this._store.createLink(sourceNode, targetNode, 'invite', event.getTs());
-        }).then(link=> {
-            inviteLink = link;
-            return this._store.createTimelineEvent(inviteLink, event.getTs(), event.getId());
+            return this._store.findLinkByTimeline(sourceNode, targetNode, 'invite', event.getId());
+        }).then(existingLink => {
+            if (existingLink) return Promise.resolve();
+            else return this._store.createLink(sourceNode, targetNode, 'invite', event.getTs())
+                .then(link => this._store.createTimelineEvent(link, event.getTs(), event.getId()));
         }).then(() => {
             return this._client.joinRoom(event.getRoomId());
         }).then(room => {

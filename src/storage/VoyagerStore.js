@@ -89,8 +89,8 @@ class VoyagerStore {
         this.__Nodes.hasMany(this.__StateEvents, {foreignKey: 'id', targetKey: 'nodeId'});
         this.__NodeVersions.hasMany(this.__StateEvents, {foreignKey: 'id', targetKey: 'nodeVersionId'});
 
-        this.__TimelineEvents.belongsTo(this.__Links, {foreignKey: 'linkId'});
-        this.__Links.hasMany(this.__TimelineEvents, {foreignKey: 'id', targetKey: 'linkId'});
+        this.__TimelineEvents.belongsTo(this.__Links, {foreignKey: 'linkId', as: 'link'});
+        this.__Links.hasMany(this.__TimelineEvents, {foreignKey: 'id', targetKey: 'linkId', as: 'link'});
 
         this.__Nodes.belongsTo(this.__NodeMeta, {as: 'nodeMeta', foreignKey: 'nodeMetaId'});
         this.__NodeMeta.belongsTo(this.__Nodes, {as: 'nodeMeta', foreignKey: 'nodeId'});
@@ -303,6 +303,38 @@ class VoyagerStore {
      */
     getNodeVersionById(id) {
         return this.__NodeVersions.findById(id).then(nv => nv ? new NodeVersion(nv) : null);
+    }
+
+    /**
+     * Attempts to find a link where the given source node, target node, type, and timeline
+     * event exist.
+     * @param {Node} sourceNode the source Node
+     * @param {Node} targetNode the target Node
+     * @param {'invite'|'message'|'self_link'|'kick'|'ban'} type the link type
+     * @param {string} matrixEventId the timeline event ID
+     * @returns {Promise<Link>} resovles to the first found link, or null if not found
+     */
+    findLinkByTimeline(sourceNode, targetNode, type, matrixEventId) {
+        return this.__TimelineEvents.findAll({
+            where: {matrixEventId: matrixEventId},
+            include: [{
+                model: this.__Links,
+                where: {
+                    type: type,
+                    sourceNodeId: sourceNode.id,
+                    targetNodeId: targetNode.id
+                },
+                as: 'link'
+            }]
+        }).then(events => {
+            if (!events)return Promise.resolve(null);
+
+            for (var event of events) {
+                if (event.link) return Promise.resolve(event.link);
+            }
+
+            return Promise.resolve(null);
+        });
     }
 
     /**
