@@ -164,6 +164,8 @@ export class GraphComponent implements OnInit {
         });
 
         nodes.on('mouseover', n => {
+            if (this.isDragging) return;
+
             this.fade(n, 0.1, nodes, links);
 
             this.highlightedNode = n;
