@@ -12,6 +12,7 @@ class VoyagerStore {
     constructor() {
         this._orm = null;
         this._enrolledIds = [];
+        this._isPsql = false;
     }
 
     /**
@@ -48,6 +49,7 @@ class VoyagerStore {
 
                 if (opts.dialect == 'sqlite')
                     opts.storage = dbConfigEnv.filename;
+                else this._isPsql = true;
 
                 this._orm = new Sequelize(dbConfigEnv.database || 'voyager', dbConfigEnv.username, dbConfigEnv.password, opts);
                 this._bindModels();
@@ -590,7 +592,7 @@ class VoyagerStore {
      */
     getCurrentNodeState(node) {
         return this.__NodeMeta.findOne({where: {nodeId: node.id}}).then(meta => {
-            if (!meta) meta = {displayName: null, avatarUrl: null, isAnonymous: true, primaryAlias: null};
+            if (!meta) meta = {id: 0, displayName: null, avatarUrl: null, isAnonymous: true, primaryAlias: null};
             if (!meta.isAnonymous) meta.isAnonymous = false; // change null -> false
             return new NodeMeta(meta);
         });
@@ -620,6 +622,32 @@ class VoyagerStore {
                 as: 'nodeMeta'
             }]
         }).then(rows => rows.map(r => new CompleteNode(r)));
+    }
+
+    /**
+     * Gets an array of public node meta that have primary aliases. Only meta that contains the keywords
+     * will be returned (either in the display name or in the primary alias). This performs a very rough
+     * check and may require some additional processing to get useful results.
+     * @param {String[]} keywords the list of terms/keywords to search for
+     * @returns {Promise<NodeMeta[]>} resolves to the array of node meta matching the criteria
+     */
+    findNodeMetaMatching(keywords) {
+        var likeCondition = keywords.map(k => "%" + k + "%");
+        return this.__NodeMeta.findAll({
+            where: {
+                $and: [
+                    {primaryAlias: {$not: null, $ne: ''}},
+                    {isAnonymous: false},
+                    {
+                        $or: likeCondition.map(k => {
+                            return {primaryAlias: (this._isPsql ? {$iLike: k} : {$like: k})};
+                        }).concat(likeCondition.map(k => {
+                            return {displayName: (this._isPsql ? {$iLike: k} : {$like: k})};
+                        }))
+                    },
+                ]
+            }
+        }).then(meta => (meta || []).map(m => new NodeMeta(m)));
     }
 }
 
@@ -654,6 +682,7 @@ class Node {
 
 class NodeMeta {
     constructor(dbFields) {
+        this.id = dbFields.id;
         this.displayName = dbFields.displayName;
         this.avatarUrl = dbFields.avatarUrl;
         this.isAnonymous = dbToBool(dbFields.isAnonymous);

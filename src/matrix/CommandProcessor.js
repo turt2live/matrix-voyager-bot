@@ -1,4 +1,5 @@
 var log = require("npmlog");
+require("string_score"); // automagically adds itself as "words".score(...)
 
 /**
  * Processes bot commands from Matrix
@@ -36,6 +37,8 @@ class CommandProcessor {
             return this._handleSelfLink(event, /*isLinking=*/true, cmdArguments[1]);
         } else if (cmdArguments[0] == 'unlinkme') {
             return this._handleSelfLink(event, /*isLinking=*/false, cmdArguments[1]);
+        } else if (cmdArguments[0] == 'search') {
+            return this._handleSearch(event, cmdArguments.splice(1));
         } else return this._reply(event, "Unknown command. Try !voyager help");
     }
 
@@ -47,14 +50,46 @@ class CommandProcessor {
 
     _sendHelp(event) {
         return this._bot.sendNotice(event.getRoomId(),
-            "!voyager showme          - Sets your name and avatar to be visible on the graph\n" +
-            "!voyager hideme          - Hides your name and avatar from the graph\n" +
-            "!voyager linkme [room]   - Links your user account to the specified room (defaults to current room)\n" +
-            "!voyager unlinkme [room] - Removes your self-links from the specified room (defaults to current room)\n" +
-            "!voyager help            - This menu\n" +
+            "!voyager showme            - Sets your name and avatar to be visible on the graph\n" +
+            "!voyager hideme            - Hides your name and avatar from the graph\n" +
+            "!voyager linkme [room]     - Links your user account to the specified room (defaults to current room)\n" +
+            "!voyager unlinkme [room]   - Removes your self-links from the specified room (defaults to current room)\n" +
+            "!voyager search <keywords> - Searches for rooms that have the specified keywords\n" +
+            "!voyager help              - This menu\n" +
             "\n" +
             "View the current graph online at https://voyager.t2bot.io"
         );
+    }
+
+    _handleSearch(event, keywords) {
+        if (keywords.length == 0)
+            return this._reply(event, "No keywords specified. Try !voyager search <keywords>");
+
+        return this._store.findNodeMetaMatching(keywords).then(metas => {
+            // We have to score these ourselves now (the database just does a rough contains check to get a smaller dataset)
+            for (var meta of metas) {
+                meta.rank = 0;
+                for (var keyword of keywords) {
+                    meta.rank += meta.primaryAlias.score(keyword, 0.5); // 0.5 fuzziness
+                    if (meta.displayName) meta.rank += meta.displayName.score(keyword, 0.5); // 0.5 fuzziness
+                }
+            }
+
+            metas.sort((a, b) => {
+                return a.rank - b.rank;
+            });
+
+            return metas;
+        }).then(sortedMeta => {
+            var sample = sortedMeta.splice(0, 5);
+            if (sample.length == 0)
+                return this._reply(event, "No results for keywords: " + keywords);
+
+            var response = "Found the following rooms:\n";
+            for (var meta of sample)
+                response += (sample.indexOf(meta) + 1) + ". " + meta.primaryAlias + (meta.displayName ? " | " + meta.displayName : "") + "\n"
+            return this._reply(event, response);
+        });
     }
 
     _handleSelfLink(event, isLinking, roomArg) {
