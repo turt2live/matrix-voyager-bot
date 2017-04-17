@@ -120,7 +120,7 @@ class VoyagerStore {
 
     /**
      * Creates a new state event
-     * @param {'node_added'|'node_removed'|'node_updated'|'link_added'|'link_removed'} type the type of event
+     * @param {'node_added'|'node_removed'|'node_updated'|'node_restored'|'link_added'|'link_removed'} type the type of event
      * @param {{nodeId: Number, nodeVersionId: Number}|{linkId: Number}} params the params for the event, must match the event type
      * @returns {Promise<StateEvent>} resolves to the created state event
      */
@@ -136,6 +136,7 @@ class VoyagerStore {
             case 'node_added':
             case 'node_removed':
             case 'node_updated':
+            case 'node_restored':
                 return this.__StateEvents.create({
                     type: type,
                     nodeId: params.nodeId,
@@ -446,6 +447,24 @@ class VoyagerStore {
             })
             .then(() => this.getCurrentNodeVersionForNode(node))
             .then(version => this.createStateEvent('node_removed', {
+                nodeId: node.id,
+                nodeVersionId: version.id
+            }));
+    }
+
+    /**
+     * Updates a node to be unredacted
+     * @param {Node} node the node to be unredacted
+     * @returns {Promise} resolves when the node has been updated
+     */
+    unredactNode(node) {
+        return this.__Nodes.findById(node.id)
+            .then(n => {
+                n.isRedacted = false;
+                return n.save();
+            })
+            .then(() => this.getCurrentNodeVersionForNode(node))
+            .then(version => this.createStateEvent('node_restored', {
                 nodeId: node.id,
                 nodeVersionId: version.id
             }));

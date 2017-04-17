@@ -41,6 +41,10 @@ class CommandProcessor {
             return this._handleSearch(event, cmdArguments.splice(1));
         } else if (cmdArguments[0] == 'leave') {
             return this._handleSoftKick(event);
+        } else if (cmdArguments[0] == 'addme') {
+            return this._handleSelfRedact(event, /*isAdding=*/true);
+        } else if (cmdArguments[0] == 'removeme') {
+            return this._handleSelfRedact(event, /*isAdding=*/false);
         } else return this._reply(event, "Unknown command. Try !voyager help");
     }
 
@@ -58,6 +62,8 @@ class CommandProcessor {
             "!voyager unlinkme [room]   - Removes your self-links from the specified room (defaults to current room)\n" +
             "!voyager search <keywords> - Searches for rooms that have the specified keywords\n" +
             "!voyager leave             - Forces the bot to leave the room, but keep the room on the graph\n" +
+            "!voyager removeme          - Takes your user node, and associated links, off of the graph\n" +
+            "!voyager addme             - Adds your user node, and associated links, to the graph\n" +
             "!voyager help              - This menu\n" +
             "\n" +
             "View the current graph online at https://voyager.t2bot.io"
@@ -115,6 +121,21 @@ class CommandProcessor {
                 response += (sample.indexOf(meta) + 1) + ". " + meta.primaryAlias + (meta.displayName ? " | " + meta.displayName : "") + "\n"
             return this._reply(event, response);
         });
+    }
+
+    _handleSelfRedact(event, isAdding) {
+        return this._bot.getNode(event.getSender(), 'user')
+            .then(node => {
+                if (isAdding && !node.isRedacted)
+                    return this._reply(event, "You are already available on the graph");
+
+                if (!isAdding && node.isRedacted)
+                    return this._reply(event, "You are already removed from the graph");
+
+                if (isAdding)
+                    return this._store.unredactNode(node).then(() => this._reply(event, "You have been restored to the graph"));
+                else return this._store.redactNode(node).then(() => this._reply(event, "You have been removed from the graph"));
+            });
     }
 
     _handleSelfLink(event, isLinking, roomArg) {
