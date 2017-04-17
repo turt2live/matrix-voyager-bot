@@ -312,7 +312,7 @@ class VoyagerStore {
      * event exist.
      * @param {Node} sourceNode the source Node
      * @param {Node} targetNode the target Node
-     * @param {'invite'|'message'|'self_link'|'kick'|'ban'} type the link type
+     * @param {'invite'|'message'|'self_link'|'kick'|'ban'|'soft_kick'} type the link type
      * @param {string} matrixEventId the timeline event ID
      * @returns {Promise<Link>} resovles to the first found link, or null if not found
      */
@@ -343,7 +343,7 @@ class VoyagerStore {
      * Creates a new Link
      * @param {Node} sourceNode the source Node
      * @param {Node} targetNode the target Node
-     * @param {'invite'|'message'|'self_link'|'kick'|'ban'} type the link type
+     * @param {'invite'|'message'|'self_link'|'kick'|'ban'|'soft_kick'} type the link type
      * @param {number} timestamp the timestamp of the event
      * @param {boolean} isVisible true if the link is visible
      * @param {boolean} isRedacted true if the link should be redacted
@@ -420,7 +420,7 @@ class VoyagerStore {
      * Attempts to find a given Link
      * @param {Node} sourceNode the source node
      * @param {Node} targetNode the target node
-     * @param {'invite'|'message'|'self_link'|'kick'|'ban'} type the link type
+     * @param {'invite'|'message'|'self_link'|'kick'|'ban'|'soft_kick'} type the link type
      * @returns {Promise<Link>} resolves with the found link, or null
      */
     findLink(sourceNode, targetNode, type) {

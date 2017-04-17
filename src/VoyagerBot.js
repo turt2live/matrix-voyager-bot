@@ -394,6 +394,14 @@ class VoyagerBot {
         return this._client.sendNotice(roomId, message);
     }
 
+    getRoom(roomId) {
+        return this._client.getRoom(roomId);
+    }
+
+    leaveRoom(roomId) {
+        return this._client.leave(roomId);
+    }
+
     lookupRoom(roomIdOrAlias) {
         return new Promise((resolve, reject) => {
             var rooms = this._client.getRooms();

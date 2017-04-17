@@ -8,4 +8,5 @@ export class LinkMeta {
     type: string;
     sourceNodeId: number;
     targetNodeId: number;
+    isVisible: boolean;
 }

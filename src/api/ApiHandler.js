@@ -41,6 +41,7 @@ class ApiHandler {
         var links = [];
         var remaining = 0;
         var redactedLinks = 0;
+        var hiddenLinks = 0;
 
         log.info("ApiHandler", "Getting events for query since=" + since + " limit=" + limit);
         this._store.getTimelineEventsPaginated(since, limit).then(dto => {
@@ -62,6 +63,11 @@ class ApiHandler {
                     continue;
                 }
 
+                if (!event.link.isVisible) {
+                    hiddenLinks++;
+                    continue;
+                }
+
                 if (handledNodeIds.indexOf(event.sourceNode.id) === -1) {
                     nodes.push(this._nodeToJsonObject(event.sourceNode, event.sourceNodeMeta));
                     handledNodeIds.push(event.sourceNode.id);
@@ -79,6 +85,7 @@ class ApiHandler {
                 total: links.length,
                 remaining: remaining,
                 redacted: redactedLinks,
+                hidden: hiddenLinks,
                 results: {
                     nodes: nodes,
                     links: links

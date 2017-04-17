@@ -39,6 +39,8 @@ class CommandProcessor {
             return this._handleSelfLink(event, /*isLinking=*/false, cmdArguments[1]);
         } else if (cmdArguments[0] == 'search') {
             return this._handleSearch(event, cmdArguments.splice(1));
+        } else if (cmdArguments[0] == 'leave') {
+            return this._handleSoftKick(event);
         } else return this._reply(event, "Unknown command. Try !voyager help");
     }
 
@@ -55,10 +57,33 @@ class CommandProcessor {
             "!voyager linkme [room]     - Links your user account to the specified room (defaults to current room)\n" +
             "!voyager unlinkme [room]   - Removes your self-links from the specified room (defaults to current room)\n" +
             "!voyager search <keywords> - Searches for rooms that have the specified keywords\n" +
+            "!voyager leave             - Forces the bot to leave the room, but keep the room on the graph\n" +
             "!voyager help              - This menu\n" +
             "\n" +
             "View the current graph online at https://voyager.t2bot.io"
         );
+    }
+
+    _handleSoftKick(event) {
+        var powerLevelEvent = this._bot.getRoom(event.getRoomId()).currentState.getStateEvents('m.room.power_levels', '');
+        if (!powerLevelEvent)
+            return this._reply(event, "Error processing command: Could not find m.room.power_levels state event");
+        if (event.sender.powerLevel < powerLevelEvent.getContent().kick)
+            return this._reply(event, "You must be at least power level " + powerLevelEvent.getContent().kick + " to kick me from the room");
+
+        var userNode = null;
+        var roomNode = null;
+
+        return this._bot.getNode(event.getSender(), 'user')
+            .then(node => {
+                userNode = node;
+                return this._bot.getNode(event.getRoomId(), 'room');
+            }).then(node => {
+                roomNode = node;
+                return this._store.createLink(userNode, roomNode, 'soft_kick', event.getTs(), false, false);
+            }).then(link => {
+                return this._store.createTimelineEvent(link, event.getTs(), event.getId(), 'Soft kicked');
+            }).then(() => this._bot.leaveRoom(event.getRoomId()));
     }
 
     _handleSearch(event, keywords) {

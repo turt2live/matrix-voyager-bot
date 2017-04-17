@@ -10,6 +10,13 @@ All resources can be reached with [https://voyager.t2bot.io](https://voyager.t2b
 * `invite` - The bot was invited to the target room by the source user
 * `self_link` - The source user decided to link themselves to the target room
 
+**Exist, but selectively exposed by endpoints**
+* `kick` - A user has kicked the bot from the room
+* `ban` - A user has banned the bot from the room
+* `soft_kick` - A user has asked the bot to leave peacefully (does not redact room node)
+
+*Note:* Most endpoints do not support these extra link types. Endpoints that do will indicate as such.
+
 ### Event Types
 * `node_added` - A new node has been created
 * `node_updated` - An existing node has been updated, see metadata
@@ -30,6 +37,8 @@ Gets information about the graph network.
 {
   total: 1000, // total links in this result set
   remaining: 10, // the number of results not included in this response that are after `since`
+  redacted: 0, // the number of results marked as redacted (these will not be in the results)
+  hidden: 0, // the number of results marked as invisible (these will not be in the results)
   results: {
     // Note: This only includes nodes that are relevant to the `links`
     nodes: [{
@@ -51,7 +60,7 @@ Gets information about the graph network.
       meta: {
         sourceNodeId: 1234,
         targetNodeId: 1235,
-        type: 'message' // any of the link types
+        type: 'message' // any of the normal link types
       }
     }]
   }
@@ -112,7 +121,7 @@ If the node is not found, `404 Not Found` is returned.
 
 ## `GET /api/v1/events`
 
-Gets all known events.
+Gets all known events. This will include state events for the 'extra' link types.
 
 **Request Query Params**
 * `limit` - `int`, the number of results to retrieve (up to 10,000). Default is 1000, minimum 1.
