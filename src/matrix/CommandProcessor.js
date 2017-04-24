@@ -107,7 +107,7 @@ class CommandProcessor {
             }
 
             metas.sort((a, b) => {
-                return a.rank - b.rank;
+                return b.rank - a.rank;
             });
 
             return metas;
