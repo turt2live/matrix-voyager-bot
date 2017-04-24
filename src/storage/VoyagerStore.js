@@ -425,7 +425,7 @@ class VoyagerStore {
      * @returns {Promise<Link>} resolves with the found link, or null
      */
     findLink(sourceNode, targetNode, type) {
-        return this.__TimelineEvents.findOne({
+        return this.__Links.findOne({
             where: {
                 sourceNodeId: sourceNode.id,
                 targetNodeId: targetNode.id,
