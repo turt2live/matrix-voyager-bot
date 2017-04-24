@@ -131,7 +131,7 @@ class CommandProcessor {
 
             var response = "Found the following rooms:\n";
             for (var result of sample)
-                response += (sample.indexOf(result) + 1) + ". " + (result.meta.primaryAlias || result.aliases[0]) + (result.meta.displayName ? " | " + result.meta.displayName : "") + "\n"
+                response += (sample.indexOf(result) + 1) + ". " + (result.meta.primaryAlias || result.aliases[0].alias) + (result.meta.displayName ? " | " + result.meta.displayName : "") + "\n"
             return this._reply(event, response);
         });
     }
