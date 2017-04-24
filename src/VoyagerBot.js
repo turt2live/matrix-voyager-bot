@@ -71,7 +71,9 @@ class VoyagerBot {
 
     _onRoomStateUpdated(event, state) {
         log.info("VoyagerBot", "Queuing update of room state for " + event.getRoomId());
-        this._nodeUpdateQueue.push({node: this._client.getRoom(event.getRoomId()), type: 'room'});
+        var room = this._client.getRoom(event.getRoomId());
+        this._client.store.storeRoom(room);
+        this._nodeUpdateQueue.push({node: room, type: 'room'});
         return Promise.resolve();
     }
 
