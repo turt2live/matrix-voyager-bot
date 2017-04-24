@@ -96,29 +96,42 @@ class CommandProcessor {
         if (keywords.length == 0)
             return this._reply(event, "No keywords specified. Try !voyager search <keywords>");
 
-        return this._store.findNodeMetaMatching(keywords).then(metas => {
+        return this._store.findNodesMatching(keywords).then(results => {
             // We have to score these ourselves now (the database just does a rough contains check to get a smaller dataset)
-            for (var meta of metas) {
-                meta.rank = 0;
+            for (var result of results) {
+                result.rank = 0;
                 for (var keyword of keywords) {
-                    meta.rank += meta.primaryAlias.score(keyword, 0.5); // 0.5 fuzziness
-                    if (meta.displayName) meta.rank += meta.displayName.score(keyword, 0.5); // 0.5 fuzziness
+                    result.rank += result.meta.primaryAlias.score(keyword, 0.5); // 0.5 fuzziness
+                    if (result.displayName) result.rank += result.meta.displayName.score(keyword, 0.5); // 0.5 fuzziness
+
+                    if (result.aliases) {
+                        // We only take the highest alias rank for other aliases to avoid the case where
+                        // a room may have several available aliases, all of which are there to just bump
+                        // the score up a bit.
+                        var highestAliasRank = 0;
+                        for (var alias of result.aliases) {
+                            var rank = alias.alias.score(keyword, 0.5); // 0.5 fuzziness
+                            if (rank > highestAliasRank)
+                                highestAliasRank = rank;
+                        }
+                        result.rank += highestAliasRank;
+                    }
                 }
             }
 
-            metas.sort((a, b) => {
+            results.sort((a, b) => {
                 return b.rank - a.rank;
             });
 
-            return metas;
-        }).then(sortedMeta => {
-            var sample = sortedMeta.splice(0, 5);
+            return results;
+        }).then(sortedResults => {
+            var sample = sortedResults.splice(0, 5);
             if (sample.length == 0)
                 return this._reply(event, "No results for keywords: " + keywords);
 
             var response = "Found the following rooms:\n";
-            for (var meta of sample)
-                response += (sample.indexOf(meta) + 1) + ". " + meta.primaryAlias + (meta.displayName ? " | " + meta.displayName : "") + "\n"
+            for (var result of sample)
+                response += (sample.indexOf(result) + 1) + ". " + (result.meta.primaryAlias || result.aliases[0]) + (result.meta.displayName ? " | " + result.meta.displayName : "") + "\n"
             return this._reply(event, response);
         });
     }

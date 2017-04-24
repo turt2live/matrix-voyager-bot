@@ -73,11 +73,15 @@ class VoyagerStore {
         this.__StateEvents = this._orm.import(__dirname + "/models/state_events");
         this.__TimelineEvents = this._orm.import(__dirname + "/models/timeline_events");
         this.__NodeMeta = this._orm.import(__dirname + "/models/node_meta");
+        this.__NodeAliases = this._orm.import(__dirname + "/models/node_aliases");
 
         // Relationships
 
         this.__Nodes.hasMany(this.__NodeVersions, {foreignKey: 'nodeId', targetKey: 'nodeId'});
         this.__NodeVersions.belongsTo(this.__Nodes, {foreignKey: 'nodeId'});
+
+        this.__Nodes.hasMany(this.__NodeAliases, {foreignKey: 'nodeId', targetKey: 'nodeId'});
+        this.__NodeAliases.belongsTo(this.__Nodes, {foreignKey: 'nodeId'});
 
         this.__Links.belongsTo(this.__Nodes, {foreignKey: 'sourceNodeId', as: 'sourceNode'});
         this.__Links.belongsTo(this.__Nodes, {foreignKey: 'targetNodeId', as: 'targetNode'});
@@ -163,11 +167,12 @@ class VoyagerStore {
      * @param {'user'|'room'} type the type of Node
      * @param {string} objectId the object ID for the Node
      * @param {{displayName: String, avatarUrl: String, isAnonymous: boolean, primaryAlias: String}} firstVersion the first version of the Node
+     * @param {string[]} aliases the aliases for the node, optional
      * @param {boolean} isReal true if the node is a real node
      * @param {boolean} isRedacted true if the node should be redacted
      * @return {Promise<Node>} resolves to the created Node
      */
-    createNode(type, objectId, firstVersion, isReal = true, isRedacted = false) {
+    createNode(type, objectId, firstVersion, aliases = [], isReal = true, isRedacted = false) {
         var node = null;
         var nodeMeta = null;
         return this.__NodeMeta.create({
@@ -200,6 +205,8 @@ class VoyagerStore {
         })).then(() => {
             nodeMeta.nodeId = node.id;
             return nodeMeta.save();
+        }).then(() => {
+            return this.setNodeAliases(node, aliases || []);
         }).then(() => this.getNodeById(node.id));
     }
 
@@ -644,18 +651,23 @@ class VoyagerStore {
     }
 
     /**
-     * Gets an array of public node meta that have primary aliases. Only meta that contains the keywords
-     * will be returned (either in the display name or in the primary alias). This performs a very rough
-     * check and may require some additional processing to get useful results.
+     * Gets an array of public nodes that have an alias available. Only nodes with meta information or
+     * aliases containing the keywords will be returned (either the display name or any other alias). This
+     * performs a very rough check and may require additional processing to get useful results.
      * @param {String[]} keywords the list of terms/keywords to search for
-     * @returns {Promise<NodeMeta[]>} resolves to the array of node meta matching the criteria
+     * @returns {Promise<NodeSearchResult[]>} resolves to the array of nodes matching the criteria
      */
-    findNodeMetaMatching(keywords) {
+    findNodesMatching(keywords) {
         var likeCondition = keywords.map(k => "%" + k + "%");
-        return this.__NodeMeta.findAll({
+
+        var rawMeta = null;
+        var rawAliases = null;
+        var nodeMap = {}; // { id: NodeSearchResult }
+
+        var metaPromise = this.__NodeMeta.findAll({
             where: {
                 $and: [
-                    {primaryAlias: {$not: null, $ne: ''}},
+                    // {primaryAlias: {$not: null, $ne: ''}},
                     {isAnonymous: false},
                     {
                         $or: likeCondition.map(k => {
@@ -666,7 +678,79 @@ class VoyagerStore {
                     },
                 ]
             }
-        }).then(meta => (meta || []).map(m => new NodeMeta(m)));
+        }).then(meta => rawMeta = (meta || []).map(m => new NodeMeta(m)));
+
+        var aliasPromise = this.__NodeAliases.findAll({
+            where: {
+                $or: likeCondition.map(k => {
+                    return {alias: (this._isPsql ? {$iLike: k} : {$like: k})};
+                })
+            }
+        }).then(aliases => rawAliases = (aliases || []).map(a => new NodeAlias(a)));
+
+        return Promise.all([metaPromise, aliasPromise]).then(() => {
+            for (var meta of rawMeta) {
+                if (!nodeMap[meta.nodeId])
+                    nodeMap[meta.nodeId] = new NodeSearchResult();
+                nodeMap[meta.nodeId].meta = meta;
+            }
+
+            for (var alias of rawAliases) {
+                if (!nodeMap[alias.nodeId])
+                    nodeMap[alias.nodeId] = new NodeSearchResult();
+                if (!nodeMap[alias.nodeId].aliases)
+                    nodeMap[alias.nodeId].aliases = [];
+                nodeMap[alias.nodeId].aliases.push(alias);
+            }
+
+            var missingMeta = [];
+            for (var nodeId in nodeMap) {
+                var nodeInfo = nodeMap[nodeId];
+                if (!nodeInfo.meta) {
+                    missingMeta.push(nodeId);
+                }
+            }
+
+            return this.__NodeMeta.findAll({where: {nodeId: {$in: missingMeta}}});
+        }).then(foundMeta => {
+            for (var meta of foundMeta) {
+                if (!nodeMap[meta.nodeId])
+                    nodeMap[meta.nodeId] = new NodeSearchResult();
+                nodeMap[meta.nodeId].meta = meta;
+            }
+
+            var finalNodes = [];
+
+            for (var nodeId in nodeMap) {
+                var nodeInfo = nodeMap[nodeId];
+                if (!nodeInfo.meta) continue; // we automatically refuse anything that doesn't have meta (because this shouldn't happen)
+                if (nodeInfo.meta.primaryAlias || (nodeInfo.aliases && nodeInfo.aliases.length > 0))
+                    finalNodes.push(nodeInfo);
+            }
+
+            return finalNodes;
+        });
+    }
+
+    /**
+     * Sets the aliases for a given node
+     * @param {Node} node the node to update
+     * @param {String[]} aliases the aliases to set for the node
+     * @returns {Promise} resolves when complete
+     */
+    setNodeAliases(node, aliases) {
+        return this.__NodeAliases.findAll({where: {nodeId: node.id}})
+            .then(nodes => Promise.all(nodes.map(n => n.destroy())))
+            .then(() => Promise.all(aliases.map(a => this.__NodeAliases.create({nodeId: node.id, alias: a}))));
+    }
+
+    /**
+     * Gets all of the aliases for a given node
+     * @param {Node} node the node to lookup aliases for
+     * @returns {Promise<NodeAlias[]>} resolves to the list of known aliases
+     */
+    getNodeAliases(node) {
+        return this.__NodeAliases.findAll({where: {nodeId: node.id}}).then(aliases => aliases.map(a => new NodeAlias(a)));
     }
 }
 
@@ -710,6 +794,14 @@ class NodeMeta {
     }
 }
 
+class NodeAlias {
+    constructor(dbFields) {
+        this.id = dbFields.id;
+        this.alias = dbFields.alias;
+        this.nodeId = dbFields.nodeId;
+    }
+}
+
 class NodeVersion {
     constructor(dbFields) {
         this.id = dbFields.id;
@@ -718,6 +810,13 @@ class NodeVersion {
         this.avatarUrl = dbFields.avatarUrl;
         this.isAnonymous = dbToBool(dbFields.isAnonymous);
         this.primaryAlias = dbFields.primaryAlias;
+    }
+}
+
+class NodeSearchResult {
+    constructor() {
+        this.meta = null; // NodeMeta
+        this.aliases = []; // NodeAlias[]
     }
 }
 
@@ -789,6 +888,7 @@ module.exports.models = {
     Link: Link,
     NodeVersion: NodeVersion,
     NodeMeta: NodeMeta,
+    NodeAlias: NodeAlias,
     TimelineEvent: TimelineEvent,
     StateEvent: StateEvent
 };

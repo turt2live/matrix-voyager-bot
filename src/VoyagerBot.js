@@ -249,7 +249,7 @@ class VoyagerBot {
 
         if (room) version = this._getRoomVersion(room);
 
-        return this._store.createNode('room', roomId, version);
+        return this._store.createNode('room', roomId, version, version.aliases);
     }
 
     _getUserVersion(user) {
@@ -316,13 +316,24 @@ class VoyagerBot {
             displayName: null,
             avatarUrl: room.getAvatarUrl(this._client.getHomeserverUrl(), 128, 128, 'crop', false), // false = don't allow default icons
             isAnonymous: true,
-            primaryAlias: room.getCanonicalAlias()
+            primaryAlias: room.getCanonicalAlias(),
+            aliases: []
         };
 
         var joinEvent = room.currentState.getStateEvents('m.room.join_rules', '');
         if (joinEvent) {
             version.isAnonymous = joinEvent.getContent().join_rule !== 'public';
         }
+
+        var aliasEvents = room.currentState.getStateEvents('m.room.aliases', undefined);
+        if (aliasEvents) {
+            for (var evt of aliasEvents) {
+                for (var alias of evt.getContent().aliases) {
+                    version.aliases.push(alias);
+                }
+            }
+        }
+        version.aliases.sort();
 
         // Display name logic (according to matrix spec) | http://matrix.org/docs/spec/client_server/r0.2.0.html#id222
         // 1. Use m.room.name
@@ -504,6 +515,7 @@ class VoyagerBot {
 
         var roomNode;
         var roomMeta;
+        var roomAliases;
 
         return this.getNode(room.roomId, 'room').then(node => {
             roomNode = node;
@@ -511,10 +523,14 @@ class VoyagerBot {
             return this._store.getCurrentNodeState(roomNode);
         }).then(meta => {
             roomMeta = meta;
+
+            return this._store.getNodeAliases(roomNode);
+        }).then(aliases => {
+            roomAliases = aliases || [];
         }).then(() => {
             var realVersion = this._getRoomVersion(room);
 
-            return this._tryUpdateNodeVersion(roomNode, roomMeta, realVersion);
+            return this._tryUpdateNodeVersion(roomNode, roomMeta, realVersion, roomAliases);
         });
     }
 
@@ -528,9 +544,10 @@ class VoyagerBot {
         }
     }
 
-    _tryUpdateNodeVersion(node, meta, currentVersion) {
+    _tryUpdateNodeVersion(node, meta, currentVersion, storedAliases) {
         var newVersion = {};
         var updated = false;
+        var aliasesUpdated = false;
 
         var defaults = {displayName: '', avatarUrl: '', isAnonymous: true, primaryAlias: ''};
 
@@ -555,6 +572,22 @@ class VoyagerBot {
             updated = true;
         }
 
+        if (currentVersion.aliases) {
+            if (currentVersion.aliases.length != storedAliases.length) {
+                aliasesUpdated = true;
+            } else {
+                for (var newAlias of storedAliases) {
+                    if (currentVersion.aliases.indexOf(newAlias) === -1) {
+                        aliasesUpdated = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        var versionPromise = Promise.resolve();
+        var aliasPromise = Promise.resolve();
+
         if (updated) {
             log.info("VoyagerBot", "Updating meta for node " + node.objectId + " to: " + JSON.stringify(newVersion));
 
@@ -564,10 +597,15 @@ class VoyagerBot {
             }
             log.info("VoyagerBot", "Old meta for node " + node.objectId + " was (changed properties only): " + JSON.stringify(oldValues));
 
-            return this._store.createNodeVersion(node, newVersion);
+            versionPromise = this._store.createNodeVersion(node, newVersion);
         }
 
-        return Promise.resolve();
+        if (aliasesUpdated) {
+            log.info("VoyagerBot", "Updating aliases for node " + node.objectId + " to " + JSON.stringify(currentVersion.aliases) + " from " + JSON.stringify(storedAliases));
+            aliasPromise = this._store.setNodeAliases(node, currentVersion.aliases);
+        }
+
+        return Promise.all([versionPromise, aliasPromise]);
     }
 }
 
