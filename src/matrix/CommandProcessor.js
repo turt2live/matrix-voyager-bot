@@ -101,8 +101,8 @@ class CommandProcessor {
             for (var result of results) {
                 result.rank = 0;
                 for (var keyword of keywords) {
-                    if (result.primaryAlias) result.rank += result.meta.primaryAlias.score(keyword, 0.5); // 0.5 fuzziness
-                    if (result.displayName) result.rank += result.meta.displayName.score(keyword, 0.5); // 0.5 fuzziness
+                    if (result.primaryAlias) result.rank += result.meta.primaryAlias.score(keyword, 0); // 0 fuzziness
+                    if (result.displayName) result.rank += result.meta.displayName.score(keyword, 0.2); // 0.2 fuzziness
 
                     if (result.aliases) {
                         // We only take the highest alias rank for other aliases to avoid the case where
@@ -110,7 +110,7 @@ class CommandProcessor {
                         // the score up a bit.
                         var highestAliasRank = 0;
                         for (var alias of result.aliases) {
-                            var rank = alias.alias.score(keyword, 0.5); // 0.5 fuzziness
+                            var rank = alias.alias.score(keyword, 0); // 0 fuzziness
                             if (rank > highestAliasRank)
                                 highestAliasRank = rank;
                         }
