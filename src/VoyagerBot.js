@@ -207,7 +207,8 @@ class VoyagerBot {
             return this._store.createLink(userNode, roomNode, type, event.getTs(), false, true);
         }).then(link => {
             kickbanLink = link;
-            return this._store.createTimelineEvent(kickbanLink, event.getTs(), event.getId());
+            var reason = (event.getContent() || {}).reason || null;
+            return this._store.createTimelineEvent(kickbanLink, event.getTs(), event.getId(), reason);
         });
     }
 
