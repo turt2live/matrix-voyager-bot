@@ -326,18 +326,23 @@ class VoyagerBot {
         }
 
         var aliasEvents = room.currentState.getStateEvents('m.room.aliases', undefined);
+        var matrixOrgAliases = [];
         if (aliasEvents) {
             for (var evt of aliasEvents) {
                 for (var alias of evt.getContent().aliases) {
                     version.aliases.push(alias);
+                    if (alias.endsWith(":matrix.org"))
+                        matrixOrgAliases.push(alias);
                 }
             }
         }
+        matrixOrgAliases.sort();
         version.aliases.sort();
 
         // Display name logic (according to matrix spec) | http://matrix.org/docs/spec/client_server/r0.2.0.html#id222
         // 1. Use m.room.name
         // 2. Use m.room.canonical_alias
+        //   a. *Against Spec* Use m.room.aliases, picking matrix.org aliases over other aliases, if no canonical alias
         // 3. Use joined/invited room members (not including self)
         //    a. 1 member - use their display name
         //    b. 2 members - use their display names, lexically sorted
@@ -357,6 +362,13 @@ class VoyagerBot {
             if (aliasEvent) {
                 version.displayName = aliasEvent.getContent().alias;
             }
+        }
+
+        // Try to use m.room.aliases (against spec). Prefer matrix.org
+        if (!version.displayName || version.displayName.trim().length == 0 && version.aliases.length > 0) {
+            if (matrixOrgAliases.length > 0)
+                version.displayName = matrixOrgAliases[0];
+            else version.displayName = version.aliases[0];
         }
 
         // Try to use room members
