@@ -101,7 +101,7 @@ class CommandProcessor {
             for (var result of results) {
                 result.rank = 0;
                 for (var keyword of keywords) {
-                    result.rank += result.meta.primaryAlias.score(keyword, 0.5); // 0.5 fuzziness
+                    if (result.primaryAlias) result.rank += result.meta.primaryAlias.score(keyword, 0.5); // 0.5 fuzziness
                     if (result.displayName) result.rank += result.meta.displayName.score(keyword, 0.5); // 0.5 fuzziness
 
                     if (result.aliases) {
