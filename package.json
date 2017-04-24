@@ -38,6 +38,7 @@
     "@ng-bootstrap/ng-bootstrap": "^1.0.0-alpha.22",
     "@types/d3": "^4.7.0",
     "@types/node": "^6.0.38",
+    "angular-2-local-storage": "^1.0.1",
     "angular2-template-loader": "^0.6.2",
     "autoprefixer": "^6.7.7",
     "awesome-typescript-loader": "^3.1.2",

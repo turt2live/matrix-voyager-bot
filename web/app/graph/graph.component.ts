@@ -5,6 +5,7 @@ import { D3Service, D3, Selection, ForceLink } from "d3-ng2-service";
 import { NgbModal } from "@ng-bootstrap/ng-bootstrap";
 import { NetworkLink, NetworkNode } from "./network-dto";
 import { GraphDialogComponent } from "./graph-dialog/graph-dialog.component";
+import { LocalStorageService } from 'angular-2-local-storage';
 
 @Component({
     selector: 'my-graph',
@@ -20,7 +21,7 @@ export class GraphComponent implements OnInit {
     public highlightedLink: NetworkLink = null;
     private isDragging = false;
 
-    constructor(private api: ApiService, element: ElementRef, d3Service: D3Service, private modalService: NgbModal) {
+    constructor(private api: ApiService, element: ElementRef, d3Service: D3Service, private modalService: NgbModal, private localStorageService: LocalStorageService) {
         this.d3 = d3Service.getD3();
         this.parentNativeElement = element.nativeElement;
     }
@@ -107,6 +108,8 @@ export class GraphComponent implements OnInit {
         let defs = svg.select<SVGDefsElement>("defs");
         this.buildFills(defs);
 
+        this.localStorageService.set('seenNodes', this.data.nodes.map(n => n.id));
+
         let simulation = d3.forceSimulation()
             .force("link", d3.forceLink<NetworkNode, NetworkLink>()
                 .id(n => <any>n.id)
@@ -132,6 +135,7 @@ export class GraphComponent implements OnInit {
             .attr("fill", n => "url(#fillFor" + n.id + ")")
             .attr("r", n => n.type == 'room' ? 15 : 10)
             .attr("stroke", "#fff")
+            //.attr("stroke-dasharray", "20,10")
             .attr("stroke-width", n => n.type == 'room' ? '1.5px' : '1px')
             .attr("cursor", "pointer")
             .call(d3.drag<SVGCircleElement, any>()
@@ -240,6 +244,8 @@ export class GraphComponent implements OnInit {
     }
 
     private buildFills(defs) {
+        const seenNodes = this.localStorageService.get<number[]>('seenNodes') || [];
+
         for (let node of this.data.nodes) {
             const fillKey = "fillFor" + node.id;
             const radius = node.type == 'room' ? 15 : 10;
@@ -281,6 +287,26 @@ export class GraphComponent implements OnInit {
                     .attr("fill", "#fff")
                     .text(text);
             }
+
+            let isNew = seenNodes.length > 0 && (seenNodes.indexOf(node.id) === -1);
+            if (!isNew || node.type == 'user') continue;
+
+            pattern.append("rect")
+                .attr("width", radius * 2).attr("height", 12)
+                .attr("fill", "#f9d35e")
+                .attr("stroke", "#a0a0a0")
+                .attr("stroke-width", "1px")
+                .attr("transform", "translate(0) rotate(45 " + radius + " 6)");
+            pattern.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "central")
+                .attr("alignment-baseline", "central")
+                .attr("x", 11).attr("y", 9)
+                .attr("transform", "rotate(45 " + radius + " 6)")
+                .attr("font-family", "sans-serif")
+                .attr("font-size", 4)
+                .attr("fill", "#000")
+                .text("NEW");
         }
     }
 

@@ -11,6 +11,7 @@ import { routing } from "./app.routing";
 import { removeNgStyles, createNewHosts } from "@angularclass/hmr";
 import { D3Service } from "d3-ng2-service";
 import { NgbModule } from "@ng-bootstrap/ng-bootstrap";
+import { LocalStorageModule } from 'angular-2-local-storage';
 
 @NgModule({
     imports: [
@@ -18,7 +19,11 @@ import { NgbModule } from "@ng-bootstrap/ng-bootstrap";
         HttpModule,
         FormsModule,
         routing,
-        NgbModule.forRoot()
+        NgbModule.forRoot(),
+        LocalStorageModule.withConfig({
+            prefix: 't2l-voyager',
+            storageType: 'localStorage'
+        })
     ],
     declarations: [
         AppComponent,
