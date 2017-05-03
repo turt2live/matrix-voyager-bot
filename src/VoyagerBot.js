@@ -72,8 +72,12 @@ class VoyagerBot {
     _onRoomStateUpdated(event, state) {
         log.info("VoyagerBot", "Queuing update of room state for " + event.getRoomId());
         var room = this._client.getRoom(event.getRoomId());
+        if (!room) {
+            log.error("VoyagerBot", "Could not update state of room " + event.getRoomId() + " - Room does not exist.");
+            return Promise.resolve();
+        }
         this._client.store.storeRoom(room);
-        this._nodeUpdateQueue.push({node: room, type: 'room'});
+        this._nodeUpdateQueue.push({node: room, type: 'room', store: true});
         return Promise.resolve();
     }
 
