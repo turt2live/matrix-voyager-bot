@@ -177,7 +177,7 @@ class CommandProcessor {
                 return Promise.resolve(room.roomId);
             } else {
                 return this._reply(event, "Could not find room " + roomArg).then(() => {
-                    throw new Error("Unknown room: " + roomArg);
+                    throw new Error("Unknown room (non-fatal): " + roomArg); // safe error
                 });
             }
         }).then(id=> {
