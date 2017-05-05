@@ -1,4 +1,6 @@
 # matrix-voyager-bot
+
+[![Greenkeeper badge](https://badges.greenkeeper.io/turt2live/matrix-voyager-bot.svg)](https://greenkeeper.io/)
 This is a [[matrix]](https://matrix.org) bot that travels the federation simply based upon user input to rooms it participates in. 
 
 Whenever the bot is invited to a room, or someone leaves an alias to a room in their message, the bot will try to join that room and add it to the network graph. If the bot is then kicked or banned, it adds that to the graph as well.
