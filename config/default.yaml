@@ -17,3 +17,9 @@ web:
 
   # The address to bind to (0.0.0.0 for all interfaces)
   address: '0.0.0.0'
+
+# Advanced settings to control behaviour of the bot
+bot:
+  # if enabled, the bot will process all node update requests on startup. This is disabled
+  # by default to prevent the bot from attempting to use significant resources on startup.
+  processNodeUpdatesOnStartup: false

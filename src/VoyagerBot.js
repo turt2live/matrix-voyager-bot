@@ -21,6 +21,7 @@ class VoyagerBot {
 
         this._nodeUpdateQueue = [];
         this._processingNodes = false;
+        this._queueNodesForUdpate = config.get('bot.processNodeUpdatesOnStartup');
 
         this._store = store;
         this._commandProcessor = new CommandProcessor(this, store);
@@ -52,24 +53,40 @@ class VoyagerBot {
     }
 
     _onRoomMemberUpdated(event, state, member) {
+        if (!this._queueNodesForUdpate) {
+            log.verbose("VoyagerBot", "Not queuing update of user " + member.userId + " because node updates are currently disabled.");
+            return Promise.resolve();
+        }
         log.info("VoyagerBot", "Queuing update of user " + member.userId);
         this._nodeUpdateQueue.push({node: member, type: 'user'});
         return Promise.resolve();
     }
 
     _onUserUpdatedGeneric(event, user) {
+        if (!this._queueNodesForUdpate) {
+            log.verbose("VoyagerBot", "Not queuing update of user " + user.userId + " because node updates are currently disabled.");
+            return Promise.resolve();
+        }
         log.info("VoyagerBot", "Queuing update of user " + user.userId);
         this._nodeUpdateQueue.push({node: user, type: 'user'});
         return Promise.resolve();
     }
 
     _onRoom(room) {
+        if (!this._queueNodesForUdpate) {
+            log.verbose("VoyagerBot", "Not queuing update of room " + room.roomId + " because node updates are currently disabled.");
+            return Promise.resolve();
+        }
         log.info("VoyagerBot", "Queuing update of room " + room.roomId);
         this._nodeUpdateQueue.push({node: room, type: 'room'});
         return Promise.resolve();
     }
 
     _onRoomStateUpdated(event, state) {
+        if (!this._queueNodesForUdpate) {
+            log.verbose("VoyagerBot", "Not queuing update of room state for room " + event.getRoomId() + " because node updates are currently disabled.");
+            return Promise.resolve();
+        }
         log.info("VoyagerBot", "Queuing update of room state for " + event.getRoomId());
         var room = this._client.getRoom(event.getRoomId());
         if (!room) {
@@ -91,6 +108,9 @@ class VoyagerBot {
 
             this._processNodeVersions();
             setInterval(() => this._processNodeVersions(), 15000);
+        } else if(state == "SYNCING" && !this._queueNodesForUdpate) {
+            log.info("VoyagerBot", "Enabling node updates now that the bot is syncing");
+            this._queueNodesForUdpate = true;
         }
     }
 
@@ -488,6 +508,10 @@ class VoyagerBot {
     }
 
     _tryUpdateNodeVersions() {
+        if (!this._queueNodesForUdpate) {
+            log.verbose("VoyagerBot", "Skipping state updates for all nodes - node updates are disabled");
+            return;
+        }
         var rooms = this._client.getRooms();
         for (var room of rooms) {
             this._nodeUpdateQueue.push({node: room, type: 'room'});
