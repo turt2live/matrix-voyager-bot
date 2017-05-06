@@ -1,7 +1,7 @@
 var VoyagerBot = require("./src/VoyagerBot");
 var VoyagerStore = require("./src/storage/VoyagerStore");
 var ApiHandler = require("./src/api/ApiHandler");
-var log = require("npmlog");
+var log = require("./src/LogService");
 
 log.info("index", "Bootstrapping bot");
 var db = new VoyagerStore();

@@ -1,5 +1,5 @@
 var DBMigrate = require("db-migrate");
-var log = require("npmlog");
+var log = require("./src/LogService");
 var Sequelize = require('sequelize');
 var DbModels = require("./src/storage/VoyagerStore").models;
 

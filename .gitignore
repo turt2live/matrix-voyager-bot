@@ -2,6 +2,8 @@
 
 web-dist/
 
+logs/
+
 db/*.db
 db/*.db-journal
 start.sh

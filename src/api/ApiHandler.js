@@ -1,5 +1,5 @@
 var express = require("express");
-var log = require("npmlog");
+var log = require("./../LogService");
 var config = require("config");
 var NodeCache = require("node-cache");
 var moment = require('moment');

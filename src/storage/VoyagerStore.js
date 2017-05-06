@@ -1,5 +1,5 @@
 var DBMigrate = require("db-migrate");
-var log = require("npmlog");
+var log = require("./../LogService");
 var Sequelize = require('sequelize');
 var dbConfig = require("../../config/database.json");
 var map = require("promise-map");
@@ -44,7 +44,7 @@ class VoyagerStore {
                         min: 0,
                         idle: 10000
                     },
-                    logging: i => log.info("VoyagerStore [SQL]", i)
+                    logging: i => log.verbose("VoyagerStore [SQL]", i)
                 };
 
                 if (opts.dialect == 'sqlite')

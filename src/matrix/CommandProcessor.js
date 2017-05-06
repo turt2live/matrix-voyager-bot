@@ -1,4 +1,4 @@
-var log = require("npmlog");
+var log = require("./../LogService");
 require("string_score"); // automagically adds itself as "words".score(...)
 
 /**

@@ -23,3 +23,13 @@ bot:
   # if enabled, the bot will process all node update requests on startup. This is disabled
   # by default to prevent the bot from attempting to use significant resources on startup.
   processNodeUpdatesOnStartup: false
+
+# Settings for controlling how logging works
+logging:
+  file: logs/voyager.log
+  console: true
+  consoleLevel: info
+  fileLevel: verbose
+  rotate:
+    size: 52428800 # bytes, default is 50mb
+    count: 5

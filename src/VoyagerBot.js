@@ -3,7 +3,7 @@ var CommandProcessor = require("./matrix/CommandProcessor");
 var LocalStorage = require("node-localstorage").LocalStorage;
 var config = require("config");
 var sdk = require("matrix-js-sdk");
-var log = require("npmlog");
+var log = require("./LogService");
 var naturalSort = require("node-natural-sort");
 
 /**
