@@ -30,7 +30,8 @@ class VoyagerBot {
             baseUrl: config.get("matrix.homeserverUrl"),
             accessToken: config.get("matrix.accessToken"),
             userId: config.get("matrix.userId"),
-            store: mtxStore
+            store: mtxStore,
+            localTimeoutMs: 30 * 60 * 1000 // 30 min
         });
 
         mtxStore.setClient(this._client);
@@ -49,7 +50,8 @@ class VoyagerBot {
      * Starts the voyager bot
      */
     start() {
-        this._client.startClient({initialSyncLimit: 5, pollTimeout: 30 * 60 * 1000}); // pollTimeout is 30 minutes
+        // pollTimeout is 30min
+        this._client.startClient({initialSyncLimit: 5, pollTimeout: 30 * 60 * 1000});
     }
 
     _onRoomMemberUpdated(event, state, member) {
@@ -108,7 +110,7 @@ class VoyagerBot {
 
             this._processNodeVersions();
             setInterval(() => this._processNodeVersions(), 15000);
-        } else if(state == "SYNCING" && !this._queueNodesForUdpate) {
+        } else if (state == "SYNCING" && !this._queueNodesForUdpate) {
             log.info("VoyagerBot", "Enabling node updates now that the bot is syncing");
             this._queueNodesForUdpate = true;
         }
