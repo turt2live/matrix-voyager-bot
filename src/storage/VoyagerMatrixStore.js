@@ -1,6 +1,7 @@
 var Room = require("matrix-js-sdk").Room;
 var User = require("matrix-js-sdk").User;
 var MatrixEvent = require("matrix-js-sdk").MatrixEvent;
+var Q = require("q");
 
 /**
  * Matrix store for keeping track of rooms and other sync data
@@ -49,7 +50,7 @@ class VoyagerMatrixStore { // implements StubStore
     }
 
     setSyncToken(token) {
-        this._store.setItem("sync_token", token);
+        this._store.setItem("sync_token", token || '');
         this._syncToken = token;
     }
 
@@ -155,6 +156,38 @@ class VoyagerMatrixStore { // implements StubStore
 
     getAccountData(eventType) {
         return this._accountData[eventType];
+    }
+
+    setSyncData(data) {
+        return Q.Promise((resolve, reject) => {
+            this._store.setItem("syncdata", JSON.stringify(data));
+            resolve();
+        });
+    }
+
+    getSavedSync() {
+        return Q.Promise((resolve, reject) => {
+            var result = this._store.getItem("syncdata");
+            if (!result) resolve(null);
+            else resolve(JSON.parse(result));
+        });
+    }
+
+    deleteAllData() {
+        return Q.Promise((resolve, reject) => {
+            this._store.clear();
+            resolve();
+        });
+    }
+
+    save() {
+        // saved on the fly
+        return Q.resolve();
+    }
+
+    startup() {
+        // nothing to do
+        return Q.resolve();
     }
 
     _loadRoom(roomId) {
