@@ -2,6 +2,7 @@ var Room = require("matrix-js-sdk").Room;
 var User = require("matrix-js-sdk").User;
 var MatrixEvent = require("matrix-js-sdk").MatrixEvent;
 var Q = require("q");
+var log = require("./../LogService");
 
 /**
  * Matrix store for keeping track of rooms and other sync data
@@ -168,6 +169,7 @@ class VoyagerMatrixStore { // implements StubStore
     getSavedSync() {
         return Q.Promise((resolve, reject) => {
             var result = this._store.getItem("syncdata");
+            log.verbose("VoyagerMatrixStore", "Got sync data: " + result);
             if (!result) resolve(null);
             else resolve(JSON.parse(result));
         });
