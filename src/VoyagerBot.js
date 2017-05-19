@@ -16,8 +16,8 @@ class VoyagerBot {
      * @param {VoyagerStore} store the store to use
      */
     constructor(store) {
-        var localStorage = new LocalStorage("db/voyager_local_storage", 100 * 1024 * 1024); // quota is 100mb
-        var mtxStore = new VoyagerMatrixStore(localStorage);
+        this._localStorage = new LocalStorage("db/voyager_local_storage", 100 * 1024 * 1024); // quota is 100mb
+        var mtxStore = new VoyagerMatrixStore(this._localStorage);
 
         this._nodeUpdateQueue = [];
         this._processingNodes = false;
@@ -35,6 +35,8 @@ class VoyagerBot {
         });
 
         mtxStore.setClient(this._client);
+
+        this._loadPendingNodeUpdates();
 
         this._client.on('Room.timeline', this._processTimeline.bind(this));
         this._client.on('RoomState.members', this._processMembership.bind(this));
@@ -60,7 +62,7 @@ class VoyagerBot {
             return Promise.resolve();
         }
         log.info("VoyagerBot", "Queuing update of user " + member.userId);
-        this._nodeUpdateQueue.push({node: member, type: 'user'});
+        this._queueNodeUpdate({node: member, type: 'user'});
         return Promise.resolve();
     }
 
@@ -70,7 +72,7 @@ class VoyagerBot {
             return Promise.resolve();
         }
         log.info("VoyagerBot", "Queuing update of user " + user.userId);
-        this._nodeUpdateQueue.push({node: user, type: 'user'});
+        this._queueNodeUpdate({node: user, type: 'user'});
         return Promise.resolve();
     }
 
@@ -80,7 +82,7 @@ class VoyagerBot {
             return Promise.resolve();
         }
         log.info("VoyagerBot", "Queuing update of room " + room.roomId);
-        this._nodeUpdateQueue.push({node: room, type: 'room'});
+        this._queueNodeUpdate({node: room, type: 'room'});
         return Promise.resolve();
     }
 
@@ -96,7 +98,7 @@ class VoyagerBot {
             return Promise.resolve();
         }
         this._client.store.storeRoom(room);
-        this._nodeUpdateQueue.push({node: room, type: 'room', store: true});
+        this._queueNodeUpdate({node: room, type: 'room', store: true});
         return Promise.resolve();
     }
 
@@ -128,7 +130,7 @@ class VoyagerBot {
         } else if (newState == 'ban') {
             return this._onBan(event);
         } else if (newState == 'join') {
-            this._nodeUpdateQueue.push({node: this._client.getRoom(event.getRoomId()), type: 'room'});
+            this._queueNodeUpdate({node: this._client.getRoom(event.getRoomId()), type: 'room'});
             return Promise.resolve();
         }
 
@@ -474,6 +476,44 @@ class VoyagerBot {
         });
     }
 
+    _queueNodeUpdate(nodeMeta) {
+        this._nodeUpdateQueue.push(nodeMeta);
+
+        var simpleNodes = [];
+        for (var pendingNodeUpdate of this._nodeUpdateQueue) {
+            var obj = {type: pendingNodeUpdate.type};
+
+            if (obj.type == 'user')
+                obj.objectId = pendingNodeUpdate.node.userId;
+            else if (obj.type == 'room')
+                obj.objectId = pendingNodeUpdate.node.roomId;
+            else throw new Error("Unexpected node type: " + obj.type);
+
+            simpleNodes.push(obj);
+        }
+
+        this._localStorage.setItem("voyager_node_update_queue", JSON.stringify(simpleNodes));
+    }
+
+    _loadPendingNodeUpdates() {
+        var pendingNodeUpdates = this._localStorage.getItem("voyager_node_update_queue");
+        if (pendingNodeUpdates) {
+            var nodeUpdatesAsArray = JSON.parse(pendingNodeUpdates);
+            for (var update of nodeUpdatesAsArray) {
+                var nodeUpdate = {type: update.type};
+
+                if (nodeUpdate.type == 'room')
+                    nodeUpdate.node = this._client.getRoom(update.objectId);
+                else if (nodeUpdate.type == 'user')
+                    nodeUpdate.node = this._client.getUser(update.objectId);
+                else throw new Error("Unexpected node type: " + nodeUpdate.type);
+
+                this._nodeUpdateQueue.push(nodeUpdate);
+            }
+        }
+        log.info("VoyagerBot", "Loaded " + this._nodeUpdateQueue.length + " previously pending node updates");
+    }
+
     _processNodeVersions() {
         if (this._processingNodes) {
             log.warn("VoyagerBot", "Already processing nodes from queue - skipping interval check");
@@ -482,6 +522,7 @@ class VoyagerBot {
 
         this._processingNodes = true;
         var nodesToProcess = this._nodeUpdateQueue.splice(0, 2500);
+        this._localStorage.setItem("voyager_node_update_queue", JSON.stringify(this._nodeUpdateQueue));
         var i = 0;
 
         log.info("VoyagerBot", "Processing " + nodesToProcess.length + " pending node updates. " + this._nodeUpdateQueue.length + " remaining");
@@ -516,13 +557,13 @@ class VoyagerBot {
         }
         var rooms = this._client.getRooms();
         for (var room of rooms) {
-            this._nodeUpdateQueue.push({node: room, type: 'room'});
+            this._queueNodeUpdate({node: room, type: 'room'});
         }
 
         this._store.getNodesByType('user').then(users=> {
             for (var user of users) {
                 var mtxUser = this._client.getUser(user.objectId);
-                this._nodeUpdateQueue.push({node: mtxUser, type: 'user'});
+                this._queueNodeUpdate({node: mtxUser, type: 'user'});
             }
         });
     }
