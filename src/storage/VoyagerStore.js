@@ -662,7 +662,11 @@ class VoyagerStore {
 
         var rawMeta = null;
         var rawAliases = null;
+        var redactedNodeIds = null;
         var nodeMap = {}; // { id: NodeSearchResult }
+
+        var redactedNodesPromise = this.__Nodes.findAll({where: {isRedacted: true}})
+            .then(nodes => redactedNodeIds = (nodes || []).map(n => n.id));
 
         var metaPromise = this.__NodeMeta.findAll({
             where: {
@@ -688,7 +692,7 @@ class VoyagerStore {
             }
         }).then(aliases => rawAliases = (aliases || []).map(a => new NodeAlias(a)));
 
-        return Promise.all([metaPromise, aliasPromise]).then(() => {
+        return Promise.all([metaPromise, aliasPromise, redactedNodesPromise]).then(() => {
             for (var meta of rawMeta) {
                 if (!nodeMap[meta.nodeId])
                     nodeMap[meta.nodeId] = new NodeSearchResult();
@@ -724,6 +728,7 @@ class VoyagerStore {
             for (var nodeId in nodeMap) {
                 var nodeInfo = nodeMap[nodeId];
                 if (!nodeInfo.meta) continue; // we automatically refuse anything that doesn't have meta (because this shouldn't happen)
+                if (redactedNodeIds.indexOf(nodeInfo.meta.nodeId) !== -1) continue; // refuse anything that is redacted
                 if (nodeInfo.meta.primaryAlias || (nodeInfo.aliases && nodeInfo.aliases.length > 0))
                     finalNodes.push(nodeInfo);
             }
