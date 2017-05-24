@@ -478,7 +478,10 @@ class VoyagerBot {
 
     _queueNodeUpdate(nodeMeta) {
         this._nodeUpdateQueue.push(nodeMeta);
+        this._savePendingNodeUpdates();
+    }
 
+    _savePendingNodeUpdates() {
         var simpleNodes = [];
         for (var pendingNodeUpdate of this._nodeUpdateQueue) {
             var obj = {type: pendingNodeUpdate.type};
@@ -522,7 +525,7 @@ class VoyagerBot {
 
         this._processingNodes = true;
         var nodesToProcess = this._nodeUpdateQueue.splice(0, 2500);
-        this._localStorage.setItem("voyager_node_update_queue", JSON.stringify(this._nodeUpdateQueue));
+        this._savePendingNodeUpdates();
         var i = 0;
 
         log.info("VoyagerBot", "Processing " + nodesToProcess.length + " pending node updates. " + this._nodeUpdateQueue.length + " remaining");
