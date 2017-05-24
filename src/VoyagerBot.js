@@ -511,6 +511,11 @@ class VoyagerBot {
                     nodeUpdate.node = this._client.getUser(update.objectId);
                 else throw new Error("Unexpected node type: " + nodeUpdate.type);
 
+                if (!nodeUpdate.node) {
+                    log.warn("VoyagerBot", "Skipping node update for " + update.type + " " + update.objectId + " because the node cannot be resolved.");
+                    continue;
+                }
+
                 this._nodeUpdateQueue.push(nodeUpdate);
             }
         }
