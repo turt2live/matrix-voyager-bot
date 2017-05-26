@@ -1,6 +1,6 @@
 # matrix-voyager-bot
 
-[![Greenkeeper badge](https://badges.greenkeeper.io/turt2live/matrix-voyager-bot.svg)](https://greenkeeper.io/)
+[![Greenkeeper badge](https://badges.greenkeeper.io/turt2live/matrix-voyager-bot.svg)](https://greenkeeper.io/) [![TravisCI badge](https://travis-ci.org/turt2live/matrix-voyager-bot.svg?branch=master)](https://travis-ci.org/turt2live/matrix-voyager-bot)
 
 This is a [[matrix]](https://matrix.org) bot that travels the federation simply based upon user input to rooms it participates in. 
 
