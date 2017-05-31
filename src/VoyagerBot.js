@@ -709,7 +709,7 @@ class VoyagerBot {
                 aliasesUpdated = true;
             } else {
                 for (var newAlias of storedAliases) {
-                    if (currentVersion.aliases.indexOf(newAlias) === -1) {
+                    if (currentVersion.aliases.indexOf(newAlias.alias) === -1) {
                         aliasesUpdated = true;
                         break;
                     }
