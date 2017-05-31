@@ -549,7 +549,7 @@ class VoyagerBot {
 
         var handler = () => {
             if (i < nodesToProcess.length) {
-                processPendingNode(nodesToProcess[i++]).then(handler);
+                return processPendingNode(nodesToProcess[i++]).then(handler);
             } else {
                 log.info("VoyagerBot", "Processed " + nodesToProcess.length + " node updates. " + this._nodeUpdateQueue.length + " remaining");
                 this._processingNodes = false;
