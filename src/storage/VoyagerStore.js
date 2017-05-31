@@ -720,7 +720,7 @@ class VoyagerStore {
             for (var meta of foundMeta) {
                 if (!nodeMap[meta.nodeId])
                     nodeMap[meta.nodeId] = new NodeSearchResult();
-                nodeMap[meta.nodeId].meta = meta;
+                nodeMap[meta.nodeId].meta = new NodeMeta(meta);
             }
 
             var finalNodes = [];
