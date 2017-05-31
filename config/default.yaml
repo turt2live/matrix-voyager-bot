@@ -24,6 +24,11 @@ bot:
   # by default to prevent the bot from attempting to use significant resources on startup.
   processNodeUpdatesOnStartup: false
 
+  # If node updates are enabled, which nodes should be updated on startup?
+  nodeUpdatesOnStartup:
+    rooms: true
+    users: true
+
 # Settings for controlling how logging works
 logging:
   file: logs/voyager.log

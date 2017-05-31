@@ -22,7 +22,9 @@ class VoyagerBot {
         this._nodeUpdateQueue = [];
         this._processingNodes = false;
         this._queuedObjectIds = [];
-        this._queueNodesForUdpate = config.get('bot.processNodeUpdatesOnStartup');
+        this._queueNodesForUpdate = config.get('bot.processNodeUpdatesOnStartup');
+        this._queueUsersOnStartup = config.get('bot.nodeUpdatesOnStartup.users');
+        this._queueRoomsOnStartup = config.get('bot.nodeUpdatesOnStartup.rooms');
 
         this._store = store;
         this._commandProcessor = new CommandProcessor(this, store);
@@ -58,7 +60,7 @@ class VoyagerBot {
     }
 
     _onRoomMemberUpdated(event, state, member) {
-        if (!this._queueNodesForUdpate) {
+        if (!this._queueNodesForUpdate) {
             log.verbose("VoyagerBot", "Not queuing update of user " + member.userId + " because node updates are currently disabled.");
             return Promise.resolve();
         }
@@ -68,7 +70,7 @@ class VoyagerBot {
     }
 
     _onUserUpdatedGeneric(event, user) {
-        if (!this._queueNodesForUdpate) {
+        if (!this._queueNodesForUpdate) {
             log.verbose("VoyagerBot", "Not queuing update of user " + user.userId + " because node updates are currently disabled.");
             return Promise.resolve();
         }
@@ -78,7 +80,7 @@ class VoyagerBot {
     }
 
     _onRoom(room) {
-        if (!this._queueNodesForUdpate) {
+        if (!this._queueNodesForUpdate) {
             log.verbose("VoyagerBot", "Not queuing update of room " + room.roomId + " because node updates are currently disabled.");
             return Promise.resolve();
         }
@@ -88,7 +90,7 @@ class VoyagerBot {
     }
 
     _onRoomStateUpdated(event, state) {
-        if (!this._queueNodesForUdpate) {
+        if (!this._queueNodesForUpdate) {
             log.verbose("VoyagerBot", "Not queuing update of room state for room " + event.getRoomId() + " because node updates are currently disabled.");
             return Promise.resolve();
         }
@@ -113,9 +115,9 @@ class VoyagerBot {
 
             this._processNodeVersions();
             setInterval(() => this._processNodeVersions(), 15000);
-        } else if (state == "SYNCING" && !this._queueNodesForUdpate) {
+        } else if (state == "SYNCING" && !this._queueNodesForUpdate) {
             log.info("VoyagerBot", "Enabling node updates now that the bot is syncing");
-            this._queueNodesForUdpate = true;
+            this._queueNodesForUpdate = true;
         }
     }
 
@@ -491,6 +493,11 @@ class VoyagerBot {
     }
 
     _queueNodeUpdate(nodeMeta) {
+        if (!nodeMeta.node) {
+            log.warn("VoyagerBot", "Unexpected node: " + JSON.stringify(nodeMeta));
+            return;
+        }
+
         var objectId = nodeMeta.node.userId ? nodeMeta.node.userId : nodeMeta.node.roomId;
         if (this._queuedObjectIds.indexOf(objectId) !== -1) {
             log.info("VoyagerBot", "Node update queue attempt for " + objectId + " - skipped because the node is already queued");
@@ -586,21 +593,26 @@ class VoyagerBot {
     }
 
     _tryUpdateNodeVersions() {
-        if (!this._queueNodesForUdpate) {
+        if (!this._queueNodesForUpdate) {
             log.verbose("VoyagerBot", "Skipping state updates for all nodes - node updates are disabled");
             return;
         }
-        var rooms = this._client.getRooms();
-        for (var room of rooms) {
-            this._queueNodeUpdate({node: room, type: 'room'});
+        
+        if (this._queueRoomsOnStartup) {
+            var rooms = this._client.getRooms();
+            for (var room of rooms) {
+                this._queueNodeUpdate({node: room, type: 'room'});
+            }
         }
 
-        this._store.getNodesByType('user').then(users => {
-            for (var user of users) {
-                var mtxUser = this._client.getUser(user.objectId);
-                this._queueNodeUpdate({node: mtxUser, type: 'user'});
-            }
-        });
+        if(this._queueUsersOnStartup) {
+            this._store.getNodesByType('user').then(users => {
+                for (var user of users) {
+                    var mtxUser = this._client.getUser(user.objectId);
+                    this._queueNodeUpdate({node: mtxUser, type: 'user'});
+                }
+            });
+        }
     }
 
     _tryUpdateUserNodeVersion(user) {
