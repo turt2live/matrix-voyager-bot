@@ -123,6 +123,8 @@ class CommandProcessor {
                 return b.rank - a.rank;
             });
 
+            console.log(results);
+
             return results;
         }).then(sortedResults => {
             var sample = sortedResults.splice(0, 5);
