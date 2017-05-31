@@ -101,7 +101,7 @@ class CommandProcessor {
             for (var result of results) {
                 result.rank = 0;
                 for (var keyword of keywords) {
-                    if (result.primaryAlias) result.rank += result.meta.primaryAlias.toLowerCase().score(keyword.toLowerCase());
+                    if (result.primaryAlias) result.rank += result.meta.primaryAlias.toLowerCase().split(':', 2)[0].score(keyword.toLowerCase());
                     if (result.displayName) result.rank += result.meta.displayName.toLowerCase().score(keyword.toLowerCase());
 
                     if (result.aliases) {
@@ -110,7 +110,7 @@ class CommandProcessor {
                         // the score up a bit.
                         var highestAliasRank = 0;
                         for (var alias of result.aliases) {
-                            var rank = alias.alias.toLowerCase().score(keyword.toLowerCase());
+                            var rank = alias.alias.toLowerCase().split(':', 2)[0].score(keyword.toLowerCase());
                             if (rank > highestAliasRank)
                                 highestAliasRank = rank;
                         }
@@ -122,8 +122,6 @@ class CommandProcessor {
             results.sort((a, b) => {
                 return b.rank - a.rank;
             });
-
-            console.log(results);
 
             return results;
         }).then(sortedResults => {
