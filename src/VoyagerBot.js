@@ -21,6 +21,7 @@ class VoyagerBot {
 
         this._nodeUpdateQueue = [];
         this._processingNodes = false;
+        this._queuedObjectIds = [];
         this._queueNodesForUdpate = config.get('bot.processNodeUpdatesOnStartup');
 
         this._store = store;
@@ -195,6 +196,10 @@ class VoyagerBot {
         var sourceNode;
         var targetNode;
 
+        if (event.__voyagerRepeat) {
+            log.info("VoyagerBot", "Attempt #" + event.__voyagerRepeat + " to retry event " + event.getId());
+        }
+
         return this.getNode(event.getSender(), 'user').then(node=> {
             sourceNode = node;
             return this.getNode(event.getRoomId(), 'room');
@@ -209,6 +214,15 @@ class VoyagerBot {
             return this._client.joinRoom(event.getRoomId());
         }).then(room => {
             return this._tryUpdateRoomNodeVersion(room);
+        }).catch(err => {
+            log.error("VoyagerBot", err);
+            if (err.errcode == "M_FORBIDDEN" && (!event.__voyagerRepeat || event.__voyagerRepeat < 25)) { // 25 is arbitrary
+                event.__voyagerRepeat = (event.__voyagerRepeat ? event.__voyagerRepeat : 0) + 1;
+                log.info("VoyagerBot", "Forbidden as part of event " + event.getId() + " - will retry for attempt #" + event.__voyagerRepeat + " shortly.");
+                setTimeout(() => this._onInvite(event), 1000); // try again later
+            } else if (event.__voyagerRepeat) {
+                log.error("VoyagerBot", "Failed to retry event " + event.getId());
+            }
         });
     }
 
@@ -477,8 +491,17 @@ class VoyagerBot {
     }
 
     _queueNodeUpdate(nodeMeta) {
+        var objectId = nodeMeta.node.userId ? nodeMeta.node.userId : nodeMeta.node.roomId;
+        if (this._queuedObjectIds.indexOf(objectId) !== -1) {
+            log.info("VoyagerBot", "Node update queue attempt for " + objectId + " - skipped because the node is already queued");
+            return;
+        }
+
         this._nodeUpdateQueue.push(nodeMeta);
+        this._queuedObjectIds.push(objectId);
         this._savePendingNodeUpdates();
+
+        log.info("VoyagerBot", "Queued update for " + objectId);
     }
 
     _savePendingNodeUpdates() {
@@ -516,7 +539,7 @@ class VoyagerBot {
                     continue;
                 }
 
-                this._nodeUpdateQueue.push(nodeUpdate);
+                this._queueNodeUpdate(nodeUpdate);
             }
         }
         log.info("VoyagerBot", "Loaded " + this._nodeUpdateQueue.length + " previously pending node updates");
@@ -536,6 +559,9 @@ class VoyagerBot {
         log.info("VoyagerBot", "Processing " + nodesToProcess.length + " pending node updates. " + this._nodeUpdateQueue.length + " remaining");
 
         var processPendingNode = (obj) => {
+            var idx = this._queuedObjectIds.indexOf(obj.node.userId ? obj.node.userId : obj.node.roomId);
+            if (idx !== -1) this._queuedObjectIds.splice(idx, 1);
+
             switch (obj.type) {
                 case "room":
                     return this._tryUpdateRoomNodeVersion(obj.node);
@@ -553,9 +579,10 @@ class VoyagerBot {
             } else {
                 log.info("VoyagerBot", "Processed " + nodesToProcess.length + " node updates. " + this._nodeUpdateQueue.length + " remaining");
                 this._processingNodes = false;
+                return Promise.resolve();
             }
         };
-        handler();
+        handler().catch(err => log.error("VoyagerBot", err));
     }
 
     _tryUpdateNodeVersions() {
@@ -568,7 +595,7 @@ class VoyagerBot {
             this._queueNodeUpdate({node: room, type: 'room'});
         }
 
-        this._store.getNodesByType('user').then(users=> {
+        this._store.getNodesByType('user').then(users => {
             for (var user of users) {
                 var mtxUser = this._client.getUser(user.objectId);
                 this._queueNodeUpdate({node: mtxUser, type: 'user'});
