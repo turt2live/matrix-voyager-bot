@@ -16,7 +16,7 @@ export class GraphComponent implements OnInit {
     private data: {links: NetworkLink[], nodes: NetworkNode[], nodeLinks: string[]};
 
     public highlightedNode: NetworkNode = null;
-    // public highlightedLink: NetworkLink = null;
+    public highlightedLink: NetworkLink = null;
     private isDragging = false;
 
     constructor(private api: ApiService,
@@ -139,7 +139,7 @@ export class GraphComponent implements OnInit {
             }));
 
         const self = this;
-        canvasElement.on('mousemove', function() {
+        canvasElement.on('mousemove', function () {
             const mouse = d3.mouse(this);
             const subject = self.findSubject(lastTransform, mouse[0], mouse[1]);
             if (!subject) {
