@@ -19,7 +19,11 @@ export class GraphComponent implements OnInit {
     // public highlightedLink: NetworkLink = null;
     // private isDragging = false;
 
-    constructor(private api: ApiService, element: ElementRef, d3Service: D3Service, /*private modalService: NgbModal,*/ private localStorageService: LocalStorageService) {
+    constructor(private api: ApiService,
+                element: ElementRef,
+                d3Service: D3Service,
+                /*private modalService: NgbModal,*/
+                private localStorageService: LocalStorageService) {
         this.d3 = d3Service.getD3();
         this.parentNativeElement = element.nativeElement;
     }
@@ -72,7 +76,7 @@ export class GraphComponent implements OnInit {
         let d3 = this.d3;
         let d3ParentElement: Selection<any, any, any, any>;
 
-        if (this.parentNativeElement == null) {
+        if (this.parentNativeElement === null) {
             throw new Error("Failed to get native element");
         }
 
@@ -94,8 +98,8 @@ export class GraphComponent implements OnInit {
             .on('zoom', () => {
                 canvas.save();
                 canvas.clearRect(0, 0, width, height);
-                canvas.translate(d3.event.translate[0], d3.event.translate[1]);
-                canvas.scale(d3.event.scale, d3.event.scale);
+                canvas.translate(d3.event.transform.x, d3.event.transform.y);
+                canvas.scale(d3.event.transform.k, d3.event.transform.k);
                 this.render(canvas, this.data.nodes, this.data.links);
                 canvas.restore();
             }));
@@ -123,7 +127,6 @@ export class GraphComponent implements OnInit {
     private onTick(canvas, links, nodes, width, height) {
         canvas.clearRect(0, 0, width, height);
         canvas.save();
-        canvas.translate(width / 2, height / 2);
         this.render(canvas, nodes, links);
         canvas.restore();
     }
