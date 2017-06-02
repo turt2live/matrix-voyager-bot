@@ -89,20 +89,9 @@ export class GraphComponent implements OnInit {
         let bbox = d3ParentElement.node().getBoundingClientRect();
         let width = bbox.width;
         let height = bbox.height;
-        let canvas = canvasElement.node().getContext("2d");
+        let ctx = canvasElement.node().getContext("2d");
 
         canvasElement.attr("width", width).attr("height", height);
-
-        canvasElement.call(d3.zoom()
-            .scaleExtent([-1, 10])
-            .on('zoom', () => {
-                canvas.save();
-                canvas.clearRect(0, 0, width, height);
-                canvas.translate(d3.event.transform.x, d3.event.transform.y);
-                canvas.scale(d3.event.transform.k, d3.event.transform.k);
-                this.render(canvas, this.data.nodes, this.data.links);
-                canvas.restore();
-            }));
 
         this.processNetwork(network);
 
@@ -117,55 +106,97 @@ export class GraphComponent implements OnInit {
             .force("center", d3.forceCenter(width / 2, height / 2))
             .force("collide", d3.forceCollide<NetworkNode>(n => n.type === 'room' ? 20 : 15).strength(0.5));
 
-        simulation.on('tick', () => this.onTick(canvas, this.data.links, this.data.nodes, width, height));
+        simulation.on('tick', () => this.onTick(ctx, this.data.links, this.data.nodes, width, height));
         simulation.force<ForceLink<NetworkNode, NetworkLink>>("link").links(this.data.links);
 
-        // TODO: Dragging
-        // ref: https://bl.ocks.org/mbostock/1b64ec067fcfc51e7471d944f51f1611
+        let lastTransform = d3.zoomIdentity;
+
+        canvasElement.call(d3.drag()
+            .subject(() => {
+                const x = lastTransform.invertX(d3.event.x);
+                const y = lastTransform.invertY(d3.event.y);
+
+                for (let node of <any[]>this.data.nodes) {
+                    let dx = x - node.x;
+                    let dy = y - node.y;
+                    let r = this.getNodeRadius(node);
+
+                    if (dx * dx + dy * dy < r * r) {
+                        node.x = lastTransform.applyX(node.x);
+                        node.y = lastTransform.applyY(node.y);
+                        return node;
+                    }
+                }
+            })
+            .on("drag", () => {
+                d3.event.subject.x = lastTransform.invertX(d3.event.x);
+                d3.event.subject.y = lastTransform.invertY(d3.event.y);
+                this.renderAll(ctx, lastTransform, width, height);
+            }));
+
+        canvasElement.call(d3.zoom()
+            .scaleExtent([-1, 10])
+            .on('zoom', () => {
+                lastTransform = d3.event.transform;
+                this.renderAll(ctx, lastTransform, width, height);
+            }));
     }
 
-    private onTick(canvas, links, nodes, width, height) {
-        canvas.clearRect(0, 0, width, height);
-        canvas.save();
-        this.render(canvas, nodes, links);
-        canvas.restore();
+    private renderAll(ctx, transform, width, height) {
+        ctx.save();
+        ctx.clearRect(0, 0, width, height);
+        ctx.translate(transform.x, transform.y);
+        ctx.scale(transform.k, transform.k);
+        this.render(ctx, this.data.nodes, this.data.links);
+        ctx.restore();
     }
 
-    private render(canvas, nodes, links) {
-        canvas.beginPath();
+    private getNodeRadius(node) {
+        return node.type === 'room' ? 15 : 8;
+    }
+
+    private onTick(ctx, links, nodes, width, height) {
+        ctx.clearRect(0, 0, width, height);
+        ctx.save();
+        this.render(ctx, nodes, links);
+        ctx.restore();
+    }
+
+    private render(ctx, nodes, links) {
+        ctx.beginPath();
         links.forEach(k => {
-            canvas.moveTo(k.source.x, k.source.y);
-            canvas.lineTo(k.target.x, k.target.y);
+            ctx.moveTo(k.source.x, k.source.y);
+            ctx.lineTo(k.target.x, k.target.y);
         });
-        canvas.strokeStyle = "#ccc";
-        canvas.stroke();
+        ctx.strokeStyle = "#ccc";
+        ctx.stroke();
 
-        canvas.beginPath();
+        ctx.beginPath();
         nodes.forEach(n => {
-            const r = n.type === 'room' ? 15 : 8;
-            canvas.moveTo(n.x + r, n.y);
-            canvas.arc(n.x, n.y, r, 0, 2 * Math.PI, false);
+            const r = this.getNodeRadius(n);
+            ctx.moveTo(n.x + r, n.y);
+            ctx.arc(n.x, n.y, r, 0, 2 * Math.PI, false);
         });
-        canvas.lineWidth = 3;
-        canvas.strokeStyle = "#fff";
-        canvas.fillStyle = "#fff";
-        canvas.stroke();
-        canvas.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#fff";
+        ctx.fillStyle = "#fff";
+        ctx.stroke();
+        ctx.fill();
 
         // Draw backgrounds for nodes that don't have images
         const seenNodes = this.localStorageService.get<number[]>('seenNodes') || [];
         nodes.forEach(n => {
-            const r = n.type === 'room' ? 15 : 8;
+            const r = this.getNodeRadius(n);
 
             if (n.avatarUrl && n.avatarUrl.trim().length > 0) {
-                n.image = this.drawImageCircle(canvas, n.x, n.y, r, n.x - r, n.y - r, r * 2, r * 2, n.avatarUrl, n.image);
+                n.image = this.drawImageCircle(ctx, n.x, n.y, r, n.x - r, n.y - r, r * 2, r * 2, n.avatarUrl, n.image);
             } else {
-                this.drawNodeAvatar(canvas, n.x, n.y, r, n);
+                this.drawNodeAvatar(ctx, n.x, n.y, r, n);
             }
 
             let isNew = seenNodes.length > 0 && (seenNodes.indexOf(n.id) === -1);
             if (isNew && n.type === 'room') {
-                this.drawNodeIsNew(canvas, n.x, n.y, r);
+                this.drawNodeIsNew(ctx, n.x, n.y, r);
             }
         });
     }
@@ -194,7 +225,6 @@ export class GraphComponent implements OnInit {
     }
 
     private drawImageCircle(ctx, circleX, circleY, radius, imageX, imageY, imageWidth, imageHeight, imageUrl, existingImage) {
-        console.log("Rendering " + imageUrl + " (has image = " + (existingImage ? true : false) + ")");
         if (existingImage) {
             ctx.save();
             ctx.beginPath();
