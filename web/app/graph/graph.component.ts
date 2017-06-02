@@ -142,11 +142,32 @@ export class GraphComponent implements OnInit {
 
         canvas.beginPath();
         nodes.forEach(n => {
-            canvas.moveTo(n.x + 5, n.y);
-            canvas.arc(n.x, n.y, 3, 0, 2 * Math.PI);
+            const r = n.type === 'room' ? 15 : 8;
+            canvas.moveTo(n.x + r, n.y);
+            canvas.arc(n.x, n.y, r, 0, 2 * Math.PI, false);
+
+            if (n.avatarUrl && n.avatarUrl.trim().length > 0) {
+                this.drawImageCircle(canvas, n.x, n.y, r, n.x - r, n.y - r , r * 2, r * 2, n.avatarUrl);
+            }
         });
-        canvas.strokeStyle = "#f00";
+        canvas.lineWidth = 3;
+        canvas.strokeStyle = "#fff";
+        canvas.fillStyle = "#fff";
         canvas.stroke();
+        canvas.fill();
+    }
+
+    private drawImageCircle(ctx, circleX, circleY, radius, imageX, imageY, imageWidth, imageHeight, imageUrl) {
+        let img = new Image();
+        img.onload = function () {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(circleX, circleY, radius, 0, Math.PI * 2, true);
+            ctx.clip();
+            ctx.drawImage(this, imageX, imageY, imageWidth, imageHeight);
+            ctx.restore();
+        };
+        img.src = imageUrl;
     }
 
     // private fade(selfNode, opacity: number, nodes, links) {
