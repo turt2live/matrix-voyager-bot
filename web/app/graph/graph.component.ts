@@ -145,29 +145,62 @@ export class GraphComponent implements OnInit {
             const r = n.type === 'room' ? 15 : 8;
             canvas.moveTo(n.x + r, n.y);
             canvas.arc(n.x, n.y, r, 0, 2 * Math.PI, false);
-
-            if (n.avatarUrl && n.avatarUrl.trim().length > 0) {
-                this.drawImageCircle(canvas, n.x, n.y, r, n.x - r, n.y - r , r * 2, r * 2, n.avatarUrl);
-            }
         });
         canvas.lineWidth = 3;
         canvas.strokeStyle = "#fff";
         canvas.fillStyle = "#fff";
         canvas.stroke();
         canvas.fill();
+
+        // Draw backgrounds for nodes that don't have images
+        nodes.forEach(n => {
+            const r = n.type === 'room' ? 15 : 8;
+
+            if (n.avatarUrl && n.avatarUrl.trim().length > 0) {
+                n.image = this.drawImageCircle(canvas, n.x, n.y, r, n.x - r, n.y - r, r * 2, r * 2, n.avatarUrl, n.image);
+            } else {
+                this.drawNodeAvatar(canvas, n.x, n.y, r, n);
+            }
+        });
     }
 
-    private drawImageCircle(ctx, circleX, circleY, radius, imageX, imageY, imageWidth, imageHeight, imageUrl) {
-        let img = new Image();
-        img.onload = function () {
+    private drawImageCircle(ctx, circleX, circleY, radius, imageX, imageY, imageWidth, imageHeight, imageUrl, existingImage) {
+        console.log("Rendering " + imageUrl + " (has image = " + (existingImage ? true : false) + ")");
+        if (existingImage) {
             ctx.save();
             ctx.beginPath();
             ctx.arc(circleX, circleY, radius, 0, Math.PI * 2, true);
             ctx.clip();
-            ctx.drawImage(this, imageX, imageY, imageWidth, imageHeight);
+            ctx.drawImage(existingImage, imageX, imageY, imageWidth, imageHeight);
             ctx.restore();
+            return existingImage;
+        }
+        let img = new Image();
+        img.onload = () => {
+            this.drawImageCircle(ctx, circleX, circleY, radius, imageX, imageY, imageWidth, imageHeight, imageUrl, img);
         };
         img.src = imageUrl;
+        return img;
+    }
+
+    private drawNodeAvatar(ctx, circleX, circleY, radius, node) {
+        let text = node.name[0];
+        if (text === '!' || text === '@' || text === '#')
+            text = node.name[1];
+        if (!text || node.isAnonymous) {
+            text = node.type === 'room' ? "#" : "@";
+        }
+
+        text = text.toUpperCase(); // to match Riot
+
+        ctx.beginPath();
+        ctx.arc(circleX, circleY, radius, 0, Math.PI * 2, true);
+        ctx.fillStyle = this.getBackgroundForString(node.name);
+        ctx.fill();
+        ctx.font = (node.type === 'room' ? 20 : 5) + 'pt Calibri';
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.fillText(text, circleX, circleY + (node.type === 'room' ? 8 : 3));
     }
 
     // private fade(selfNode, opacity: number, nodes, links) {
@@ -253,20 +286,21 @@ export class GraphComponent implements OnInit {
     //     }
     // }
 
-    // private getBackgroundForString(str) {
-    //     let hash = str.hashCode();
-    //     if (hash < 0) hash = hash * -1;
-    //
-    //     const options = [
-    //         "#ae71c6",
-    //         "#71c6a8",
-    //         "#a9c671",
-    //         "#7189c6",
-    //         "#c46fa8"
-    //     ];
-    //
-    //     return options[hash % options.length];
-    // }
+    private getBackgroundForString(str) {
+        let hash = str.hashCode();
+        if (hash < 0) hash = hash * -1;
+
+        const options = [
+            "#ae71c6",
+            "#71c6a8",
+            "#a9c671",
+            "#7189c6",
+            "#c46fa8"
+        ];
+
+        return options[hash % options.length];
+    }
+
     //
     // private getColorForType(pointOrType) {
     //     switch (pointOrType.type || pointOrType) {
