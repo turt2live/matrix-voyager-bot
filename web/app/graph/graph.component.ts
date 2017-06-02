@@ -17,7 +17,7 @@ export class GraphComponent implements OnInit {
 
     // public highlightedNode: NetworkNode = null;
     // public highlightedLink: NetworkLink = null;
-    // private isDragging = false;
+    private isDragging = false;
 
     constructor(private api: ApiService,
                 element: ElementRef,
@@ -128,10 +128,22 @@ export class GraphComponent implements OnInit {
                     }
                 }
             })
+            .on("start", () => {
+                if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+                d3.event.subject.fx = d3.event.subject.x;
+                d3.event.subject.fy = d3.event.subject.y;
+                this.isDragging = true;
+            })
             .on("drag", () => {
-                d3.event.subject.x = lastTransform.invertX(d3.event.x);
-                d3.event.subject.y = lastTransform.invertY(d3.event.y);
+                d3.event.subject.fx = lastTransform.invertX(d3.event.x);
+                d3.event.subject.fy = lastTransform.invertY(d3.event.y);
                 this.renderAll(ctx, lastTransform, width, height);
+            })
+            .on("end", () => {
+                if (!d3.event.active) simulation.alphaTarget(0).restart();
+                d3.event.subject.fx = null;
+                d3.event.subject.fy = null;
+                this.isDragging = false;
             }));
 
         canvasElement.call(d3.zoom()
