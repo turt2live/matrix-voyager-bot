@@ -15,7 +15,7 @@ export class GraphComponent implements OnInit {
     private parentNativeElement: any;
     private data: {links: NetworkLink[], nodes: NetworkNode[], nodeLinks: string[]};
 
-    // public highlightedNode: NetworkNode = null;
+    public highlightedNode: NetworkNode = null;
     // public highlightedLink: NetworkLink = null;
     private isDragging = false;
 
@@ -82,7 +82,7 @@ export class GraphComponent implements OnInit {
 
         d3ParentElement = d3.select(this.parentNativeElement);
 
-        // let nodeTooltip = d3ParentElement.select<HTMLDivElement>("div.tooltip.node-tooltip");
+        let nodeTooltip = d3ParentElement.select<HTMLDivElement>("div.tooltip.node-tooltip");
         // let linkTooltip = d3ParentElement.select<HTMLDivElement>("div.tooltip.link-tooltip");
 
         let canvasElement = d3ParentElement.select<HTMLCanvasElement>("canvas");
@@ -112,22 +112,7 @@ export class GraphComponent implements OnInit {
         let lastTransform = d3.zoomIdentity;
 
         canvasElement.call(d3.drag()
-            .subject(() => {
-                const x = lastTransform.invertX(d3.event.x);
-                const y = lastTransform.invertY(d3.event.y);
-
-                for (let node of <any[]>this.data.nodes) {
-                    let dx = x - node.x;
-                    let dy = y - node.y;
-                    let r = this.getNodeRadius(node);
-
-                    if (dx * dx + dy * dy < r * r) {
-                        node.x = lastTransform.applyX(node.x);
-                        node.y = lastTransform.applyY(node.y);
-                        return node;
-                    }
-                }
-            })
+            .subject(() => this.findSubject(lastTransform))
             .on("start", () => {
                 if (!d3.event.active) simulation.alphaTarget(0.3).restart();
                 d3.event.subject.fx = d3.event.subject.x;
@@ -152,6 +137,43 @@ export class GraphComponent implements OnInit {
                 lastTransform = d3.event.transform;
                 this.renderAll(ctx, lastTransform, width, height);
             }));
+
+        const self = this;
+        canvasElement.on('mousemove', function() {
+            const mouse = d3.mouse(this);
+            const subject = self.findSubject(lastTransform, mouse[0], mouse[1]);
+            if (!subject) {
+                nodeTooltip.transition().duration(100).style('opacity', 0);
+                return; // TODO: Link check
+            }
+
+            self.highlightedNode = subject;
+            nodeTooltip.transition().duration(100).style("opacity", 0.9);
+            nodeTooltip.style("left", d3.event.pageX + "px");
+            nodeTooltip.style("top", d3.event.pageY + "px");
+        });
+    }
+
+    private findSubject(lastTransform, sx = null, sy = null) {
+        let d3 = this.d3;
+
+        if (sx === null) sx = d3.event.x;
+        if (sy === null) sy = d3.event.y;
+
+        const x = lastTransform.invertX(sx);
+        const y = lastTransform.invertY(sy);
+
+        for (let node of <any[]>this.data.nodes) {
+            let dx = x - node.x;
+            let dy = y - node.y;
+            let r = this.getNodeRadius(node);
+
+            if (dx * dx + dy * dy < r * r) {
+                node.x = lastTransform.applyX(node.x);
+                node.y = lastTransform.applyY(node.y);
+                return node;
+            }
+        }
     }
 
     private renderAll(ctx, transform, width, height) {
@@ -177,10 +199,10 @@ export class GraphComponent implements OnInit {
     private render(ctx, nodes, links) {
         ctx.beginPath();
         links.forEach(k => {
+            ctx.strokeStyle = this.getColorForType(k);
             ctx.moveTo(k.source.x, k.source.y);
             ctx.lineTo(k.target.x, k.target.y);
         });
-        ctx.strokeStyle = "#ccc";
         ctx.stroke();
 
         ctx.beginPath();
@@ -305,22 +327,21 @@ export class GraphComponent implements OnInit {
         return options[hash % options.length];
     }
 
-    //
-    // private getColorForType(pointOrType) {
-    //     switch (pointOrType.type || pointOrType) {
-    //         case "invite":
-    //             return "#10b748";
-    //         case "self_link":
-    //             return "#694bcc";
-    //         case "kick":
-    //             return "#dd5e1a";
-    //         case "ban":
-    //             return "#ff2626";
-    //         case "message":
-    //         default:
-    //             return "#999";
-    //     }
-    // }
+    private getColorForType(pointOrType) {
+        switch (pointOrType.type || pointOrType) {
+            case "invite":
+                return "#10b748";
+            case "self_link":
+                return "#694bcc";
+            case "kick":
+                return "#dd5e1a";
+            case "ban":
+                return "#ff2626";
+            case "message":
+            default:
+                return "#999";
+        }
+    }
 
     private processNetwork(network: VoyagerNetwork) {
         const nodes = [];
