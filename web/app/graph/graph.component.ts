@@ -153,6 +153,7 @@ export class GraphComponent implements OnInit {
         canvas.fill();
 
         // Draw backgrounds for nodes that don't have images
+        const seenNodes = this.localStorageService.get<number[]>('seenNodes') || [];
         nodes.forEach(n => {
             const r = n.type === 'room' ? 15 : 8;
 
@@ -161,7 +162,35 @@ export class GraphComponent implements OnInit {
             } else {
                 this.drawNodeAvatar(canvas, n.x, n.y, r, n);
             }
+
+            let isNew = seenNodes.length > 0 && (seenNodes.indexOf(n.id) === -1);
+            if (isNew && n.type === 'room') {
+                this.drawNodeIsNew(canvas, n.x, n.y, r);
+            }
         });
+    }
+
+    private drawNodeIsNew(ctx, x, y, r) {
+        const numTriangles = 7;
+        const distance = 0 + r;
+
+        const baseDist = 3;
+        const width = (Math.PI * (distance + baseDist)) / numTriangles;
+
+        ctx.fillStyle = "#F90";
+        ctx.setTransform(1, 0, 0, 1, x, y); // move center to where it should be.
+
+        for (let i = 0; i < numTriangles; i++) {
+            ctx.setTransform(1, 0, 0, 1, x, y);
+            ctx.rotate((i / numTriangles) * Math.PI * 2);
+            ctx.beginPath();
+            ctx.moveTo(-width, distance + baseDist);
+            ctx.lineTo(0, distance + 10);
+            ctx.lineTo(width, distance + baseDist);
+            ctx.fill();
+        }
+
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // reset
     }
 
     private drawImageCircle(ctx, circleX, circleY, radius, imageX, imageY, imageWidth, imageHeight, imageUrl, existingImage) {
