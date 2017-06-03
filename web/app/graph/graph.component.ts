@@ -15,6 +15,7 @@ export class GraphComponent implements OnInit {
     private parentNativeElement: any;
     private data: {links: NetworkLink[], nodes: NetworkNode[], nodeLinks: string[]};
     private isDragging = false;
+    private isHovering = false;
 
     public isBrowserSupported = false;
     public highlightedNode: NetworkNode = null;
@@ -127,6 +128,7 @@ export class GraphComponent implements OnInit {
                 d3.event.subject.fx = d3.event.subject.x;
                 d3.event.subject.fy = d3.event.subject.y;
                 this.isDragging = true;
+                this.isHovering = true;
             })
             .on("drag", () => {
                 d3.event.subject.fx = lastTransform.invertX(d3.event.x);
@@ -138,6 +140,7 @@ export class GraphComponent implements OnInit {
                 d3.event.subject.fx = null;
                 d3.event.subject.fy = null;
                 this.isDragging = false;
+                this.isHovering = false;
             }));
 
         canvasElement.call(d3.zoom()
@@ -153,10 +156,12 @@ export class GraphComponent implements OnInit {
             const subject = self.findSubject(lastTransform, mouse[0], mouse[1]);
             if (!subject) {
                 nodeTooltip.transition().duration(100).style('opacity', 0);
-                return; // TODO: Link check
+                self.isHovering = false;
+                return;
             }
 
             self.highlightedNode = subject;
+            self.isHovering = true;
             nodeTooltip.transition().duration(100).style("opacity", 0.9);
             nodeTooltip.style("left", d3.event.pageX + "px");
             nodeTooltip.style("top", d3.event.pageY + "px");
@@ -206,7 +211,13 @@ export class GraphComponent implements OnInit {
     }
 
     private render(ctx, nodes, links) {
+        const fadedOpacity = 0.1;
+
         links.forEach(k => {
+            if (this.isHovering) {
+                ctx.globalAlpha = (k.target === this.highlightedNode || k.source === this.highlightedNode) ? 1 : fadedOpacity;
+            } else ctx.globalAlpha = 1;
+
             ctx.beginPath();
             ctx.strokeStyle = this.getColorForType(k);
 
@@ -231,21 +242,29 @@ export class GraphComponent implements OnInit {
             }
         });
 
-        ctx.beginPath();
         nodes.forEach(n => {
+            if (this.isHovering) {
+                ctx.globalAlpha = this.isConnected(n, this.highlightedNode) ? 1 : fadedOpacity;
+            } else ctx.globalAlpha = 1;
+
             const r = this.getNodeRadius(n);
+            ctx.beginPath();
             ctx.moveTo(n.x + r, n.y);
             ctx.arc(n.x, n.y, r, 0, 2 * Math.PI, false);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "#fff";
+            ctx.fillStyle = "#fff";
+            ctx.stroke();
+            ctx.fill();
         });
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = "#fff";
-        ctx.fillStyle = "#fff";
-        ctx.stroke();
-        ctx.fill();
 
         // Draw backgrounds for nodes that don't have images
         const seenNodes = this.localStorageService.get<number[]>('seenNodes') || [];
         nodes.forEach(n => {
+            if (this.isHovering) {
+                ctx.globalAlpha = this.isConnected(n, this.highlightedNode) ? 1 : fadedOpacity;
+            } else ctx.globalAlpha = 1;
+
             const r = this.getNodeRadius(n);
 
             if (n.avatarUrl && n.avatarUrl.trim().length > 0) {
@@ -322,21 +341,14 @@ export class GraphComponent implements OnInit {
         ctx.fillText(text, circleX, circleY + (node.type === 'room' ? 8 : 4));
     }
 
-    // private fade(selfNode, opacity: number, nodes, links) {
-    //     nodes.attr('stroke-opacity', n => this.isConnected(selfNode, n) ? 1 : opacity);
-    //     nodes.attr('fill-opacity', n => this.isConnected(selfNode, n) ? 1 : opacity);
-    //
-    //     links.attr("stroke-opacity", k => (k.source === selfNode || k.target === selfNode ? 1 : opacity));
-    // }
+    private isConnected(node1: NetworkNode, node2: NetworkNode) {
+        if (node1.id === node2.id) return true;
 
-    // private isConnected(node1: NetworkNode, node2: NetworkNode) {
-    //     if (node1.id === node2.id) return true;
-    //
-    //     const sourceToTarget = node1.id + "," + node2.id;
-    //     const targetToSource = node2.id + "," + node1.id;
-    //
-    //     return this.data.nodeLinks.indexOf(sourceToTarget) !== -1 || this.data.nodeLinks.indexOf(targetToSource) !== -1;
-    // }
+        const sourceToTarget = node1.id + "," + node2.id;
+        const targetToSource = node2.id + "," + node1.id;
+
+        return this.data.nodeLinks.indexOf(sourceToTarget) !== -1 || this.data.nodeLinks.indexOf(targetToSource) !== -1;
+    }
 
     private getBackgroundForString(str) {
         let hash = str.hashCode();

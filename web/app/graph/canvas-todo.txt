@@ -1,3 +1,2 @@
-- When hovering on node, fade irrelevant links
 - Production data test
 - Delete this file
