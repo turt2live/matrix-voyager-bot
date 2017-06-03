@@ -4,9 +4,3 @@
     <br/>
     {{ highlightedNode ? highlightedNode.primaryAlias : '' }}
 </div>
-<div class="tooltip link-tooltip">
-    <strong>{{ highlightedLink ? (
-        highlightedLink.value + ' ' + highlightedLink.type.replace(s/_/g, ' ') + (highlightedLink.value !== 1 ? 's' : '') +
-        ' from ' + highlightedLink.source.name + ' to ' + highlightedLink.target.name
-        ) : '' }}</strong>
-</div>

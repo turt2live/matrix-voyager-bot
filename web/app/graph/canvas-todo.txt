@@ -1,4 +1,3 @@
-- Link hover tooltip
 - Arc links when multiple types found
 - When hovering on node, fade irrelevant links
 - Verify link colors

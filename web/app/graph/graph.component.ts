@@ -16,7 +16,6 @@ export class GraphComponent implements OnInit {
     private data: {links: NetworkLink[], nodes: NetworkNode[], nodeLinks: string[]};
 
     public highlightedNode: NetworkNode = null;
-    public highlightedLink: NetworkLink = null;
     private isDragging = false;
 
     constructor(private api: ApiService,
@@ -83,7 +82,6 @@ export class GraphComponent implements OnInit {
         d3ParentElement = d3.select(this.parentNativeElement);
 
         let nodeTooltip = d3ParentElement.select<HTMLDivElement>("div.tooltip.node-tooltip");
-        // let linkTooltip = d3ParentElement.select<HTMLDivElement>("div.tooltip.link-tooltip");
 
         let canvasElement = d3ParentElement.select<HTMLCanvasElement>("canvas");
         let bbox = d3ParentElement.node().getBoundingClientRect();
