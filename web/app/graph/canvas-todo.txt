@@ -1,6 +1,4 @@
-- Arc links when multiple types found
 - When hovering on node, fade irrelevant links
-- Verify link colors
 - Verify anon users
 - Verify users without avatars
 - Production data test

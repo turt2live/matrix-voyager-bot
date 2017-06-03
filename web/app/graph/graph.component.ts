@@ -195,13 +195,30 @@ export class GraphComponent implements OnInit {
     }
 
     private render(ctx, nodes, links) {
-        ctx.beginPath();
         links.forEach(k => {
+            ctx.beginPath();
             ctx.strokeStyle = this.getColorForType(k);
-            ctx.moveTo(k.source.x, k.source.y);
-            ctx.lineTo(k.target.x, k.target.y);
+
+            let hasRelatedLinks = k.relatedLinkTypes && k.relatedLinkTypes.length > 1;
+            if (!hasRelatedLinks && (k.inverseCount === 0 || k.value === 0)) {
+                ctx.moveTo(k.source.x, k.source.y);
+                ctx.lineTo(k.target.x, k.target.y);
+                ctx.stroke();
+            } else {
+                let shouldInvert = hasRelatedLinks ? (k.relatedLinkTypes.indexOf(k.type) !== 0) : false;
+                let sx = shouldInvert ? k.target.x : k.source.x;
+                let sy = shouldInvert ? k.target.y : k.source.y;
+                let tx = shouldInvert ? k.source.x : k.target.x;
+                let ty = shouldInvert ? k.source.y : k.target.y;
+                let dx = (k.target.x - k.source.x) / 0.1;
+                let dy = (k.target.y - k.source.y) / 0.1;
+                let dr = Math.sqrt((dx * dx) + (dy * dy));
+
+                let path = new Path2D(<any>("M" + sx + "," + sy + "A" + dr + "," + dr + " 0 0,1 " + tx + "," + ty));
+                // this.curveBetweenPoints(ctx, sx, sy, tx, ty, shouldInvert);
+                ctx.stroke(path);
+            }
         });
-        ctx.stroke();
 
         ctx.beginPath();
         nodes.forEach(n => {
