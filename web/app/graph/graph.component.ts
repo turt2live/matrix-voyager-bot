@@ -191,6 +191,7 @@ export class GraphComponent implements OnInit {
     }
 
     private renderAll(ctx, transform, width, height) {
+        console.log("render all");
         ctx.save();
         ctx.clearRect(0, 0, width, height);
         ctx.translate(transform.x, transform.y);
@@ -204,6 +205,7 @@ export class GraphComponent implements OnInit {
     }
 
     private onTick(ctx, links, nodes, width, height) {
+        console.log("tick");
         ctx.clearRect(0, 0, width, height);
         ctx.save();
         this.render(ctx, nodes, links);
@@ -256,17 +258,8 @@ export class GraphComponent implements OnInit {
             ctx.fillStyle = "#fff";
             ctx.stroke();
             ctx.fill();
-        });
 
-        // Draw backgrounds for nodes that don't have images
-        const seenNodes = this.localStorageService.get<number[]>('seenNodes') || [];
-        nodes.forEach(n => {
-            if (this.isHovering) {
-                ctx.globalAlpha = this.isConnected(n, this.highlightedNode) ? 1 : fadedOpacity;
-            } else ctx.globalAlpha = 1;
-
-            const r = this.getNodeRadius(n);
-
+            const seenNodes = this.localStorageService.get<number[]>('seenNodes') || [];
             if (n.avatarUrl && n.avatarUrl.trim().length > 0) {
                 n.image = this.drawImageCircle(ctx, n.x, n.y, r, n.x - r, n.y - r, r * 2, r * 2, n.avatarUrl, n.image);
             } else {
