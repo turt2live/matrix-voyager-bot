@@ -316,10 +316,10 @@ export class GraphComponent implements OnInit {
         ctx.arc(circleX, circleY, radius, 0, Math.PI * 2, true);
         ctx.fillStyle = this.getBackgroundForString(node.name);
         ctx.fill();
-        ctx.font = (node.type === 'room' ? 20 : 5) + 'pt Calibri';
+        ctx.font = (node.type === 'room' ? 20 : 10) + 'pt Calibri';
         ctx.fillStyle = 'white';
         ctx.textAlign = 'center';
-        ctx.fillText(text, circleX, circleY + (node.type === 'room' ? 8 : 3));
+        ctx.fillText(text, circleX, circleY + (node.type === 'room' ? 8 : 4));
     }
 
     // private fade(selfNode, opacity: number, nodes, links) {

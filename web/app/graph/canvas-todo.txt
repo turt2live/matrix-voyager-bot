@@ -1,5 +1,3 @@
 - When hovering on node, fade irrelevant links
-- Verify anon users
-- Verify users without avatars
 - Production data test
 - Delete this file
