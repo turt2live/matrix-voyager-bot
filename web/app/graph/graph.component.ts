@@ -14,9 +14,10 @@ export class GraphComponent implements OnInit {
     private d3: D3;
     private parentNativeElement: any;
     private data: {links: NetworkLink[], nodes: NetworkNode[], nodeLinks: string[]};
-
-    public highlightedNode: NetworkNode = null;
     private isDragging = false;
+
+    public isBrowserSupported = false;
+    public highlightedNode: NetworkNode = null;
 
     constructor(private api: ApiService,
                 element: ElementRef,
@@ -35,6 +36,16 @@ export class GraphComponent implements OnInit {
             handledLinkIds: [],
             handledNodeIds: []
         };
+
+        try {
+            let hasPath = (new Path2D()) !== undefined;
+            console.log("Path support: " + hasPath); // this is to stop ts from yelling at us
+            this.isBrowserSupported = hasPath;
+        } catch (err) {
+            this.isBrowserSupported = false;
+            console.error(err);
+            return;
+        }
 
         this.appendNetwork(0, commonNetwork);
     }
