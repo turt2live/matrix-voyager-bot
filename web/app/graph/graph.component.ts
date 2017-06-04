@@ -304,7 +304,13 @@ export class GraphComponent implements OnInit {
         img.onload = () => {
             this.drawImageCircle(ctx, circleX, circleY, radius, imageX, imageY, imageWidth, imageHeight, imageUrl, img);
         };
-        img.src = imageUrl;
+        img.onerror = () => {
+            if (img.src !== 'img/default_room_icon.png') {
+                console.warn("Failed to load image, using default instead of " + imageUrl);
+                img.src = 'img/default_room_icon.png';
+            } else console.error("Failed to load default image instead of " + imageUrl);
+        };
+        img.src = imageUrl.replace("dev.", "failure");
         return img;
     }
 
