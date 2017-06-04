@@ -116,7 +116,7 @@ export class GraphComponent implements OnInit {
             .force("center", d3.forceCenter(width / 2, height / 2))
             .force("collide", d3.forceCollide<NetworkNode>(n => n.type === 'room' ? 20 : 15).strength(0.5));
 
-        simulation.on('tick', () => this.onTick(ctx, this.data.links, this.data.nodes, width, height));
+        simulation.on('tick', () => this.onTick(ctx, this.data.links, this.data.nodes, width, height, lastTransform));
         simulation.force<ForceLink<NetworkNode, NetworkLink>>("link").links(this.data.links);
 
         let lastTransform = d3.zoomIdentity;
@@ -125,14 +125,14 @@ export class GraphComponent implements OnInit {
             .subject(() => this.findSubject(lastTransform))
             .on("start", () => {
                 if (!d3.event.active) simulation.alphaTarget(0.3).restart();
-                d3.event.subject.fx = d3.event.subject.x;
-                d3.event.subject.fy = d3.event.subject.y;
+                // d3.event.subject.fx = lastTransform.invertX(d3.event.subject.x);
+                // d3.event.subject.fy = lastTransform.invertY(d3.event.subject.y);
                 this.isDragging = true;
                 this.isHovering = true;
             })
             .on("drag", () => {
-                d3.event.subject.fx = lastTransform.invertX(d3.event.x);
-                d3.event.subject.fy = lastTransform.invertY(d3.event.y);
+                d3.event.subject.fx = (d3.event.sourceEvent.pageX - lastTransform.x) / lastTransform.k;
+                d3.event.subject.fy = (d3.event.sourceEvent.pageY - lastTransform.y) / lastTransform.k;
                 this.renderAll(ctx, lastTransform, width, height);
             })
             .on("end", () => {
@@ -183,8 +183,6 @@ export class GraphComponent implements OnInit {
             let r = this.getNodeRadius(node);
 
             if (dx * dx + dy * dy < r * r) {
-                node.x = lastTransform.applyX(node.x);
-                node.y = lastTransform.applyY(node.y);
                 return node;
             }
         }
@@ -192,27 +190,23 @@ export class GraphComponent implements OnInit {
 
     private renderAll(ctx, transform, width, height) {
         console.log("render all");
-        ctx.save();
-        ctx.clearRect(0, 0, width, height);
-        ctx.translate(transform.x, transform.y);
-        ctx.scale(transform.k, transform.k);
-        this.render(ctx, this.data.nodes, this.data.links);
-        ctx.restore();
+        this.render(ctx, this.data.nodes, this.data.links, width, height, transform);
     }
 
     private getNodeRadius(node) {
         return node.type === 'room' ? 15 : 8;
     }
 
-    private onTick(ctx, links, nodes, width, height) {
-        console.log("tick");
-        ctx.clearRect(0, 0, width, height);
-        ctx.save();
-        this.render(ctx, nodes, links);
-        ctx.restore();
+    private onTick(ctx, links, nodes, width, height, transform) {
+        this.render(ctx, nodes, links, width, height, transform);
     }
 
-    private render(ctx, nodes, links) {
+    private render(ctx, nodes, links, width, height, transform) {
+        ctx.clearRect(0, 0, width, height);
+        ctx.save();
+        ctx.translate(transform.x, transform.y);
+        ctx.scale(transform.k, transform.k);
+
         const fadedOpacity = 0.1;
 
         links.forEach(k => {
@@ -239,7 +233,6 @@ export class GraphComponent implements OnInit {
                 let dr = Math.sqrt((dx * dx) + (dy * dy));
 
                 let path = new Path2D(<any>("M" + sx + "," + sy + "A" + dr + "," + dr + " 0 0,1 " + tx + "," + ty));
-                // this.curveBetweenPoints(ctx, sx, sy, tx, ty, shouldInvert);
                 ctx.stroke(path);
             }
         });
@@ -271,6 +264,8 @@ export class GraphComponent implements OnInit {
                 this.drawNodeIsNew(ctx, n.x, n.y, r);
             }
         });
+
+        ctx.restore();
     }
 
     private drawNodeIsNew(ctx, x, y, r) {
