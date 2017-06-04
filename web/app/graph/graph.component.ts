@@ -189,7 +189,6 @@ export class GraphComponent implements OnInit {
     }
 
     private renderAll(ctx, transform, width, height) {
-        console.log("render all");
         this.render(ctx, this.data.nodes, this.data.links, width, height, transform);
     }
 
