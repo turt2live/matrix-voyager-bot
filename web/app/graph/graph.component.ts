@@ -292,6 +292,10 @@ export class GraphComponent implements OnInit {
 
     private drawImageCircle(ctx, circleX, circleY, radius, imageX, imageY, imageWidth, imageHeight, imageUrl, existingImage) {
         if (existingImage) {
+            if (!existingImage.complete || !existingImage.naturalWidth) {
+                console.warn("Skipping render for image: Incomplete and/or broken. Url = " + imageUrl);
+                return existingImage;
+            }
             ctx.save();
             ctx.beginPath();
             ctx.arc(circleX, circleY, radius, 0, Math.PI * 2, true);
@@ -302,6 +306,12 @@ export class GraphComponent implements OnInit {
         }
         let img = new Image();
         img.onload = () => {
+            if (!img.complete || !img.naturalWidth) {
+                console.warn("Failed to load image, using default instead of " + imageUrl);
+                img.src = "img/default_room_icon.png";
+                return;
+            }
+
             this.drawImageCircle(ctx, circleX, circleY, radius, imageX, imageY, imageWidth, imageHeight, imageUrl, img);
         };
         img.onerror = () => {
@@ -310,7 +320,7 @@ export class GraphComponent implements OnInit {
                 img.src = 'img/default_room_icon.png';
             } else console.error("Failed to load default image instead of " + imageUrl);
         };
-        img.src = imageUrl.replace("dev.", "failure");
+        img.src = imageUrl;
         return img;
     }
 
