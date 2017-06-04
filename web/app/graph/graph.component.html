@@ -1,14 +1,13 @@
-<svg>
-    <defs></defs>
-</svg>
+<canvas *ngIf="isBrowserSupported"></canvas>
+<div class="unsupported-browser" *ngIf="!isBrowserSupported">
+    <h3>Sorry, your web browser is not supported</h3>
+    <p>Please use an updated version of Chrome or Firefox to continue</p>
+</div>
 <div class="tooltip node-tooltip">
     <strong>{{ highlightedNode ? highlightedNode.name : '' }}</strong>
     <br/>
     {{ highlightedNode ? highlightedNode.primaryAlias : '' }}
 </div>
-<div class="tooltip link-tooltip">
-    <strong>{{ highlightedLink ? (
-        highlightedLink.value + ' ' + highlightedLink.type.replace(s/_/g, ' ') + (highlightedLink.value !== 1 ? 's' : '') +
-        ' from ' + highlightedLink.source.name + ' to ' + highlightedLink.target.name
-        ) : '' }}</strong>
+<div style="position: absolute; bottom: 0; right: 0; padding: 5px; background-color: #ffd597; border: 1px solid #e45400; border-bottom: 0; border-right: 0; border-top-left-radius: 3px; color: #000; font-size: 12px;">
+    Canvas rendering is still in beta. Please report issues to <a href="https://github.com/turt2live/matrix-voyager-bot" target="_blank" rel="noopener">Github</a>
 </div>

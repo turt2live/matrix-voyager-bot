@@ -1,12 +1,8 @@
 // component styles are encapsulated and only applied to their components
-* {
-  color: #FFEF00;
-}
-
 my-graph {
-  top: 6px;
-  left: 6px;
+  top: 0;
+  left: 0;
   position: absolute;
-  width: calc(100% - 12px);
-  height: calc(100% - 12px);
+  width: calc(100% - 0px);
+  height: calc(100% - 0px);
 }
