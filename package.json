@@ -8,6 +8,7 @@
     "db-migrate-pg": "^0.1.11",
     "db-migrate-sqlite3": "^0.2.1",
     "express": "^4.15.2",
+    "indexeddb-js": "0.0.14",
     "js-yaml": "^3.8.2",
     "lodash.sortedindex": "^4.1.0",
     "matrix-js-sdk": "0.7.10",

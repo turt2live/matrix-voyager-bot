@@ -4,7 +4,10 @@ var LocalStorage = require("node-localstorage").LocalStorage;
 var config = require("config");
 var sdk = require("matrix-js-sdk");
 var log = require("./LogService");
+var sqlite3 = require("sqlite3");
+var indexeddbjs = require("indexeddb-js");
 var naturalSort = require("node-natural-sort");
+var IndexedDBStore = require("matrix-js-sdk/lib/store/indexeddb");
 
 /**
  * The main entry point for the bot. Handles most of the business logic and bot actions
@@ -18,6 +21,10 @@ class VoyagerBot {
     constructor(store) {
         this._localStorage = new LocalStorage("db/voyager_local_storage", 100 * 1024 * 1024); // quota is 100mb
         var mtxStore = new VoyagerMatrixStore(this._localStorage);
+
+        mtxStore = new IndexedDBStore({
+            localStorage: new LocalStorage("db/voyager_js_sdk_store", 1024 * 1024 * 1024)  // quota is 1gb
+        });
 
         this._nodeUpdateQueue = [];
         this._processingNodes = false;
@@ -604,7 +611,7 @@ class VoyagerBot {
             log.verbose("VoyagerBot", "Skipping state updates for all nodes - node updates are disabled");
             return;
         }
-        
+
         if (this._queueRoomsOnStartup) {
             var rooms = this._client.getRooms();
             for (var room of rooms) {
@@ -612,7 +619,7 @@ class VoyagerBot {
             }
         }
 
-        if(this._queueUsersOnStartup) {
+        if (this._queueUsersOnStartup) {
             this._store.getNodesByType('user').then(users => {
                 for (var user of users) {
                     var mtxUser = this._client.getUser(user.objectId);
