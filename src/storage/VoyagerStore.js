@@ -485,7 +485,7 @@ class VoyagerStore {
     getCurrentNodeVersionForNode(node) {
         return this.__NodeVersions.findOne({
             where: {nodeId: node.id},
-            order: 'id DESC'
+            order: [['id', 'DESC']]
         }).then(nv => nv ? new NodeVersion(nv) : null);
     }
 
