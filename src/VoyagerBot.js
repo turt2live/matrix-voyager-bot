@@ -41,14 +41,14 @@ class VoyagerBot {
 
         this._loadPendingNodeUpdates();
 
+        this._client.on('sync', this._onSync.bind(this));
+        this._client.on('Room', this._onRoom.bind(this));
         this._client.on('Room.timeline', this._processTimeline.bind(this));
         this._client.on('RoomState.members', this._processMembership.bind(this));
-        this._client.on('sync', this._onSync.bind(this));
+        //this._client.on('RoomState.members', this._onRoomMemberUpdated.bind(this));
         this._client.on('RoomState.events', this._onRoomStateUpdated.bind(this));
-        this._client.on('Room', this._onRoom.bind(this));
-        this._client.on('User.avatarUrl', this._onUserUpdatedGeneric.bind(this));
-        this._client.on('User.displayName', this._onUserUpdatedGeneric.bind(this));
-        this._client.on('RoomState.members', this._onRoomMemberUpdated.bind(this));
+        //this._client.on('User.avatarUrl', this._onUserUpdatedGeneric.bind(this));
+        //this._client.on('User.displayName', this._onUserUpdatedGeneric.bind(this));
     }
 
     /**
@@ -60,6 +60,7 @@ class VoyagerBot {
     }
 
     _onRoomMemberUpdated(event, state, member) {
+        log.verbose("VoyagerBot", "Room member updated event");
         if (!this._queueNodesForUpdate) {
             log.verbose("VoyagerBot", "Not queuing update of user " + member.userId + " because node updates are currently disabled.");
             return Promise.resolve();
@@ -70,6 +71,7 @@ class VoyagerBot {
     }
 
     _onUserUpdatedGeneric(event, user) {
+        log.verbose("VoyagerBot", "Update user event (generic)");
         if (!this._queueNodesForUpdate) {
             log.verbose("VoyagerBot", "Not queuing update of user " + user.userId + " because node updates are currently disabled.");
             return Promise.resolve();
@@ -80,6 +82,7 @@ class VoyagerBot {
     }
 
     _onRoom(room) {
+        log.verbose("VoyagerBot", "Room event");
         if (!this._queueNodesForUpdate) {
             log.verbose("VoyagerBot", "Not queuing update of room " + room.roomId + " because node updates are currently disabled.");
             return Promise.resolve();
@@ -90,6 +93,7 @@ class VoyagerBot {
     }
 
     _onRoomStateUpdated(event, state) {
+        log.verbose("VoyagerBot", "Room state updated event");
         if (!this._queueNodesForUpdate) {
             log.verbose("VoyagerBot", "Not queuing update of room state for room " + event.getRoomId() + " because node updates are currently disabled.");
             return Promise.resolve();
@@ -125,6 +129,8 @@ class VoyagerBot {
         if (member.userId != this._client.credentials.userId || event.getType() !== 'm.room.member')
             return Promise.resolve(); // not applicable for us
 
+        log.verbose("VoyagerBot", "Process membership");
+
         var newState = member.membership;
         if (newState == 'invite') {
             return this._onInvite(event);
@@ -141,6 +147,7 @@ class VoyagerBot {
     }
 
     _processTimeline(event, room, toStartOfTimeline, removed, data) {
+        log.verbose("VoyagerBot", "Timeline event (" + event.getType() + ")");
         if (event.getType() != 'm.room.message') return Promise.resolve();
 
         var senderId = event.getSender();
