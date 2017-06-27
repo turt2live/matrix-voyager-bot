@@ -208,6 +208,15 @@ class MatrixLiteClient extends EventEmitter {
     }
 
     /**
+     * Leaves the given room
+     * @param {string} roomId the room ID to leave
+     * @returns {Promise<*>} resolves when left
+     */
+    leaveRoom(roomId) {
+        return this._do("POST", "/_matrix/client/r0/rooms/" + roomId + "/leave");
+    }
+
+    /**
      * Sends a notice to the given room
      * @param {string} roomId the room ID to send the notice to
      * @param {string} text the text to send

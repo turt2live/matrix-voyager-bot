@@ -21,7 +21,7 @@ client.on('invite', (roomId, event) => {
 });
 
 client.joinRoom("#test-bot:matrix.org").then(roomId => {
-   client.sendNotice(roomId, "Hello world :D");
-});
+    return client.sendNotice(roomId, "Hello world :D");
+}).then(() => client.leaveRoom("!ewOgZEUrOZAAaQJNBv:matrix.org"));
 
 client.start();
