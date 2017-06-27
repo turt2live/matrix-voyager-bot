@@ -140,13 +140,13 @@ class MatrixLiteClient extends EventEmitter {
             for (var event of roomInfo['timeline']['events']) {
                 if (event['type'] !== 'm.room.membership') continue;
                 if (event['state_key'] !== this.selfId) continue;
-                if(leaveEvent && leaveEvent['unsigned']['age'] < event['unsigned']['age']) continue;
+                if (leaveEvent && leaveEvent['unsigned']['age'] < event['unsigned']['age']) continue;
 
                 leaveEvent = event;
             }
 
             if (!leaveEvent) {
-                log.warn("MatrixClientLite", "Left room " + roomId+" without a leave event in /sync");
+                log.warn("MatrixClientLite", "Left room " + roomId + " without a leave event in /sync");
                 return;
             }
 
@@ -165,13 +165,13 @@ class MatrixLiteClient extends EventEmitter {
                 if (event['type'] !== 'm.room.member') continue;
                 if (event['state_key'] !== this.selfId) continue;
                 if (event['membership'] !== 'invite') continue;
-                if(inviteEvent && inviteEvent['unsigned']['age'] < event['unsigned']['age']) continue;
+                if (inviteEvent && inviteEvent['unsigned']['age'] < event['unsigned']['age']) continue;
 
                 inviteEvent = event;
             }
 
             if (!inviteEvent) {
-                log.warn("MatrixClientLite", "Invited to room " + roomId+" without an invite event in /sync");
+                log.warn("MatrixClientLite", "Invited to room " + roomId + " without an invite event in /sync");
                 return;
             }
 
@@ -193,6 +193,34 @@ class MatrixLiteClient extends EventEmitter {
                 this.emit("message", roomId, event);
             }
         }
+    }
+
+    /**
+     * Joins the given room
+     * @param {string} roomIdOrAlias the room ID or alias to join
+     * @returns {Promise<string>} resolves to the joined room ID
+     */
+    joinRoom(roomIdOrAlias) {
+        roomIdOrAlias = encodeURIComponent(roomIdOrAlias);
+        return this._do("POST", "/_matrix/client/r0/join/" + roomIdOrAlias).then(response => {
+            return response['room_id'];
+        });
+    }
+
+    /**
+     * Sends a notice to the given room
+     * @param {string} roomId the room ID to send the notice to
+     * @param {string} text the text to send
+     * @returns {Promise<string>} resolves to the event ID that represents the message
+     */
+    sendNotice(roomId, text) {
+        var txnId = (new Date().getTime()) + "LR" + this._requestId;
+        return this._do("PUT", "/_matrix/client/r0/rooms/" + roomId + "/send/m.room.message/" + txnId, null, {
+            body: text,
+            msgtype: "m.notice"
+        }).then(response => {
+            return response['event_id'];
+        });
     }
 
     _do(method, endpoint, qs = null, body = null, timeout = 60000, raw = false) {

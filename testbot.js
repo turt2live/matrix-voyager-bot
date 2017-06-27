@@ -14,4 +14,14 @@ client.on('invite', (roomId, event) => console.log("Invite to room " + roomId + 
 client.on('join_room', roomId => console.log("Joined room " + roomId));
 client.on('message', (roomId, event) => console.log("Message in room " + roomId + ": " + JSON.stringify(event)));
 
+client.on('invite', (roomId, event) => {
+    client.joinRoom(roomId).then(() => {
+        client.sendNotice(roomId, "Hello world");
+    });
+});
+
+client.joinRoom("#test-bot:matrix.org").then(roomId => {
+   client.sendNotice(roomId, "Hello world :D");
+});
+
 client.start();
