@@ -3,11 +3,17 @@ var log = require("../LogService");
 var filterJson = require("./filter_template.json");
 var LocalStorage = require("node-localstorage").LocalStorage;
 var Promise = require('bluebird');
+var EventEmitter = require('events');
+var _ = require('lodash');
 
 /**
- * Represents a lightweight matrix client with minimal functionality
+ * Represents a lightweight matrix client with minimal functionality. Fires the following events:
+ * * "leave_room" (roomId, event)
+ * * "join_room" (roomId)
+ * * "invite" (roomId, event)
+ * * "message" (roomId, messageEvent) - only fired for joined rooms
  */
-class MatrixLiteClient {
+class MatrixLiteClient extends EventEmitter {
 
     /**
      * Creates a new matrix client
@@ -16,6 +22,7 @@ class MatrixLiteClient {
      * @param {string} selfId the ID of the user owning the token
      */
     constructor(homeserverUrl, accessToken, selfId) {
+        super();
         this.selfId = selfId;
         this._accessToken = accessToken;
         this._homeserverUrl = homeserverUrl;
@@ -120,7 +127,72 @@ class MatrixLiteClient {
     }
 
     _processSync(data) {
-        log.verbose("MatrixClientLite", "Got sync response: " + JSON.stringify(data));
+        if (!data['rooms']) return;
+
+        // process leaves
+        var leftRooms = data['rooms']['leave'];
+        if (!leftRooms) leftRooms = {};
+        _.forEach(_.keys(leftRooms), roomId => {
+            var roomInfo = leftRooms[roomId];
+            if (!roomInfo['timeline'] || !roomInfo['timeline']['events']) return;
+
+            var leaveEvent = null;
+            for (var event of roomInfo['timeline']['events']) {
+                if (event['type'] !== 'm.room.membership') continue;
+                if (event['state_key'] !== this.selfId) continue;
+                if(leaveEvent && leaveEvent['unsigned']['age'] < event['unsigned']['age']) continue;
+
+                leaveEvent = event;
+            }
+
+            if (!leaveEvent) {
+                log.warn("MatrixClientLite", "Left room " + roomId+" without a leave event in /sync");
+                return;
+            }
+
+            this.emit("leave_room", roomId, leaveEvent);
+        });
+
+        // process invites
+        var inviteRooms = data['rooms']['invite'];
+        if (!inviteRooms) inviteRooms = {};
+        _.forEach(_.keys(inviteRooms), roomId => {
+            var roomInfo = inviteRooms[roomId];
+            if (!roomInfo['invite_state'] || !roomInfo['invite_state']['events']) return;
+
+            var inviteEvent = null;
+            for (var event of roomInfo['invite_state']['events']) {
+                if (event['type'] !== 'm.room.member') continue;
+                if (event['state_key'] !== this.selfId) continue;
+                if (event['membership'] !== 'invite') continue;
+                if(inviteEvent && inviteEvent['unsigned']['age'] < event['unsigned']['age']) continue;
+
+                inviteEvent = event;
+            }
+
+            if (!inviteEvent) {
+                log.warn("MatrixClientLite", "Invited to room " + roomId+" without an invite event in /sync");
+                return;
+            }
+
+            this.emit("invite", roomId, inviteEvent);
+        });
+
+        // process joined rooms and their messages
+        var joinedRooms = data['rooms']['join'];
+        if (!joinedRooms) joinedRooms = {};
+        var roomIds = _.keys(joinedRooms);
+        for (var roomId of roomIds) {
+            this.emit("join_room", roomId);
+
+            var roomInfo = joinedRooms[roomId];
+            if (!roomInfo['timeline'] || !roomInfo['timeline']['events']) continue;
+
+            for (var event of roomInfo['timeline']['events']) {
+                if (event['type'] !== 'm.room.message') continue;
+                this.emit("message", roomId, event);
+            }
+        }
     }
 
     _do(method, endpoint, qs = null, body = null, timeout = 60000, raw = false) {
