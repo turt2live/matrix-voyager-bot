@@ -8,10 +8,13 @@ var _ = require('lodash');
 
 /**
  * Represents a lightweight matrix client with minimal functionality. Fires the following events:
- * * "leave_room" (roomId, event)
- * * "join_room" (roomId)
- * * "invite" (roomId, event)
- * * "message" (roomId, messageEvent) - only fired for joined rooms
+ * * "room_leave" (roomId, leaveEvent)
+ * * "room_join" (roomId)
+ * * "room_invite" (roomId, inviteEvent)
+ * * "room_message" (roomId, messageEvent) - only fired for joined rooms
+ * * TODO: "room_topic" (roomId, topicEvent)
+ * * TODO: "room_name" (roomId, nameEvent)
+ * * TODO: "room_avatar" (roomId, avatarEvent)
  */
 class MatrixLiteClient extends EventEmitter {
 
@@ -150,7 +153,7 @@ class MatrixLiteClient extends EventEmitter {
                 return;
             }
 
-            this.emit("leave_room", roomId, leaveEvent);
+            this.emit("room_leave", roomId, leaveEvent);
         });
 
         // process invites
@@ -175,7 +178,7 @@ class MatrixLiteClient extends EventEmitter {
                 return;
             }
 
-            this.emit("invite", roomId, inviteEvent);
+            this.emit("room_invite", roomId, inviteEvent);
         });
 
         // process joined rooms and their messages
@@ -183,14 +186,14 @@ class MatrixLiteClient extends EventEmitter {
         if (!joinedRooms) joinedRooms = {};
         var roomIds = _.keys(joinedRooms);
         for (var roomId of roomIds) {
-            this.emit("join_room", roomId);
+            this.emit("room_join", roomId);
 
             var roomInfo = joinedRooms[roomId];
             if (!roomInfo['timeline'] || !roomInfo['timeline']['events']) continue;
 
             for (var event of roomInfo['timeline']['events']) {
                 if (event['type'] !== 'm.room.message') continue;
-                this.emit("message", roomId, event);
+                this.emit("room_message", roomId, event);
             }
         }
     }

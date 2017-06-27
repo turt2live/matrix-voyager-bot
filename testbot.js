@@ -9,12 +9,12 @@ try {
 
 var client = new MatrixClientLite(config.matrix.homeserverUrl, config.matrix.accessToken, config.matrix.userId);
 
-client.on('leave_room', (roomId, event) => console.log("Leave room " + roomId + " due to " + event['sender'] + " because " + JSON.stringify(event['content'])));
-client.on('invite', (roomId, event) => console.log("Invite to room " + roomId + " from " + event['sender']));
-client.on('join_room', roomId => console.log("Joined room " + roomId));
-client.on('message', (roomId, event) => console.log("Message in room " + roomId + ": " + JSON.stringify(event)));
+client.on('room_leave', (roomId, event) => console.log("Leave room " + roomId + " due to " + event['sender'] + " because " + JSON.stringify(event['content'])));
+client.on('room_invite', (roomId, event) => console.log("Invite to room " + roomId + " from " + event['sender']));
+client.on('room_join', roomId => console.log("Joined room " + roomId));
+client.on('room_message', (roomId, event) => console.log("Message in room " + roomId + ": " + JSON.stringify(event)));
 
-client.on('invite', (roomId, event) => {
+client.on('room_invite', (roomId, event) => {
     client.joinRoom(roomId).then(() => {
         client.sendNotice(roomId, "Hello world");
     });
