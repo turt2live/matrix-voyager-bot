@@ -20,8 +20,10 @@ client.on('invite', (roomId, event) => {
     });
 });
 
-client.joinRoom("#test-bot:matrix.org").then(roomId => {
-    return client.sendNotice(roomId, "Hello world :D");
-}).then(() => client.leaveRoom("!ewOgZEUrOZAAaQJNBv:matrix.org"));
+// client.joinRoom("#test-bot:matrix.org").then(roomId => {
+//     return client.sendNotice(roomId, "Hello world :D");
+// }).then(() => client.leaveRoom("!ewOgZEUrOZAAaQJNBv:matrix.org"));
+
+client.getRoomState("!ewOgZEUrOZAAaQJNBv:matrix.org");
 
 client.start();

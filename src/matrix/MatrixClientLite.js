@@ -196,6 +196,15 @@ class MatrixLiteClient extends EventEmitter {
     }
 
     /**
+     * Gets the room state for the given room. Returned as raw events.
+     * @param {string} roomId the room ID to get state for
+     * @returns {Promise<*[]>} resolves to the room's state
+     */
+    getRoomState(roomId) {
+        return this._do("GET", "/_matrix/client/r0/rooms/" + roomId+"/state");
+    }
+
+    /**
      * Joins the given room
      * @param {string} roomIdOrAlias the room ID or alias to join
      * @returns {Promise<string>} resolves to the joined room ID
