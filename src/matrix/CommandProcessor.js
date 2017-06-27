@@ -18,44 +18,47 @@ class CommandProcessor {
 
     /**
      * Processes a command from Matrix
-     * @param {MatrixEvent} event the event
+     * @param {string} roomId the room the event happened in
+     * @param {*} event the event
      * @param {string[]} cmdArguments the arguments to the command
      * @returns {Promise<*>} resolves when processing complete
      */
-    processCommand(event, cmdArguments) {
+    processCommand(roomId, event, cmdArguments) {
         if (cmdArguments.length == 0) {
-            return this._reply(event, 'Unknown command. Try !voyager help');
+            return this._reply(roomId, event, 'Unknown command. Try !voyager help');
         }
 
         if (cmdArguments[0] == 'help') {
-            return this._sendHelp(event);
+            return this._sendHelp(roomId, event);
         } else if (cmdArguments[0] == 'enroll' || cmdArguments[0] == 'showme') {
-            return this._store.setEnrolled(event.getSender(), true).then(() =>this._reply(event, "Your name and avatar will appear on the graph."));
+            return this._store.setEnrolled(event['sender'], true).then(() => this._reply(roomId, event, "Your name and avatar will appear on the graph."));
         } else if (cmdArguments[0] == 'withdraw' || cmdArguments[0] == 'hideme') {
-            return this._store.setEnrolled(event.getSender(), false).then(() => this._reply(event, "Your name and avatar will no longer appear on the graph."));
+            return this._store.setEnrolled(event['sender'], false).then(() => this._reply(roomId, event, "Your name and avatar will no longer appear on the graph."));
         } else if (cmdArguments[0] == 'linkme') {
-            return this._handleSelfLink(event, /*isLinking=*/true, cmdArguments[1]);
+            return this._handleSelfLink(roomId, event, /*isLinking=*/true, cmdArguments[1]);
         } else if (cmdArguments[0] == 'unlinkme') {
-            return this._handleSelfLink(event, /*isLinking=*/false, cmdArguments[1]);
+            return this._handleSelfLink(roomId, event, /*isLinking=*/false, cmdArguments[1]);
         } else if (cmdArguments[0] == 'search') {
-            return this._handleSearch(event, cmdArguments.splice(1));
+            return this._handleSearch(roomId, event, cmdArguments.splice(1));
         } else if (cmdArguments[0] == 'leave') {
-            return this._handleSoftKick(event);
+            return this._handleSoftKick(roomId, event);
         } else if (cmdArguments[0] == 'addme') {
-            return this._handleSelfRedact(event, /*isAdding=*/true);
+            return this._handleSelfRedact(roomId, event, /*isAdding=*/true);
         } else if (cmdArguments[0] == 'removeme') {
-            return this._handleSelfRedact(event, /*isAdding=*/false);
-        } else return this._reply(event, "Unknown command. Try !voyager help");
+            return this._handleSelfRedact(roomId, event, /*isAdding=*/false);
+        } else return this._reply(roomId, event, "Unknown command. Try !voyager help");
     }
 
-    _reply(event, message) {
-        var sender = this._bot.getUser(event.getSender());
+    _reply(roomId, event, message) {
+        // TODO: {Client Update} Personalization
+        //var sender = this._bot.getUser(event['sender']);
+        var sender = {displayName: event['sender']};
 
-        return this._bot.sendNotice(event.getRoomId(), sender.displayName + ": " + message);
+        return this._bot.sendNotice(roomId, sender.displayName + ": " + message);
     }
 
-    _sendHelp(event) {
-        return this._bot.sendNotice(event.getRoomId(),
+    _sendHelp(roomId, event) {
+        return this._bot.sendNotice(roomId,
             "!voyager showme            - Sets your name and avatar to be visible on the graph\n" +
             "!voyager hideme            - Hides your name and avatar from the graph\n" +
             "!voyager linkme [room]     - Links your user account to the specified room (defaults to current room)\n" +
@@ -70,31 +73,32 @@ class CommandProcessor {
         );
     }
 
-    _handleSoftKick(event) {
-        var powerLevelEvent = this._bot.getRoom(event.getRoomId()).currentState.getStateEvents('m.room.power_levels', '');
+    _handleSoftKick(roomId, event) {
+        // TODO: {Client Update} state information about users and powerlevels
+        var powerLevelEvent = this._bot.getRoom(roomId).currentState.getStateEvents('m.room.power_levels', '');
         if (!powerLevelEvent)
-            return this._reply(event, "Error processing command: Could not find m.room.power_levels state event");
+            return this._reply(roomId, event, "Error processing command: Could not find m.room.power_levels state event");
         if (event.sender.powerLevel < powerLevelEvent.getContent().kick)
-            return this._reply(event, "You must be at least power level " + powerLevelEvent.getContent().kick + " to kick me from the room");
+            return this._reply(roomId, event, "You must be at least power level " + powerLevelEvent.getContent().kick + " to kick me from the room");
 
         var userNode = null;
         var roomNode = null;
 
-        return this._bot.getNode(event.getSender(), 'user')
+        return this._bot.getNode(event['sender'], 'user')
             .then(node => {
                 userNode = node;
-                return this._bot.getNode(event.getRoomId(), 'room');
+                return this._bot.getNode(roomId, 'room');
             }).then(node => {
                 roomNode = node;
-                return this._store.createLink(userNode, roomNode, 'soft_kick', event.getTs(), false, false);
+                return this._store.createLink(userNode, roomNode, 'soft_kick', event['origin_server_ts'], false, false);
             }).then(link => {
-                return this._store.createTimelineEvent(link, event.getTs(), event.getId(), 'Soft kicked');
-            }).then(() => this._bot.leaveRoom(event.getRoomId()));
+                return this._store.createTimelineEvent(link, event['origin_server_ts'], event['event_id'], 'Soft kicked');
+            }).then(() => this._bot.leaveRoom(roomId));
     }
 
-    _handleSearch(event, keywords) {
+    _handleSearch(roomId, event, keywords) {
         if (keywords.length == 0)
-            return this._reply(event, "No keywords specified. Try !voyager search <keywords>");
+            return this._reply(roomId, event, "No keywords specified. Try !voyager search <keywords>");
 
         return this._store.findNodesMatching(keywords).then(results => {
             // We have to score these ourselves now (the database just does a rough contains check to get a smaller dataset)
@@ -127,62 +131,62 @@ class CommandProcessor {
         }).then(sortedResults => {
             var sample = sortedResults.splice(0, 5);
             if (sample.length == 0)
-                return this._reply(event, "No results for keywords: " + keywords);
+                return this._reply(roomId, event, "No results for keywords: " + keywords);
 
             var response = "Found the following rooms:\n";
             for (var result of sample)
                 response += (sample.indexOf(result) + 1) + ". " + (result.meta.primaryAlias || result.aliases[0].alias) + (result.meta.displayName ? " | " + result.meta.displayName : "") + "\n"
-            return this._reply(event, response);
+            return this._reply(roomId, event, response);
         });
     }
 
-    _handleSelfRedact(event, isAdding) {
-        return this._bot.getNode(event.getSender(), 'user')
+    _handleSelfRedact(roomId, event, isAdding) {
+        return this._bot.getNode(event['sender'], 'user')
             .then(node => {
                 if (isAdding && !node.isRedacted)
-                    return this._reply(event, "You are already available on the graph");
+                    return this._reply(roomId, event, "You are already available on the graph");
 
                 if (!isAdding && node.isRedacted)
-                    return this._reply(event, "You are already removed from the graph");
+                    return this._reply(roomId, event, "You are already removed from the graph");
 
                 if (isAdding)
-                    return this._store.unredactNode(node).then(() => this._reply(event, "You have been restored to the graph"));
-                else return this._store.redactNode(node).then(() => this._reply(event, "You have been removed from the graph"));
+                    return this._store.unredactNode(node).then(() => this._reply(roomId, event, "You have been restored to the graph"));
+                else return this._store.redactNode(node).then(() => this._reply(roomId, event, "You have been removed from the graph"));
             });
     }
 
-    _handleSelfLink(event, isLinking, roomArg) {
-        var alias = event.getRoomId();
+    _handleSelfLink(inRoomId, event, isLinking, roomArg) {
+        var alias = inRoomId;
         var roomId;
         var userNode;
         var roomNode;
         var link;
 
-        if (!roomArg)
-            roomArg = event.getRoomId();
+        if (!roomArg) roomArg = inRoomId;
 
         return this._bot.lookupRoom(roomArg).then(room => {
             if (room) {
+                // TODO: {Client Update} Handle room aliases
                 var roomAlias = room.getCanonicalAlias();
                 if (!roomAlias) roomAlias = room.getAliases()[0];
                 if (roomAlias) alias = roomAlias;
 
-                var sender = room.getMember(event.getSender());
+                var sender = room.getMember(event['sender']);
                 if (!sender || sender.membership !== 'join') {
-                    return this._reply(event, "You do not appear to be in the room " + roomArg).then(() => {
+                    return this._reply(inRoomId, event, "You do not appear to be in the room " + roomArg).then(() => {
                         throw new Error("Sender not in room: " + roomArg);
                     });
                 }
 
                 return Promise.resolve(room.roomId);
             } else {
-                return this._reply(event, "Could not find room " + roomArg).then(() => {
+                return this._reply(inRoomId, event, "Could not find room " + roomArg).then(() => {
                     throw new Error("Unknown room (non-fatal): " + roomArg); // safe error
                 });
             }
         }).then(id=> {
             roomId = id;
-            return this._bot.getNode(event.getSender(), 'user');
+            return this._bot.getNode(event['sender'], 'user');
         }).then(n=> {
             userNode = n;
             return this._bot.getNode(roomId, 'room');
@@ -192,20 +196,20 @@ class CommandProcessor {
         }).then(sl=> {
             link = sl;
 
-            if (link && isLinking) return this._reply(event, "You are already linked to " + alias);
-            if (!link && !isLinking) return this._reply(event, "You are not linked to " + alias);
+            if (link && isLinking) return this._reply(inRoomId, event, "You are already linked to " + alias);
+            if (!link && !isLinking) return this._reply(inRoomId, event, "You are not linked to " + alias);
 
             if (!link && isLinking) {
-                return this._store.createLink(userNode, roomNode, 'self_link', event.getTs())
-                    .then(link => this._store.createTimelineEvent(link, event.getTs(), event.getId()))
-                    .then(() => this._store.setEnrolled(event.getSender(), true))
-                    .then(() => this._reply(event, "You have been linked to " + alias + " and are no longer anonymous"));
+                return this._store.createLink(userNode, roomNode, 'self_link', event['origin_server_ts'])
+                    .then(link => this._store.createTimelineEvent(link, event['origin_server_ts'], event['event_id']))
+                    .then(() => this._store.setEnrolled(event['sender'], true))
+                    .then(() => this._reply(inRoomId, event, "You have been linked to " + alias + " and are no longer anonymous"));
             }
 
             if (link && !isLinking) {
                 return this._store.redactLink(link)
-                    .then(() => this._store.createTimelineEvent(link, event.getTs(), event.getId()))
-                    .then(() => this._reply(event, "You are no longer linked to " + alias));
+                    .then(() => this._store.createTimelineEvent(link, event['origin_server_ts'], event['id']))
+                    .then(() => this._reply(inRoomId, event, "You are no longer linked to " + alias));
             }
 
             throw new Error("Invalid state. isLinking = " + isLinking + ", link = " + link);

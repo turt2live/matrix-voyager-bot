@@ -1,10 +1,10 @@
-var VoyagerMatrixStore = require("./storage/VoyagerMatrixStore");
 var CommandProcessor = require("./matrix/CommandProcessor");
 var LocalStorage = require("node-localstorage").LocalStorage;
 var config = require("config");
-var sdk = require("matrix-js-sdk");
 var log = require("./LogService");
 var naturalSort = require("node-natural-sort");
+var MatrixClientLite = require("./matrix/MatrixClientLite");
+var _ = require("lodash");
 
 /**
  * The main entry point for the bot. Handles most of the business logic and bot actions
@@ -17,7 +17,6 @@ class VoyagerBot {
      */
     constructor(store) {
         this._localStorage = new LocalStorage("db/voyager_local_storage", 100 * 1024 * 1024); // quota is 100mb
-        var mtxStore = new VoyagerMatrixStore(this._localStorage);
 
         this._nodeUpdateQueue = [];
         this._processingNodes = false;
@@ -29,156 +28,82 @@ class VoyagerBot {
         this._store = store;
         this._commandProcessor = new CommandProcessor(this, store);
 
-        this._client = sdk.createClient({
-            baseUrl: config.get("matrix.homeserverUrl"),
-            accessToken: config.get("matrix.accessToken"),
-            userId: config.get("matrix.userId"),
-            store: mtxStore,
-            localTimeoutMs: 30 * 60 * 1000 // 30 min
-        });
+        // TODO: {Client Update} re-enable node checking
+        //this._loadPendingNodeUpdates();
 
-        mtxStore.setClient(this._client);
+        this._client = new MatrixClientLite(config['matrix']['homeserverUrl'], config['matrix']['accessToken'], config['matrix']['userId']);
 
-        this._loadPendingNodeUpdates();
-
-        this._client.on('sync', this._onSync.bind(this));
-        this._client.on('Room', this._onRoom.bind(this));
-        this._client.on('Room.timeline', this._processTimeline.bind(this));
-        this._client.on('RoomState.members', this._processMembership.bind(this));
-        //this._client.on('RoomState.members', this._onRoomMemberUpdated.bind(this));
-        this._client.on('RoomState.events', this._onRoomStateUpdated.bind(this));
-        //this._client.on('User.avatarUrl', this._onUserUpdatedGeneric.bind(this));
-        //this._client.on('User.displayName', this._onUserUpdatedGeneric.bind(this));
+        this._client.on('room_invite', this._onInvite.bind(this));
+        this._client.on('room_message', this._onRoomMessage.bind(this));
+        this._client.on('room_leave', this._onRoomLeave.bind(this));
+        this._client.on('room_avatar', this._onRoomUpdated.bind(this));
+        this._client.on('room_name', this._onRoomUpdated.bind(this));
+        this._client.on('user_avatar', this._onUserUpdated.bind(this));
+        this._client.on('user_name', this._onUserUpdated.bind(this));
     }
 
     /**
      * Starts the voyager bot
      */
     start() {
-        // pollTimeout is 30min
-        this._client.startClient({initialSyncLimit: 5, pollTimeout: 30 * 60 * 1000});
+        this._client.start().then(() => {
+            // TODO: {Client Update} re-enable node checking
+            // this._tryUpdateNodeVersions();
+            //
+            // this._processNodeVersions();
+            // setInterval(() => this._processNodeVersions(), 15000);
+            //
+            // log.info("VoyagerBot", "Enabling node updates now that the bot is syncing");
+            // this._queueNodesForUpdate = true;
+        });
     }
 
-    _onRoomMemberUpdated(event, state, member) {
-        log.verbose("VoyagerBot", "Room member updated event");
-        if (!this._queueNodesForUpdate) {
-            log.verbose("VoyagerBot", "Not queuing update of user " + member.userId + " because node updates are currently disabled.");
-            return Promise.resolve();
-        }
-        log.info("VoyagerBot", "Queuing update of user " + member.userId);
-        this._queueNodeUpdate({node: member, type: 'user'});
-        return Promise.resolve();
+    _onRoomUpdated(roomId, event) {
+        // TODO: {Client Update} mimic object ID format for all node updates
+        this._queueNodeUpdate({node: roomId, type: 'room'});
     }
 
-    _onUserUpdatedGeneric(event, user) {
-        log.verbose("VoyagerBot", "Update user event (generic)");
-        if (!this._queueNodesForUpdate) {
-            log.verbose("VoyagerBot", "Not queuing update of user " + user.userId + " because node updates are currently disabled.");
-            return Promise.resolve();
-        }
-        log.info("VoyagerBot", "Queuing update of user " + user.userId);
-        this._queueNodeUpdate({node: user, type: 'user'});
-        return Promise.resolve();
+    _onUserUpdated(roomId, event) {
+        // TODO: {Client Update} mimic object ID format for all node updates
+        this._queueNodeUpdate({node: event['sender'], type: 'user'});
     }
 
-    _onRoom(room) {
-        log.verbose("VoyagerBot", "Room event");
-        if (!this._queueNodesForUpdate) {
-            log.verbose("VoyagerBot", "Not queuing update of room " + room.roomId + " because node updates are currently disabled.");
-            return Promise.resolve();
-        }
-        log.info("VoyagerBot", "Queuing update of room " + room.roomId);
-        this._queueNodeUpdate({node: room, type: 'room'});
-        return Promise.resolve();
-    }
-
-    _onRoomStateUpdated(event, state) {
-        log.verbose("VoyagerBot", "Room state updated event");
-        if (!this._queueNodesForUpdate) {
-            log.verbose("VoyagerBot", "Not queuing update of room state for room " + event.getRoomId() + " because node updates are currently disabled.");
-            return Promise.resolve();
-        }
-        log.info("VoyagerBot", "Queuing update of room state for " + event.getRoomId());
-        var room = this._client.getRoom(event.getRoomId());
-        if (!room) {
-            log.error("VoyagerBot", "Could not update state of room " + event.getRoomId() + " - Room does not exist.");
-            return Promise.resolve();
-        }
-        this._client.store.storeRoom(room);
-        this._queueNodeUpdate({node: room, type: 'room', store: true});
-        return Promise.resolve();
-    }
-
-    _onSync(state, prevState, data) {
-        log.info("VoyagerBot", "Sync state: " + prevState + " -> " + state);
-        if (state == "ERROR")
-            log.error("VoyagerBot", data);
-
-        if (state == "PREPARED") {
-            this._tryUpdateNodeVersions();
-
-            this._processNodeVersions();
-            setInterval(() => this._processNodeVersions(), 15000);
-        } else if (state == "SYNCING" && !this._queueNodesForUpdate) {
-            log.info("VoyagerBot", "Enabling node updates now that the bot is syncing");
-            this._queueNodesForUpdate = true;
-        }
-    }
-
-    _processMembership(event, state, member) {
-        if (member.userId != this._client.credentials.userId || event.getType() !== 'm.room.member')
-            return Promise.resolve(); // not applicable for us
-
-        log.verbose("VoyagerBot", "Process membership");
-
-        var newState = member.membership;
-        if (newState == 'invite') {
-            return this._onInvite(event);
-        } else if (newState == 'leave' && event.getSender() != this._client.credentials.userId) {
-            return this._onKick(event);
-        } else if (newState == 'ban') {
-            return this._onBan(event);
-        } else if (newState == 'join') {
-            this._queueNodeUpdate({node: this._client.getRoom(event.getRoomId()), type: 'room'});
-            return Promise.resolve();
-        }
-
-        return Promise.resolve();
-    }
-
-    _processTimeline(event, room, toStartOfTimeline, removed, data) {
-        log.verbose("VoyagerBot", "Timeline event (" + event.getType() + ")");
-        if (event.getType() != 'm.room.message') return Promise.resolve();
-
-        var senderId = event.getSender();
-        if (senderId == this._client.credentials.userId) return Promise.resolve();
-
-        var body = event.getContent().body;
-        if (!body) return Promise.resolve(); // probably redacted
+    _onRoomMessage(roomId, event) {
+        var body = event['content']['body'];
+        if (!body) return; // likely redacted
 
         if (body.startsWith("!voyager")) {
-            return this._commandProcessor.processCommand(event, body.substring("!voyager".length).trim().split(' '))
+            this._commandProcessor.processCommand(event, body.substring("!voyager".length).trim().split(" "));
+            return;
         }
 
         var matches = body.match(/[#!][a-zA-Z0-9.\-_#]+:[a-zA-Z0-9.\-_]+[a-zA-Z0-9]/g);
-        if (!matches) return Promise.resolve();
+        if(!matches) return;
 
-        var promises = [];
-        for (var match of matches) {
-            promises.push(this._processMatchedLink(event, match));
-        }
+        var promise = Promise.resolve();
+        _.forEach(matches, () => promise = promise.then(() => this._processMatchedLink(roomId, event, match)));
 
-        return Promise.all(promises).then(() => this._client.sendReadReceipt(event));
+        promise.then(() => this._client.sendReadReceipt(roomId, event['event_id']));
     }
 
-    _processMatchedLink(event, matchedValue, retryCount = 0) {
-        var room;
+    _onRoomLeave(roomId, event) {
+        if(event['membership'] == 'kick'){
+            this._onKick(roomId, event);
+        } else if(event['membership'] == 'ban') {
+            this._onBan(roomId, event);
+        } else if(event['membership'] == 'leave') {
+            // TODO: Handle self-leave as soft kick (#130)
+        }
+    }
+
+    _processMatchedLink(inRoomId, event, matchedValue, retryCount = 0) {
+        var roomId;
         var sourceNode;
         var targetNode;
 
-        return this._client.joinRoom(matchedValue).then(r => {
-            room = r;
-            return this.getNode(room.roomId, 'room');
+        return this._client.joinRoom(matchedValue).then(rid => {
+            roomId = rid;
+            return this.getNode(inRoomId, 'room');
         }, err => {
             if (err.httpStatus == 500 && retryCount < 5) {
                 return this._processMatchedLink(event, matchedValue, ++retryCount);
@@ -190,18 +115,18 @@ class VoyagerBot {
             if (!room) return Promise.resolve();
             targetNode = node;
 
-            return this.getNode(event.getRoomId(), 'room');
+            return this.getNode(roomId, 'room');
         }).then(node=> {
             if (!room) return Promise.resolve();
             sourceNode = node;
-            return this._store.createLink(sourceNode, targetNode, 'message', event.getTs());
+            return this._store.createLink(sourceNode, targetNode, 'message', event['origin_server_ts']);
         }).then(link=> {
             if (!link) return Promise.resolve();
-            return this._store.createTimelineEvent(link, event.getTs(), event.getId(), 'Matched: ' + matchedValue);
+            return this._store.createTimelineEvent(link, event['origin_server_ts'], event['event_id'], 'Matched: ' + matchedValue);
         });
     }
 
-    _onInvite(event) {
+    _onInvite(roomId, event) {
         var sourceNode;
         var targetNode;
 
@@ -209,59 +134,60 @@ class VoyagerBot {
             log.info("VoyagerBot", "Attempt #" + event.__voyagerRepeat + " to retry event " + event.getId());
         }
 
-        return this.getNode(event.getSender(), 'user').then(node=> {
+        return this.getNode(event['sender'], 'user').then(node=> {
             sourceNode = node;
-            return this.getNode(event.getRoomId(), 'room');
+            return this.getNode(roomId, 'room');
         }).then(node => {
             targetNode = node;
-            return this._store.findLinkByTimeline(sourceNode, targetNode, 'invite', event.getId());
+            return this._store.findLinkByTimeline(sourceNode, targetNode, 'invite', event['event_id']);
         }).then(existingLink => {
             if (existingLink) return Promise.resolve();
-            else return this._store.createLink(sourceNode, targetNode, 'invite', event.getTs())
-                .then(link => this._store.createTimelineEvent(link, event.getTs(), event.getId()));
+            else return this._store.createLink(sourceNode, targetNode, 'invite', event['origin_server_ts'])
+                .then(link => this._store.createTimelineEvent(link, event['origin_server_ts'], event['event_id']));
         }).then(() => {
-            return this._client.joinRoom(event.getRoomId());
+            return this._client.joinRoom(roomId);
         }).then(room => {
             return this._tryUpdateRoomNodeVersion(room);
         }).catch(err => {
+            // TODO: {Client Update} Verify that errcode checking still works
             log.error("VoyagerBot", err);
             if (err.errcode == "M_FORBIDDEN" && (!event.__voyagerRepeat || event.__voyagerRepeat < 25)) { // 25 is arbitrary
                 event.__voyagerRepeat = (event.__voyagerRepeat ? event.__voyagerRepeat : 0) + 1;
-                log.info("VoyagerBot", "Forbidden as part of event " + event.getId() + " - will retry for attempt #" + event.__voyagerRepeat + " shortly.");
-                setTimeout(() => this._onInvite(event), 1000); // try again later
+                log.info("VoyagerBot", "Forbidden as part of event " + event['event_id'] + " - will retry for attempt #" + event.__voyagerRepeat + " shortly.");
+                setTimeout(() => this._onInvite(roomId, event), 1000); // try again later
             } else if (event.__voyagerRepeat) {
-                log.error("VoyagerBot", "Failed to retry event " + event.getId());
+                log.error("VoyagerBot", "Failed to retry event " + event['event_id']);
             }
         });
     }
 
-    _onKick(event) {
-        return this._addKickBan(event, 'kick');
+    _onKick(roomId, event) {
+        return this._addKickBan(roomId, event, 'kick');
     }
 
-    _onBan(event) {
-        return this._addKickBan(event, 'ban');
+    _onBan(roomId, event) {
+        return this._addKickBan(roomId, event, 'ban');
     }
 
-    _addKickBan(event, type) {
+    _addKickBan(roomId, event, type) {
         var roomNode;
         var userNode;
         var kickbanLink;
 
-        log.info("VoyagerBot", "Recording " + type + " for " + event.getRoomId() + " made by " + event.getSender());
+        log.info("VoyagerBot", "Recording " + type + " for " + roomId + " made by " + event['sender']);
 
-        return this.getNode(event.getSender(), 'user').then(node=> {
+        return this.getNode(event['sender'], 'user').then(node=> {
             userNode = node;
-            return this.getNode(event.getRoomId(), 'room');
+            return this.getNode(roomId, 'room');
         }).then(node=> {
             roomNode = node;
             return this._store.redactNode(roomNode);
         }).then(() => {
-            return this._store.createLink(userNode, roomNode, type, event.getTs(), false, true);
+            return this._store.createLink(userNode, roomNode, type, event['origin_server_ts'], false, true);
         }).then(link => {
             kickbanLink = link;
-            var reason = (event.getContent() || {}).reason || null;
-            return this._store.createTimelineEvent(kickbanLink, event.getTs(), event.getId(), reason);
+            var reason = (event['content'] || {})['reason'] || null;
+            return this._store.createTimelineEvent(kickbanLink, event['origin_server_ts'], event['event_id'], reason);
         });
     }
 
@@ -278,12 +204,15 @@ class VoyagerBot {
     }
 
     _createUserNode(userId) {
-        var user = this._client.getUser(userId);
+        // TODO: {Client Update} Node creation
+        //var user = this._client.getUser(userId);
+        var user = null;
 
         var version = {
             displayName: null,
             avatarUrl: null,
-            isAnonymous: !this._store.isEnrolled(userId)
+            isAnonymous: !this._store.isEnrolled(userId),
+            primaryAlias: null, // users can't have aliases
         };
 
         if (user) version = this._getUserVersion(user);
@@ -292,12 +221,15 @@ class VoyagerBot {
     }
 
     _createRoomNode(roomId) {
-        var room = this._client.getRoom(roomId);
+        // TODO: {Client Update} Node creation
+        //var room = this._client.getRoom(roomId);
+        var room = null;
 
         var version = {
             displayName: null,
             avatarUrl: null,
-            isAnonymous: true
+            isAnonymous: true,
+            primaryAlias: null,
         };
 
         if (room) version = this._getRoomVersion(room);
@@ -464,6 +396,7 @@ class VoyagerBot {
     }
 
     getUser(userId) {
+        // TODO: {Client Update} getUser call
         return this._client.getUser(userId);
     }
 
@@ -472,14 +405,16 @@ class VoyagerBot {
     }
 
     getRoom(roomId) {
+        // TODO: {Client Update} getRoom call
         return this._client.getRoom(roomId);
     }
 
     leaveRoom(roomId) {
-        return this._client.leave(roomId);
+        return this._client.leaveRoom(roomId);
     }
 
     lookupRoom(roomIdOrAlias) {
+        // TODO: {Client Update} getJoinedRooms call
         return new Promise((resolve, reject) => {
             var rooms = this._client.getRooms();
 

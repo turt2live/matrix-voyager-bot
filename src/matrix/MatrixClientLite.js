@@ -12,9 +12,10 @@ var _ = require('lodash');
  * * "room_join" (roomId)
  * * "room_invite" (roomId, inviteEvent)
  * * "room_message" (roomId, messageEvent) - only fired for joined rooms
- * * TODO: "room_topic" (roomId, topicEvent)
  * * TODO: "room_name" (roomId, nameEvent)
  * * TODO: "room_avatar" (roomId, avatarEvent)
+ * * TODO: "user_name" (roomId, nameEvent)
+ * * TODO: "user_avatar" (roomId, avatarEvent)
  */
 class MatrixLiteClient extends EventEmitter {
 
@@ -204,7 +205,7 @@ class MatrixLiteClient extends EventEmitter {
      * @returns {Promise<*[]>} resolves to the room's state
      */
     getRoomState(roomId) {
-        return this._do("GET", "/_matrix/client/r0/rooms/" + roomId+"/state");
+        return this._do("GET", "/_matrix/client/r0/rooms/" + roomId + "/state");
     }
 
     /**
@@ -226,6 +227,16 @@ class MatrixLiteClient extends EventEmitter {
      */
     leaveRoom(roomId) {
         return this._do("POST", "/_matrix/client/r0/rooms/" + roomId + "/leave");
+    }
+
+    /**
+     * Sends a read receipt for an event in a room
+     * @param {string} roomId the room ID to send the receipt to
+     * @param {string} eventId the event ID to set the receipt at
+     * @returns {Promise<*>} resolves when the receipt has been sent
+     */
+    sendReadReceipt(roomId, eventId) {
+        return this._do("POST", "/_matrix/client/r0/rooms/" + roomId + "/receipt/m.read/" + eventId);
     }
 
     /**
