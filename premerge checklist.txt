@@ -1,0 +1,4 @@
+* Finish outstanding events in lite client
+* End to end testing
+* Client error fixing (build is angry)
+* Suppress webpack warnings during compile
