@@ -1,4 +1,6 @@
 var log = require("./../LogService");
+var Promise = require('bluebird');
+
 require("string_score"); // automagically adds itself as "words".score(...)
 
 /**
@@ -50,11 +52,7 @@ class CommandProcessor {
     }
 
     _reply(roomId, event, message) {
-        // TODO: {Client Update} Personalization
-        //var sender = this._bot.getUser(event['sender']);
-        var sender = {displayName: event['sender']};
-
-        return this._bot.sendNotice(roomId, sender.displayName + ": " + message);
+        return this._bot.sendNotice(roomId, event['sender'] + ": " + message);
     }
 
     _sendHelp(roomId, event) {
@@ -74,26 +72,23 @@ class CommandProcessor {
     }
 
     _handleSoftKick(roomId, event) {
-        // TODO: {Client Update} state information about users and powerlevels
-        var powerLevelEvent = this._bot.getRoom(roomId).currentState.getStateEvents('m.room.power_levels', '');
-        if (!powerLevelEvent)
-            return this._reply(roomId, event, "Error processing command: Could not find m.room.power_levels state event");
-        if (event.sender.powerLevel < powerLevelEvent.getContent().kick)
-            return this._reply(roomId, event, "You must be at least power level " + powerLevelEvent.getContent().kick + " to kick me from the room");
+        return this._bot.getRoomStateEvents(roomId, 'm.room.power_levels', /*stateKey:*/'')
+            .then(powerLevels => {
+                if (!powerLevels)
+                    return this._reply(roomId, event, "Error processing command: Could not find m.room.power_levels state event").then(() => Promise.reject("Missing m.room.power_levels in room " + roomId));
 
-        var userNode = null;
-        var roomNode = null;
-
-        return this._bot.getNode(event['sender'], 'user')
-            .then(node => {
-                userNode = node;
-                return this._bot.getNode(roomId, 'room');
-            }).then(node => {
-                roomNode = node;
-                return this._store.createLink(userNode, roomNode, 'soft_kick', event['origin_server_ts'], false, false);
-            }).then(link => {
-                return this._store.createTimelineEvent(link, event['origin_server_ts'], event['event_id'], 'Soft kicked');
-            }).then(() => this._bot.leaveRoom(roomId));
+                var powerLevel = powerLevels['content']['users'][event['sender']];
+                if (!powerLevel && powerLevel !== 0) powerLevel = powerLevels['content']['users_default'];
+                if (powerLevel < powerLevels['content']['kick'])
+                    return this._reply(roomId, event, "You must be at least power level " + powerLevels['content']['kick'] + " to kick me from the room").then(() => Promise.reject(event['sender'] + " does not have permission to kick in room " + roomId));
+            })
+            .then(() => Promise.all(this._bot.getNode(event['sender'], 'user'), this._bot.getNode(roomId, 'room')))
+            .then(userRoomNodes => this._store.createLink(userRoomNodes[0], userRoomNodes[1], 'soft_kick', event['origin_server_ts'], false, false))
+            .then(link => this._store.createTimelineEvent(link, event['origin_server_ts'], event['event_id'], 'Soft kicked'))
+            .then(() => this._bot.leaveRoom(roomId))
+            .catch(err => {
+                log.error("CommandProcessor", err);
+            });
     }
 
     _handleSearch(roomId, event, keywords) {
@@ -164,36 +159,20 @@ class CommandProcessor {
 
         if (!roomArg) roomArg = inRoomId;
 
-        return this._bot.lookupRoom(roomArg).then(room => {
-            if (room) {
-                // TODO: {Client Update} Handle room aliases
-                var roomAlias = room.getCanonicalAlias();
-                if (!roomAlias) roomAlias = room.getAliases()[0];
-                if (roomAlias) alias = roomAlias;
-
-                var sender = room.getMember(event['sender']);
-                if (!sender || sender.membership !== 'join') {
-                    return this._reply(inRoomId, event, "You do not appear to be in the room " + roomArg).then(() => {
-                        throw new Error("Sender not in room: " + roomArg);
-                    });
-                }
-
-                return Promise.resolve(room.roomId);
-            } else {
-                return this._reply(inRoomId, event, "Could not find room " + roomArg).then(() => {
-                    throw new Error("Unknown room (non-fatal): " + roomArg); // safe error
-                });
-            }
-        }).then(id=> {
+        return this._bot.matchRoomSharedWith(roomArg, event['sender']).then(roomId => {
+            if (!roomId)
+                return this._reply(inRoomId, event, "You do not appear to be in the room " + roomArg +" or the room does not exist.").then(() => Promise.reject("Sender not in room or room missing: " + roomArg));
+            return roomId;
+        }).then(id => {
             roomId = id;
             return this._bot.getNode(event['sender'], 'user');
-        }).then(n=> {
+        }).then(n => {
             userNode = n;
             return this._bot.getNode(roomId, 'room');
-        }).then(n=> {
+        }).then(n => {
             roomNode = n;
             return this._store.findLink(userNode, roomNode, 'self_link');
-        }).then(sl=> {
+        }).then(sl => {
             link = sl;
 
             if (link && isLinking) return this._reply(inRoomId, event, "You are already linked to " + alias);
@@ -213,7 +192,7 @@ class CommandProcessor {
             }
 
             throw new Error("Invalid state. isLinking = " + isLinking + ", link = " + link);
-        }).catch(err=> {
+        }).catch(err => {
             log.error("CommandProcessor", err);
         });
     }

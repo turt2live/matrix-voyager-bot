@@ -209,6 +209,26 @@ class MatrixLiteClient extends EventEmitter {
     }
 
     /**
+     * Gets the state events for a given room of a given type under the given state key.
+     * @param {string} roomId the room ID
+     * @param {string} type the event type
+     * @param {String} stateKey the state key, falsey if not needed
+     * @returns {Promise<*|*[]>} resolves to the state event(s)
+     */
+    getRoomStateEvents(roomId, type, stateKey) {
+        return this._do("GET", "/_matrix/client/r0/rooms/" + roomId + "/state/" + type + "/" + (stateKey ? stateKey : ''));
+    }
+
+    /**
+     * Gets information on a given user
+     * @param {string} userId the user ID to lookup
+     * @returns {Promise<*>} information on the user
+     */
+    getUserInfo(userId) {
+        return this._do("GET", "/_matrix/client/r0/profile/" + userId);
+    }
+
+    /**
      * Joins the given room
      * @param {string} roomIdOrAlias the room ID or alias to join
      * @returns {Promise<string>} resolves to the joined room ID
@@ -218,6 +238,14 @@ class MatrixLiteClient extends EventEmitter {
         return this._do("POST", "/_matrix/client/r0/join/" + roomIdOrAlias).then(response => {
             return response['room_id'];
         });
+    }
+
+    /**
+     * Gets a list of joined room IDs
+     * @returns {Promise<string[]>} resolves to a list of room IDs the client participates in
+     */
+    getJoinedRooms() {
+        return this._do("GET", "/_matrix/client/r0/joined_rooms").then(response => response['joined_rooms']);
     }
 
     /**
