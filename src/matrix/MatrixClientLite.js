@@ -129,7 +129,8 @@ class MatrixLiteClient extends EventEmitter {
         };
         if (syncToken) conf['since'] = syncToken;
 
-        return this._do("GET", "/_matrix/client/r0/sync", conf, null);
+        // timeout is 30s if we have a token, otherwise 10min
+        return this._do("GET", "/_matrix/client/r0/sync", conf, null, (syncToken ? 30000 : 600000));
     }
 
     _processSync(data) {
