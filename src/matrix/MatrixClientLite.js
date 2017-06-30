@@ -14,6 +14,7 @@ var _ = require('lodash');
  * * "room_message" (roomId, messageEvent) - only fired for joined rooms
  * * "room_name" (roomId, nameEvent)
  * * "room_avatar" (roomId, avatarEvent)
+ * * "room_join_rules" (roomId, joinRulesEvent)
  * * "user_name" (roomId, nameEvent)
  * * "user_avatar" (roomId, avatarEvent)
  */
@@ -198,6 +199,9 @@ class MatrixLiteClient extends EventEmitter {
                 else if (event['type'] === 'm.room.member') this._checkMembershipUpdate(roomId, event);
                 else if (event['type'] === 'm.room.name') this.emit("room_name", roomId, event);
                 else if (event['type'] === 'm.room.avatar') this.emit("room_avatar", roomId, event);
+                else if (event['type'] === 'm.room.join_rules') this.emit("room_join_rules", roomId, event);
+                else if (event['type'] === 'm.room.canonical_alias') this.emit("room_join_rules", roomId, event);
+                else if (event['type'] === 'm.room.aliases') this.emit("room_join_rules", roomId, event);
                 else log.silly("MatrixClientLite", "Not handling sync event " + event['type']);
             }
         }
@@ -296,6 +300,20 @@ class MatrixLiteClient extends EventEmitter {
         }).then(response => {
             return response['event_id'];
         });
+    }
+
+    /**
+     * Converts a media URI to a thumbnail URL
+     * @param {string} mxcUri the mxc uri
+     * @param {number} width the width in pixels for the thumbnail
+     * @param {number} height the height in pixels for the thumbnail
+     * @returns {string} the URL to get the thumbnail at
+     */
+    convertMediaToThumbnail(mxcUri, width, height) {
+        var shorthand = mxcUri.substring("mxc://".length).split("?")[0].split("#")[0]; // split off path components
+
+        // shorthand is serverName/mediaId (which matches the URL format)
+        return this._homeserverUrl + "/_matrix/media/r0/thumbnail/" + shorthand + "?width=" + width + "&height=" + height;
     }
 
     _do(method, endpoint, qs = null, body = null, timeout = 60000, raw = false) {

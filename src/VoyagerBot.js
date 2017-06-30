@@ -38,6 +38,9 @@ class VoyagerBot {
         this._client.on('room_leave', this._onRoomLeave.bind(this));
         this._client.on('room_avatar', this._onRoomUpdated.bind(this));
         this._client.on('room_name', this._onRoomUpdated.bind(this));
+        this._client.on('room_join_rules', this._onRoomUpdated.bind(this));
+        this._client.on('room_aliases', this._onRoomUpdated.bind(this));
+        this._client.on('room_canonical_alias', this._onRoomUpdated.bind(this));
         this._client.on('user_avatar', this._onUserUpdated.bind(this));
         this._client.on('user_name', this._onUserUpdated.bind(this));
     }
@@ -139,12 +142,16 @@ class VoyagerBot {
 
         return this._client.joinRoom(roomId)
             .then(() => Promise.all([this.getNode(event['sender'], 'user'), this.getNode(roomId, 'room')]))
-            .then(nodes => this._store.findLinkByTimeline(nodes[0], nodes[1], 'invite', event['event_id']))
+            .then(nodes => {
+                sourceNode = nodes[0];
+                targetNode = nodes[1];
+                return this._store.findLinkByTimeline(sourceNode, targetNode, 'invite', event['event_id'])
+            })
             .then(existingLink => {
                 if (existingLink) return Promise.resolve();
-                else return this._store.createLink(sourceNode, targetNode, 'invite', event['origin_server_ts']);
+                else return this._store.createLink(sourceNode, targetNode, 'invite', event['origin_server_ts'])
+                    .then(link => this._store.createTimelineEvent(link, event['origin_server_ts'], event['event_id']));
             })
-            .then(link => link ? this._store.createTimelineEvent(link, event['origin_server_ts'], event['event_id']) : Promise.resolve())
             .then(() => this._tryUpdateRoomNodeVersion(roomId))
             .catch(err => {
                 log.error("VoyagerBot", err);
@@ -232,10 +239,10 @@ class VoyagerBot {
             if (userInfo['displayname']) version.displayName = userInfo['displayname'];
             if (userInfo['avatar_url']) version.avatarUrl = userInfo['avatar_url'];
 
-            // TODO: {Client Update} convert avatar to url
-
             if (!version.avatarUrl || version.avatarUrl.trim().length == 0)
                 version.avatarUrl = null;
+            else version.avatarUrl = this._client.convertMediaToThumbnail(version.avatarUrl, 256, 256);
+
             if (!version.displayName || version.displayName.trim().length == 0)
                 version.displayName = null;
 
@@ -285,8 +292,7 @@ class VoyagerBot {
                     version.displayName = event['content']['name'];
                 } else if (event['type'] === 'm.room.avatar') {
                     log.silly("VoyagerBot", "m.room.avatar for " + roomId + " is " + event['content']['url']);
-                    // TODO: {Client Update} Convert avatar url to real url
-                    version.avatarUrl = event['content']['url'];
+                    version.avatarUrl = this._client.convertMediaToThumbnail(event['content']['url'], 256, 256);
                 } else log.silly("VoyagerBot", "Not handling state event " + event['type'] + " in room " + roomId);
             }
 
