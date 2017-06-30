@@ -451,30 +451,32 @@ class VoyagerBot {
 
         var promiseChain = Promise.resolve();
         _.forEach(nodesToProcess, node => {
-            var idx = this._queuedObjectIds.indexOf(node.node);
-            if (idx !== -1) this._queuedObjectIds.splice(idx, 1);
+            promiseChain = promiseChain.then(() => {
+                var idx = this._queuedObjectIds.indexOf(node.node);
+                if (idx !== -1) this._queuedObjectIds.splice(idx, 1);
 
-            var promise = Promise.resolve();
+                var promise = Promise.resolve();
 
-            try {
-                switch (node.type) {
-                    case "room":
-                        promise = this._tryUpdateRoomNodeVersion(node.node);
-                        break;
-                    case "user":
-                        promise = this._tryUpdateUserNodeVersion(node.node);
-                        break;
-                    default:
-                        log.warn("VoyagerBot", "Could not handle node in update queue: " + JSON.stringify(node));
-                        return Promise.resolve();
+                try {
+                    switch (node.type) {
+                        case "room":
+                            promise = this._tryUpdateRoomNodeVersion(node.node);
+                            break;
+                        case "user":
+                            promise = this._tryUpdateUserNodeVersion(node.node);
+                            break;
+                        default:
+                            log.warn("VoyagerBot", "Could not handle node in update queue: " + JSON.stringify(node));
+                            return Promise.resolve();
+                    }
+                } catch (error) {
+                    promise = Promise.reject(error);
                 }
-            } catch (error) {
-                promise = Promise.reject(error);
-            }
 
-            return promise.then(() => log.info("VoyagerBot", "Completed update for " + node.node)).catch(err => {
-                log.error("VoyagerBot", "Error updating node " + node.node);
-                log.error("VoyagerBot", err);
+                return promise.then(() => log.info("VoyagerBot", "Completed update for " + node.node)).catch(err => {
+                    log.error("VoyagerBot", "Error updating node " + node.node);
+                    log.error("VoyagerBot", err);
+                });
             });
         });
 
