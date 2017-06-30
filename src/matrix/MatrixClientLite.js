@@ -14,8 +14,8 @@ var _ = require('lodash');
  * * "room_message" (roomId, messageEvent) - only fired for joined rooms
  * * TODO: "room_name" (roomId, nameEvent)
  * * TODO: "room_avatar" (roomId, avatarEvent)
- * * TODO: "user_name" (roomId, nameEvent)
- * * TODO: "user_avatar" (roomId, avatarEvent)
+ * * "user_name" (roomId, nameEvent)
+ * * "user_avatar" (roomId, avatarEvent)
  */
 class MatrixLiteClient extends EventEmitter {
 
@@ -193,10 +193,22 @@ class MatrixLiteClient extends EventEmitter {
             if (!roomInfo['timeline'] || !roomInfo['timeline']['events']) continue;
 
             for (var event of roomInfo['timeline']['events']) {
-                if (event['type'] !== 'm.room.message') continue;
-                this.emit("room_message", roomId, event);
+                if (event['type'] === 'm.room.message') this.emit("room_message", roomId, event);
+                else if (event['type'] === 'm.room.member') this._checkMembershipUpdate(roomId, event);
+                else log.silly("MatrixClientLite", "Not handling sync event " + event['type']);
             }
         }
+    }
+
+    _checkMembershipUpdate(roomId, event) {
+        var current = event['content'];
+        var prev = event['unsigned']['prev_content'];
+        if (!prev) return;
+
+        if (prev['avatar_url'] !== current['avatar_url']) this.emit("user_avatar", roomId, event);
+        if (prev['displayname'] !== current['displayname']) this.emit("user_name", roomId, event);
+
+        // else no change
     }
 
     /**
