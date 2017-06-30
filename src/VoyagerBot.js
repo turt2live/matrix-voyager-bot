@@ -86,12 +86,16 @@ class VoyagerBot {
     }
 
     _onRoomLeave(roomId, event) {
-        if (event['membership'] == 'kick') {
-            this._onKick(roomId, event);
-        } else if (event['membership'] == 'ban') {
-            this._onBan(roomId, event);
-        } else if (event['membership'] == 'leave') {
-            // TODO: Handle self-leave as soft kick (#130)
+        if (event['state_key'] === this._client.selfId) {
+            if (event['sender'] === this._client.selfId) {
+                // Probably admin action or we soft kicked.
+                // TODO: If not already a soft kick, record as soft kick (#130)
+            } else if (event['content']['membership'] === 'ban') {
+                this._onBan(roomId, event);
+            } else if (event['unsigned']['prev_content'] && event['unsigned']['prev_content']['membership'] === 'ban') {
+                // TODO: Handled unbanned state?
+                log.info("VoyagerBot", event['sender'] + " has unbanned the bot in " + roomId);
+            } else this._onKick(roomId, event);
         }
     }
 

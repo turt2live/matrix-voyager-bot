@@ -143,7 +143,7 @@ class MatrixLiteClient extends EventEmitter {
 
             var leaveEvent = null;
             for (var event of roomInfo['timeline']['events']) {
-                if (event['type'] !== 'm.room.membership') continue;
+                if (event['type'] !== 'm.room.member') continue;
                 if (event['state_key'] !== this.selfId) continue;
                 if (leaveEvent && leaveEvent['unsigned']['age'] < event['unsigned']['age']) continue;
 
