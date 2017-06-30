@@ -3,6 +3,7 @@ var log = require("./../LogService");
 var Sequelize = require('sequelize');
 var dbConfig = require("../../config/database.json");
 var map = require("promise-map");
+var Promise = require('bluebird');
 
 /**
  * Primary storage for Voyager.
@@ -485,7 +486,7 @@ class VoyagerStore {
     getCurrentNodeVersionForNode(node) {
         return this.__NodeVersions.findOne({
             where: {nodeId: node.id},
-            order: 'id DESC'
+            order: [['id', 'DESC']]
         }).then(nv => nv ? new NodeVersion(nv) : null);
     }
 

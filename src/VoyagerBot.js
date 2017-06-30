@@ -1,10 +1,11 @@
-var VoyagerMatrixStore = require("./storage/VoyagerMatrixStore");
 var CommandProcessor = require("./matrix/CommandProcessor");
 var LocalStorage = require("node-localstorage").LocalStorage;
 var config = require("config");
-var sdk = require("matrix-js-sdk");
 var log = require("./LogService");
 var naturalSort = require("node-natural-sort");
+var MatrixClientLite = require("./matrix/MatrixClientLite");
+var _ = require("lodash");
+var Promise = require('bluebird');
 
 /**
  * The main entry point for the bot. Handles most of the business logic and bot actions
@@ -17,7 +18,6 @@ class VoyagerBot {
      */
     constructor(store) {
         this._localStorage = new LocalStorage("db/voyager_local_storage", 100 * 1024 * 1024); // quota is 100mb
-        var mtxStore = new VoyagerMatrixStore(this._localStorage);
 
         this._nodeUpdateQueue = [];
         this._processingNodes = false;
@@ -29,156 +29,87 @@ class VoyagerBot {
         this._store = store;
         this._commandProcessor = new CommandProcessor(this, store);
 
-        this._client = sdk.createClient({
-            baseUrl: config.get("matrix.homeserverUrl"),
-            accessToken: config.get("matrix.accessToken"),
-            userId: config.get("matrix.userId"),
-            store: mtxStore,
-            localTimeoutMs: 30 * 60 * 1000 // 30 min
-        });
-
-        mtxStore.setClient(this._client);
+        this._client = new MatrixClientLite(config['matrix']['homeserverUrl'], config['matrix']['accessToken'], config['matrix']['userId']);
 
         this._loadPendingNodeUpdates();
 
-        this._client.on('sync', this._onSync.bind(this));
-        this._client.on('Room', this._onRoom.bind(this));
-        this._client.on('Room.timeline', this._processTimeline.bind(this));
-        this._client.on('RoomState.members', this._processMembership.bind(this));
-        //this._client.on('RoomState.members', this._onRoomMemberUpdated.bind(this));
-        this._client.on('RoomState.events', this._onRoomStateUpdated.bind(this));
-        //this._client.on('User.avatarUrl', this._onUserUpdatedGeneric.bind(this));
-        //this._client.on('User.displayName', this._onUserUpdatedGeneric.bind(this));
+        this._client.on('room_invite', this._onInvite.bind(this));
+        this._client.on('room_message', this._onRoomMessage.bind(this));
+        this._client.on('room_leave', this._onRoomLeave.bind(this));
+        this._client.on('room_avatar', this._onRoomUpdated.bind(this));
+        this._client.on('room_name', this._onRoomUpdated.bind(this));
+        this._client.on('room_join_rules', this._onRoomUpdated.bind(this));
+        this._client.on('room_aliases', this._onRoomUpdated.bind(this));
+        this._client.on('room_canonical_alias', this._onRoomUpdated.bind(this));
+        this._client.on('user_avatar', this._onUserUpdated.bind(this));
+        this._client.on('user_name', this._onUserUpdated.bind(this));
     }
 
     /**
      * Starts the voyager bot
      */
     start() {
-        // pollTimeout is 30min
-        this._client.startClient({initialSyncLimit: 5, pollTimeout: 30 * 60 * 1000});
-    }
-
-    _onRoomMemberUpdated(event, state, member) {
-        log.verbose("VoyagerBot", "Room member updated event");
-        if (!this._queueNodesForUpdate) {
-            log.verbose("VoyagerBot", "Not queuing update of user " + member.userId + " because node updates are currently disabled.");
-            return Promise.resolve();
-        }
-        log.info("VoyagerBot", "Queuing update of user " + member.userId);
-        this._queueNodeUpdate({node: member, type: 'user'});
-        return Promise.resolve();
-    }
-
-    _onUserUpdatedGeneric(event, user) {
-        log.verbose("VoyagerBot", "Update user event (generic)");
-        if (!this._queueNodesForUpdate) {
-            log.verbose("VoyagerBot", "Not queuing update of user " + user.userId + " because node updates are currently disabled.");
-            return Promise.resolve();
-        }
-        log.info("VoyagerBot", "Queuing update of user " + user.userId);
-        this._queueNodeUpdate({node: user, type: 'user'});
-        return Promise.resolve();
-    }
-
-    _onRoom(room) {
-        log.verbose("VoyagerBot", "Room event");
-        if (!this._queueNodesForUpdate) {
-            log.verbose("VoyagerBot", "Not queuing update of room " + room.roomId + " because node updates are currently disabled.");
-            return Promise.resolve();
-        }
-        log.info("VoyagerBot", "Queuing update of room " + room.roomId);
-        this._queueNodeUpdate({node: room, type: 'room'});
-        return Promise.resolve();
-    }
-
-    _onRoomStateUpdated(event, state) {
-        log.verbose("VoyagerBot", "Room state updated event");
-        if (!this._queueNodesForUpdate) {
-            log.verbose("VoyagerBot", "Not queuing update of room state for room " + event.getRoomId() + " because node updates are currently disabled.");
-            return Promise.resolve();
-        }
-        log.info("VoyagerBot", "Queuing update of room state for " + event.getRoomId());
-        var room = this._client.getRoom(event.getRoomId());
-        if (!room) {
-            log.error("VoyagerBot", "Could not update state of room " + event.getRoomId() + " - Room does not exist.");
-            return Promise.resolve();
-        }
-        this._client.store.storeRoom(room);
-        this._queueNodeUpdate({node: room, type: 'room', store: true});
-        return Promise.resolve();
-    }
-
-    _onSync(state, prevState, data) {
-        log.info("VoyagerBot", "Sync state: " + prevState + " -> " + state);
-        if (state == "ERROR")
-            log.error("VoyagerBot", data);
-
-        if (state == "PREPARED") {
+        this._client.start().then(() => {
             this._tryUpdateNodeVersions();
 
             this._processNodeVersions();
             setInterval(() => this._processNodeVersions(), 15000);
-        } else if (state == "SYNCING" && !this._queueNodesForUpdate) {
+
             log.info("VoyagerBot", "Enabling node updates now that the bot is syncing");
             this._queueNodesForUpdate = true;
-        }
+        });
     }
 
-    _processMembership(event, state, member) {
-        if (member.userId != this._client.credentials.userId || event.getType() !== 'm.room.member')
-            return Promise.resolve(); // not applicable for us
-
-        log.verbose("VoyagerBot", "Process membership");
-
-        var newState = member.membership;
-        if (newState == 'invite') {
-            return this._onInvite(event);
-        } else if (newState == 'leave' && event.getSender() != this._client.credentials.userId) {
-            return this._onKick(event);
-        } else if (newState == 'ban') {
-            return this._onBan(event);
-        } else if (newState == 'join') {
-            this._queueNodeUpdate({node: this._client.getRoom(event.getRoomId()), type: 'room'});
-            return Promise.resolve();
-        }
-
-        return Promise.resolve();
+    _onRoomUpdated(roomId, event) {
+        this._queueNodeUpdate({node: roomId, type: 'room'});
     }
 
-    _processTimeline(event, room, toStartOfTimeline, removed, data) {
-        log.verbose("VoyagerBot", "Timeline event (" + event.getType() + ")");
-        if (event.getType() != 'm.room.message') return Promise.resolve();
+    _onUserUpdated(roomId, event) {
+        this._queueNodeUpdate({node: event['sender'], inRoom: roomId, type: 'user'});
+    }
 
-        var senderId = event.getSender();
-        if (senderId == this._client.credentials.userId) return Promise.resolve();
+    _onRoomMessage(roomId, event) {
+        if (event['sender'] === this._client.selfId) return; // self - ignore
 
-        var body = event.getContent().body;
-        if (!body) return Promise.resolve(); // probably redacted
+        var body = event['content']['body'];
+        if (!body) return; // likely redacted
 
         if (body.startsWith("!voyager")) {
-            return this._commandProcessor.processCommand(event, body.substring("!voyager".length).trim().split(' '))
+            this._commandProcessor.processCommand(roomId, event, body.substring("!voyager".length).trim().split(" "));
+            return;
         }
 
         var matches = body.match(/[#!][a-zA-Z0-9.\-_#]+:[a-zA-Z0-9.\-_]+[a-zA-Z0-9]/g);
-        if (!matches) return Promise.resolve();
+        if (!matches) return;
 
-        var promises = [];
-        for (var match of matches) {
-            promises.push(this._processMatchedLink(event, match));
-        }
+        var promise = Promise.resolve();
+        _.forEach(matches, match => promise = promise.then(() => this._processMatchedLink(roomId, event, match)));
 
-        return Promise.all(promises).then(() => this._client.sendReadReceipt(event));
+        promise.then(() => this._client.sendReadReceipt(roomId, event['event_id']));
     }
 
-    _processMatchedLink(event, matchedValue, retryCount = 0) {
-        var room;
+    _onRoomLeave(roomId, event) {
+        if (event['state_key'] === this._client.selfId) {
+            if (event['sender'] === this._client.selfId) {
+                // Probably admin action or we soft kicked.
+                // TODO: If not already a soft kick, record as soft kick (#130)
+            } else if (event['content']['membership'] === 'ban') {
+                this._onBan(roomId, event);
+            } else if (event['unsigned']['prev_content'] && event['unsigned']['prev_content']['membership'] === 'ban') {
+                // TODO: Handled unbanned state?
+                log.info("VoyagerBot", event['sender'] + " has unbanned the bot in " + roomId);
+            } else this._onKick(roomId, event);
+        }
+    }
+
+    _processMatchedLink(inRoomId, event, matchedValue, retryCount = 0) {
+        var roomId;
         var sourceNode;
         var targetNode;
 
-        return this._client.joinRoom(matchedValue).then(r => {
-            room = r;
-            return this.getNode(room.roomId, 'room');
+        return this._client.joinRoom(matchedValue).then(rid => {
+            roomId = rid;
+            return this.getNode(inRoomId, 'room');
         }, err => {
             if (err.httpStatus == 500 && retryCount < 5) {
                 return this._processMatchedLink(event, matchedValue, ++retryCount);
@@ -187,81 +118,92 @@ class VoyagerBot {
             log.error("VoyagerBot", err);
             return Promise.resolve(); // TODO: Record failed event as unlinkable node
         }).then(node => {
-            if (!room) return Promise.resolve();
+            if (!roomId) return Promise.resolve();
             targetNode = node;
 
-            return this.getNode(event.getRoomId(), 'room');
-        }).then(node=> {
-            if (!room) return Promise.resolve();
+            return this.getNode(roomId, 'room');
+        }).then(node => {
+            if (!roomId) return Promise.resolve();
             sourceNode = node;
-            return this._store.createLink(sourceNode, targetNode, 'message', event.getTs());
-        }).then(link=> {
+            return this._store.createLink(sourceNode, targetNode, 'message', event['origin_server_ts']);
+        }).then(link => {
             if (!link) return Promise.resolve();
-            return this._store.createTimelineEvent(link, event.getTs(), event.getId(), 'Matched: ' + matchedValue);
+            return this._store.createTimelineEvent(link, event['origin_server_ts'], event['event_id'], 'Matched: ' + matchedValue);
         });
     }
 
-    _onInvite(event) {
+    _onInvite(roomId, event) {
         var sourceNode;
         var targetNode;
 
         if (event.__voyagerRepeat) {
-            log.info("VoyagerBot", "Attempt #" + event.__voyagerRepeat + " to retry event " + event.getId());
+            log.info("VoyagerBot", "Attempt #" + event.__voyagerRepeat + " to retry event " + event['event_id']);
         }
 
-        return this.getNode(event.getSender(), 'user').then(node=> {
-            sourceNode = node;
-            return this.getNode(event.getRoomId(), 'room');
-        }).then(node => {
-            targetNode = node;
-            return this._store.findLinkByTimeline(sourceNode, targetNode, 'invite', event.getId());
-        }).then(existingLink => {
-            if (existingLink) return Promise.resolve();
-            else return this._store.createLink(sourceNode, targetNode, 'invite', event.getTs())
-                .then(link => this._store.createTimelineEvent(link, event.getTs(), event.getId()));
-        }).then(() => {
-            return this._client.joinRoom(event.getRoomId());
-        }).then(room => {
-            return this._tryUpdateRoomNodeVersion(room);
-        }).catch(err => {
-            log.error("VoyagerBot", err);
-            if (err.errcode == "M_FORBIDDEN" && (!event.__voyagerRepeat || event.__voyagerRepeat < 25)) { // 25 is arbitrary
-                event.__voyagerRepeat = (event.__voyagerRepeat ? event.__voyagerRepeat : 0) + 1;
-                log.info("VoyagerBot", "Forbidden as part of event " + event.getId() + " - will retry for attempt #" + event.__voyagerRepeat + " shortly.");
-                setTimeout(() => this._onInvite(event), 1000); // try again later
-            } else if (event.__voyagerRepeat) {
-                log.error("VoyagerBot", "Failed to retry event " + event.getId());
-            }
-        });
+        return this._client.joinRoom(roomId)
+            .then(() => Promise.all([this.getNode(event['sender'], 'user'), this.getNode(roomId, 'room')]))
+            .then(nodes => {
+                sourceNode = nodes[0];
+                targetNode = nodes[1];
+                return this._store.findLinkByTimeline(sourceNode, targetNode, 'invite', event['event_id'])
+            })
+            .then(existingLink => {
+                if (existingLink) return Promise.resolve();
+                else return this._store.createLink(sourceNode, targetNode, 'invite', event['origin_server_ts'])
+                    .then(link => this._store.createTimelineEvent(link, event['origin_server_ts'], event['event_id']));
+            })
+            .then(() => this._tryUpdateRoomNodeVersion(roomId))
+            .catch(err => {
+                log.error("VoyagerBot", err);
+
+                // Sometimes the error is nested under another object
+                if (err['body']) err = err['body'];
+
+                // Convert the error to an object if we can
+                if (typeof(err) === 'string') {
+                    try {
+                        err = JSON.parse(err);
+                    } catch (e) {
+                    }
+                }
+
+                if ((err['errcode'] == "M_FORBIDDEN" || err['errcode'] == "M_GUEST_ACCESS_FORBIDDEN") && (!event.__voyagerRepeat || event.__voyagerRepeat < 25)) { // 25 is arbitrary
+                    event.__voyagerRepeat = (event.__voyagerRepeat ? event.__voyagerRepeat : 0) + 1;
+                    log.info("VoyagerBot", "Forbidden as part of event " + event['event_id'] + " - will retry for attempt #" + event.__voyagerRepeat + " shortly.");
+                    setTimeout(() => this._onInvite(roomId, event), 1000); // try again later
+                } else if (event.__voyagerRepeat) {
+                    log.error("VoyagerBot", "Failed to retry event " + event['event_id']);
+                }
+            });
     }
 
-    _onKick(event) {
-        return this._addKickBan(event, 'kick');
+    _onKick(roomId, event) {
+        return this._addKickBan(roomId, event, 'kick');
     }
 
-    _onBan(event) {
-        return this._addKickBan(event, 'ban');
+    _onBan(roomId, event) {
+        return this._addKickBan(roomId, event, 'ban');
     }
 
-    _addKickBan(event, type) {
+    _addKickBan(roomId, event, type) {
         var roomNode;
         var userNode;
         var kickbanLink;
 
-        log.info("VoyagerBot", "Recording " + type + " for " + event.getRoomId() + " made by " + event.getSender());
+        log.info("VoyagerBot", "Recording " + type + " for " + roomId + " made by " + event['sender']);
 
-        return this.getNode(event.getSender(), 'user').then(node=> {
+        return this.getNode(event['sender'], 'user').then(node=> {
             userNode = node;
-            return this.getNode(event.getRoomId(), 'room');
+            return this.getNode(roomId, 'room');
         }).then(node=> {
             roomNode = node;
             return this._store.redactNode(roomNode);
         }).then(() => {
-            return this._store.createLink(userNode, roomNode, type, event.getTs(), false, true);
+            return this._store.createLink(userNode, roomNode, type, event['origin_server_ts'], false, true);
         }).then(link => {
             kickbanLink = link;
-            var reason = (event.getContent() || {}).reason || null;
-            return this._store.createTimelineEvent(kickbanLink, event.getTs(), event.getId(), reason);
+            var reason = (event['content'] || {})['reason'] || null;
+            return this._store.createTimelineEvent(kickbanLink, event['origin_server_ts'], event['event_id'], reason);
         });
     }
 
@@ -278,224 +220,178 @@ class VoyagerBot {
     }
 
     _createUserNode(userId) {
-        var user = this._client.getUser(userId);
-
-        var version = {
-            displayName: null,
-            avatarUrl: null,
-            isAnonymous: !this._store.isEnrolled(userId)
-        };
-
-        if (user) version = this._getUserVersion(user);
-
-        return this._store.createNode('user', userId, version);
+        return this._getUserVersion(userId).then(version => this._store.createNode('user', userId, version));
     }
 
     _createRoomNode(roomId) {
-        var room = this._client.getRoom(roomId);
+        return this._getRoomVersion(roomId).then(version => this._store.createNode('room', roomId, version, version.aliases));
+    }
 
+    _getUserVersion(userId) {
         var version = {
             displayName: null,
             avatarUrl: null,
-            isAnonymous: true
+            isAnonymous: !this._store.isEnrolled(userId),
+            primaryAlias: null, // users can't have aliases
         };
 
-        if (room) version = this._getRoomVersion(room);
+        return this._client.getUserInfo(userId).then(userInfo=> {
+            if (userInfo['displayname']) version.displayName = userInfo['displayname'];
+            if (userInfo['avatar_url']) version.avatarUrl = userInfo['avatar_url'];
 
-        return this._store.createNode('room', roomId, version, version.aliases);
+            if (!version.avatarUrl || version.avatarUrl.trim().length == 0)
+                version.avatarUrl = null;
+            else version.avatarUrl = this._client.convertMediaToThumbnail(version.avatarUrl, 256, 256);
+
+            if (!version.displayName || version.displayName.trim().length == 0)
+                version.displayName = null;
+
+            return version;
+        });
     }
 
-    _getUserVersion(user) {
+    _getRoomVersion(roomId) {
         var version = {
             displayName: null,
             avatarUrl: null,
-            isAnonymous: !this._store.isEnrolled(user.userId)
-        };
-
-        // User display logic is not defined by the spec, and is technically per-room.
-        // What we'll do is try and find a 1:1 room between the user and the bot and use
-        // the display name and avatar for the user in that room. If they don't have a
-        // 1:1 chat open with the bot, then we'll find the most popular room they are in
-        // and use the avatar/name from there. If they are in no rooms, we'll default to
-        // using null.
-
-        var roomMap = []; // [{ numJoined: number, user: User }]
-        var privateConvos = []; // same as roomMap, but for 1:1 chats
-
-        for (var room of this._client.getRooms()) {
-            var currentUser = room.getMember(user.userId);
-            if (currentUser) {
-                var roomInfo = {
-                    numJoined: room.getJoinedMembers().length,
-                    user: currentUser
-                };
-
-                if (roomInfo.count == 2) { // 1 is them, 1 is us
-                    privateConvos.push(roomInfo);
-                    break; // we found a 1:1, so we'll break early
-                }
-
-                roomMap.push(roomInfo);
-            }
-        }
-
-        var conversation = null;
-
-        if (privateConvos.length > 0) {
-            conversation = privateConvos[0];
-        } else if (roomMap.length > 0) {
-            roomMap.sort((a, b) => {
-                return b.numJoined - a.numJoined; // descending
-            });
-
-            conversation = roomMap[0];
-        }
-
-        if (conversation) {
-            version.displayName = conversation.user.name; // Don't use disambiguated version
-            version.avatarUrl = conversation.user.getAvatarUrl(this._client.getHomeserverUrl(), 128, 128, 'crop', false);
-        }
-
-        if (!version.avatarUrl || version.avatarUrl.trim().length == 0)
-            version.avatarUrl = null;
-        if (!version.displayName || version.displayName.trim().length == 0)
-            version.displayName = null;
-
-        return version;
-    }
-
-    _getRoomVersion(room) {
-        var version = {
-            displayName: null,
-            avatarUrl: room.getAvatarUrl(this._client.getHomeserverUrl(), 128, 128, 'crop', false), // false = don't allow default icons
             isAnonymous: true,
-            primaryAlias: room.getCanonicalAlias(),
+            primaryAlias: null,
             aliases: []
         };
 
-        var joinEvent = room.currentState.getStateEvents('m.room.join_rules', '');
-        if (joinEvent) {
-            version.isAnonymous = joinEvent.getContent().join_rule !== 'public';
-        }
+        return this._client.getRoomState(roomId).then(state => {
+            var roomMembers = []; // displayNames (strings)
+            var joinedMembers = []; // same as room members
+            var matrixDotOrgAliases = []; // special case handling
 
-        var aliasEvents = room.currentState.getStateEvents('m.room.aliases', undefined);
-        var matrixOrgAliases = [];
-        if (aliasEvents) {
-            for (var evt of aliasEvents) {
-                for (var alias of evt.getContent().aliases) {
-                    version.aliases.push(alias);
-                    if (alias.endsWith(":matrix.org"))
-                        matrixOrgAliases.push(alias);
-                }
-            }
-        }
-        matrixOrgAliases.sort();
-        version.aliases.sort();
+            for (var event of state) {
+                if (event['type'] === 'm.room.join_rules') {
+                    log.silly("VoyagerBot", "m.room.join_rules for " + roomId + " is " + event['content']['join_rule']);
+                    version.isAnonymous = event['content']['join_rule'] !== 'public';
+                } else if (event['type'] === 'm.room.member') {
+                    if (event['user_id'] === this._client.selfId) continue; // skip ourselves, always
+                    log.silly("VoyagerBot", "m.room.member of " + event['user_id'] + " in " + roomId + " is " + event['membership']);
 
-        // Display name logic (according to matrix spec) | http://matrix.org/docs/spec/client_server/r0.2.0.html#id222
-        // 1. Use m.room.name
-        // 2. Use m.room.canonical_alias
-        //   a. *Against Spec* Use m.room.aliases, picking matrix.org aliases over other aliases, if no canonical alias
-        // 3. Use joined/invited room members (not including self)
-        //    a. 1 member - use their display name
-        //    b. 2 members - use their display names, lexically sorted
-        //    c. 3+ members - use first display name, lexically, and show 'and N others'
-        // 4. Consider left users and repeat #3 ("Empty room (was Alice and Bob)")
-        // 5. Show 'Empty Room' - this shouldn't happen as it is an error condition in the spec
+                    var displayName = event['content']['displayname'];
+                    if (!displayName || displayName.trim().length === 0)
+                        displayName = event['user_id'];
 
-        // Try to use m.room.name
-        var nameEvent = room.currentState.getStateEvents('m.room.name', '');
-        if (nameEvent) {
-            version.displayName = nameEvent.getContent().name;
-        }
-
-        // Try to use m.room.canonical_alias
-        if (!version.displayName || version.displayName.trim().length == 0) {
-            var aliasEvent = room.currentState.getStateEvents('m.room.canonical_alias', '');
-            if (aliasEvent) {
-                version.displayName = aliasEvent.getContent().alias;
-            }
-        }
-
-        // Try to use m.room.aliases (against spec). Prefer matrix.org
-        if (!version.displayName || version.displayName.trim().length == 0 && version.aliases.length > 0) {
-            if (matrixOrgAliases.length > 0)
-                version.displayName = matrixOrgAliases[0];
-            else version.displayName = version.aliases[0];
-        }
-
-        // Try to use room members
-        if (!version.displayName || version.displayName.trim().length == 0) {
-            var members = room.currentState.getMembers();
-            var joinedMembers = [];
-            var allMembers = [];
-
-            for (var member of members) {
-                if (member.userId == this._client.credentials.userId) continue;
-                allMembers.push(member);
-                if (member.membership == 'invite' || member.membership == 'join')
-                    joinedMembers.push(member);
-                if (!member.displayName) member.displayName = member.name;
+                    roomMembers.push(displayName);
+                    if (event['membership'] === 'join' || event['membership'] === 'invite') joinedMembers.push(displayName);
+                } else if (event['type'] === 'm.room.aliases') {
+                    log.silly("VoyagerBot", "m.room.aliases for " + roomId + " on domain " + event['state_key'] + " is: " + event['content']['aliases'].join(', '));
+                    for (var alias of event['content']['aliases']) {
+                        version.aliases.push(alias);
+                        if (alias.endsWith(":matrix.org")) matrixDotOrgAliases.push(alias);
+                    }
+                } else if (event['type'] === 'm.room.canonical_alias') {
+                    log.silly("VoyagerBot", "m.room.canonical_alias for " + roomId + " is " + event['content']['alias']);
+                    version.primaryAlias = event['content']['alias'];
+                } else if (event['type'] === 'm.room.name') {
+                    log.silly("VoyagerBot", "m.room.name for " + roomId + " is " + event['content']['name']);
+                    version.displayName = event['content']['name'];
+                } else if (event['type'] === 'm.room.avatar') {
+                    log.silly("VoyagerBot", "m.room.avatar for " + roomId + " is " + event['content']['url']);
+                    version.avatarUrl = this._client.convertMediaToThumbnail(event['content']['url'], 256, 256);
+                } else log.silly("VoyagerBot", "Not handling state event " + event['type'] + " in room " + roomId);
             }
 
+            // Now that we've processed room state: determine the room name
+            if (version.displayName && version.displayName.trim().length > 0) return version; // we're done :)
+
+            matrixDotOrgAliases.sort();
+            version.aliases.sort();
             joinedMembers.sort(naturalSort({caseSensitive: false}));
-            allMembers.sort(naturalSort({caseSensitive: false}));
+            roomMembers.sort(naturalSort({caseSensitive: false}));
 
-            var memberArr = joinedMembers;
-            if (joinedMembers.length == 0) memberArr = allMembers;
+            // Display name logic (according to matrix spec) | http://matrix.org/docs/spec/client_server/r0.2.0.html#id222
+            // 1. Use m.room.name (handled above)
+            // 2. Use m.room.canonical_alias
+            //   a. *Against Spec* Use m.room.aliases, picking matrix.org aliases over other aliases, if no canonical alias
+            // 3. Use joined/invited room members (not including self)
+            //    a. 1 member - use their display name
+            //    b. 2 members - use their display names, lexically sorted
+            //    c. 3+ members - use first display name, lexically, and show 'and N others'
+            // 4. Consider left users and repeat #3 ("Empty room (was Alice and Bob)")
+            // 5. Show 'Empty Room' - this shouldn't happen as it is an error condition in the spec
 
-            if (memberArr.length == 1)
-                version.displayName = memberArr[0].displayName;
-            if (memberArr.length == 2)
-                version.displayName = memberArr[0].displayName + " and " + memberArr[1].displayName;
-            if (memberArr.length > 2)
-                version.displayName = memberArr[0].displayName + " and " + (memberArr.length - 1) + " others";
+            // using canonical alias
+            if (version.primaryAlias && version.primaryAlias.trim().length > 0) {
+                version.displayName = version.primaryAlias;
+                return version;
+            }
 
-            if (memberArr === allMembers && version.displayName)
-                version.displayName = "Empty room (was " + version.displayName + ")";
-        }
+            // using other aliases, against spec, preferring matrix.org
+            if (version.aliases.length > 0) {
+                if (matrixDotOrgAliases.length > 0) {
+                    version.displayName = matrixDotOrgAliases[0];
+                } else version.displayName = version.aliases[0];
+                return version;
+            }
 
-        // Fallback
-        if (!version.displayName || version.displayName.trim().length == 0) {
-            version.displayName = "Empty room";
-        }
+            // pick the appropriate collection of members
+            var memberArray = joinedMembers;
+            if (memberArray.length === 0) memberArray = roomMembers;
 
-        return version;
+            // build a room name using those members
+            if (memberArray.length === 1) {
+                version.displayName = memberArray[0];
+                return version;
+            } else if (memberArray.length === 2) {
+                version.displayName = memberArray[0] + " and " + memberArray[1];
+                return version;
+            } else if (memberArray.length > 2) {
+                version.displayName = memberArray[0] + " and " + (memberArray.length - 1) + " others";
+                return version;
+            }
+
+            // weird fallback scenario (alone in room)
+            version.displayName = "Empty Room";
+            return version;
+        });
     }
 
-    getUser(userId) {
-        return this._client.getUser(userId);
+    getRoomStateEvents(roomId, type, stateKey) {
+        return this._client.getRoomStateEvents(roomId, type, stateKey);
     }
 
     sendNotice(roomId, message) {
         return this._client.sendNotice(roomId, message);
     }
 
-    getRoom(roomId) {
-        return this._client.getRoom(roomId);
-    }
-
     leaveRoom(roomId) {
-        return this._client.leave(roomId);
+        return this._client.leaveRoom(roomId);
     }
 
-    lookupRoom(roomIdOrAlias) {
-        return new Promise((resolve, reject) => {
-            var rooms = this._client.getRooms();
+    matchRoomSharedWith(roomIdOrAlias, userId) {
+        return this._client.getJoinedRooms().then(joinedRooms => {
+            var promiseChain = Promise.resolve();
+            _.forEach(joinedRooms, roomId => {
+                promiseChain = promiseChain
+                    .then(() => this._client.getRoomState(roomId))
+                    .then(state => {
+                        var isMatch = roomIdOrAlias === roomId;
+                        var isMember = false;
 
-            for (var room of rooms) {
-                var self = room.getMember(this._client.credentials.userId);
-                if (!self || self.membership !== 'join') continue;
+                        for (var event of state) {
+                            if (event['type'] === 'm.room.canonical_alias' && event['content']['alias'] === roomIdOrAlias) {
+                                isMatch = true;
+                            } else if (event['type'] === 'm.room.aliases' && event['content']['aliases'].indexOf(roomIdOrAlias) !== -1) {
+                                isMatch = true;
+                            } else if (event['type'] === 'm.room.member' && event['user_id'] === userId && event['membership'] === 'join') {
+                                isMember = true;
+                            }
 
-                if (room.roomId == roomIdOrAlias
-                    || room.getAliases().indexOf(roomIdOrAlias) !== -1
-                    || room.getCanonicalAlias() == roomIdOrAlias) {
-                    resolve(room);
-                    return;
-                }
-            }
+                            if (isMatch && isMember) break; // to save a couple clock cycles
+                        }
 
-            resolve(null);
+                        if (isMatch && isMember) return Promise.reject(roomId); // reject === break loop
+                        else return Promise.resolve(); // resolve === try next room
+                    });
+            });
+
+            // Invert the success and fail because of how the promise chain is dealt with
+            return promiseChain.then(() => Promise.resolve(null), roomId => Promise.resolve(roomId));
         });
     }
 
@@ -505,29 +401,22 @@ class VoyagerBot {
             return;
         }
 
-        var objectId = nodeMeta.node.userId ? nodeMeta.node.userId : nodeMeta.node.roomId;
-        if (this._queuedObjectIds.indexOf(objectId) !== -1) {
-            log.info("VoyagerBot", "Node update queue attempt for " + objectId + " - skipped because the node is already queued");
+        if (this._queuedObjectIds.indexOf(nodeMeta.node) !== -1) {
+            log.info("VoyagerBot", "Node update queue attempt for " + nodeMeta.node + " - skipped because the node is already queued");
             return;
         }
 
         this._nodeUpdateQueue.push(nodeMeta);
-        this._queuedObjectIds.push(objectId);
+        this._queuedObjectIds.push(nodeMeta.node);
         this._savePendingNodeUpdates();
 
-        log.info("VoyagerBot", "Queued update for " + objectId);
+        log.info("VoyagerBot", "Queued update for " + nodeMeta.node);
     }
 
     _savePendingNodeUpdates() {
         var simpleNodes = [];
         for (var pendingNodeUpdate of this._nodeUpdateQueue) {
-            var obj = {type: pendingNodeUpdate.type};
-
-            if (obj.type == 'user')
-                obj.objectId = pendingNodeUpdate.node.userId;
-            else if (obj.type == 'room')
-                obj.objectId = pendingNodeUpdate.node.roomId;
-            else throw new Error("Unexpected node type: " + obj.type);
+            var obj = {type: pendingNodeUpdate.type, objectId: pendingNodeUpdate.node};
 
             simpleNodes.push(obj);
         }
@@ -540,18 +429,7 @@ class VoyagerBot {
         if (pendingNodeUpdates) {
             var nodeUpdatesAsArray = JSON.parse(pendingNodeUpdates);
             for (var update of nodeUpdatesAsArray) {
-                var nodeUpdate = {type: update.type};
-
-                if (nodeUpdate.type == 'room')
-                    nodeUpdate.node = this._client.getRoom(update.objectId);
-                else if (nodeUpdate.type == 'user')
-                    nodeUpdate.node = this._client.getUser(update.objectId);
-                else throw new Error("Unexpected node type: " + nodeUpdate.type);
-
-                if (!nodeUpdate.node) {
-                    log.warn("VoyagerBot", "Skipping node update for " + update.type + " " + update.objectId + " because the node cannot be resolved.");
-                    continue;
-                }
+                var nodeUpdate = {type: update.type, node: update.objectId};
 
                 this._queueNodeUpdate(nodeUpdate);
             }
@@ -573,7 +451,7 @@ class VoyagerBot {
         log.info("VoyagerBot", "Processing " + nodesToProcess.length + " pending node updates. " + this._nodeUpdateQueue.length + " remaining");
 
         var processPendingNode = (obj) => {
-            var idx = this._queuedObjectIds.indexOf(obj.node.userId ? obj.node.userId : obj.node.roomId);
+            var idx = this._queuedObjectIds.indexOf(obj.node);
             if (idx !== -1) this._queuedObjectIds.splice(idx, 1);
 
             switch (obj.type) {
@@ -604,59 +482,54 @@ class VoyagerBot {
             log.verbose("VoyagerBot", "Skipping state updates for all nodes - node updates are disabled");
             return;
         }
-        
+
         if (this._queueRoomsOnStartup) {
-            var rooms = this._client.getRooms();
-            for (var room of rooms) {
-                this._queueNodeUpdate({node: room, type: 'room'});
-            }
+            this._client.getJoinedRooms().then(joinedRooms => {
+                _.forEach(joinedRooms, roomId => this._queueNodeUpdate({node: roomId, type: 'room'}));
+            });
         }
 
-        if(this._queueUsersOnStartup) {
+        if (this._queueUsersOnStartup) {
             this._store.getNodesByType('user').then(users => {
-                for (var user of users) {
-                    var mtxUser = this._client.getUser(user.objectId);
-                    this._queueNodeUpdate({node: mtxUser, type: 'user'});
-                }
+                _.forEach(users, user => this._queueNodeUpdate({node: user.objectId, type: 'user'}));
             });
         }
     }
 
-    _tryUpdateUserNodeVersion(user) {
-        if (!user) {
-            log.warn("VoyagerBot", "Try update user node failed: User was null");
+    _tryUpdateUserNodeVersion(userId) {
+        if (!userId) {
+            log.warn("VoyagerBot", "Try update user node failed: User ID was null");
             return Promise.resolve();
         }
-        log.info("VoyagerBot", "Attempting an update for user node: " + user.userId);
+        log.info("VoyagerBot", "Attempting an update for user node: " + userId);
 
         var userNode;
         var userMeta;
 
-        return this.getNode(user.userId, 'user').then(node => {
+        return this.getNode(userId, 'user').then(node => {
             userNode = node;
 
             return this._store.getCurrentNodeState(userNode);
         }).then(meta=> {
             userMeta = meta;
-        }).then(() => {
-            var realVersion = this._getUserVersion(user);
-
+            return this._getUserVersion(userId);
+        }).then(realVersion => {
             return this._tryUpdateNodeVersion(userNode, userMeta, realVersion);
-        })
+        });
     }
 
-    _tryUpdateRoomNodeVersion(room) {
-        if (!room) {
-            log.warn("VoyagerBot", "Try update room node failed: Room was null");
+    _tryUpdateRoomNodeVersion(roomId) {
+        if (!roomId) {
+            log.warn("VoyagerBot", "Try update room node failed: Room ID was null");
             return Promise.resolve();
         }
-        log.info("VoyagerBot", "Attempting an update for room node: " + room.roomId);
+        log.info("VoyagerBot", "Attempting an update for room node: " + roomId);
 
         var roomNode;
         var roomMeta;
         var roomAliases;
 
-        return this.getNode(room.roomId, 'room').then(node => {
+        return this.getNode(roomId, 'room').then(node => {
             roomNode = node;
 
             return this._store.getCurrentNodeState(roomNode);
@@ -666,9 +539,8 @@ class VoyagerBot {
             return this._store.getNodeAliases(roomNode);
         }).then(aliases => {
             roomAliases = aliases || [];
-        }).then(() => {
-            var realVersion = this._getRoomVersion(room);
-
+            return this._getRoomVersion(roomId);
+        }).then(realVersion => {
             return this._tryUpdateNodeVersion(roomNode, roomMeta, realVersion, roomAliases);
         });
     }

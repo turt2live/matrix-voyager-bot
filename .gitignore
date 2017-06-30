@@ -21,6 +21,7 @@ config/database-target.json
 db/sync-token
 db/localstorage
 db/voyager_local_storage*
+db/mtx_client_lite_localstorage*
 
 # Logs
 logs
