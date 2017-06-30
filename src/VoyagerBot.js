@@ -66,6 +66,8 @@ class VoyagerBot {
     }
 
     _onRoomMessage(roomId, event) {
+        if (event['sender'] === this._client.selfId) return; // self - ignore
+
         var body = event['content']['body'];
         if (!body) return; // likely redacted
 
