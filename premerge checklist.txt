@@ -1,2 +1,0 @@
-* Client error fixing (build is angry)
-* Suppress webpack warnings during compile
