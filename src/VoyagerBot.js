@@ -476,6 +476,18 @@ class VoyagerBot {
                 return promise.then(() => log.info("VoyagerBot", "Completed update for " + node.node)).catch(err => {
                     log.error("VoyagerBot", "Error updating node " + node.node);
                     log.error("VoyagerBot", err);
+
+                    if (node.retryCount >= 5) {
+                        log.error("VoyagerBot", "Not retrying node update for node " + node.node + " due to the maximum number of retries reached (5)");
+                        return;
+                    }
+
+                    if (!node.retryCount) node.retryCount = 0;
+                    node.retryCount++;
+
+                    log.warn("VoyagerBot", "Re-queueing node " + node.node + " for updates due to failure. This will be retry #" + node.retryCount);
+
+                    this._queueNodeUpdate(node);
                 });
             });
         });
