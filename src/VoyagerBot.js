@@ -130,34 +130,40 @@ class VoyagerBot {
         var targetNode;
 
         if (event.__voyagerRepeat) {
-            log.info("VoyagerBot", "Attempt #" + event.__voyagerRepeat + " to retry event " + event.getId());
+            log.info("VoyagerBot", "Attempt #" + event.__voyagerRepeat + " to retry event " + event['event_id']);
         }
 
-        return this.getNode(event['sender'], 'user').then(node=> {
-            sourceNode = node;
-            return this.getNode(roomId, 'room');
-        }).then(node => {
-            targetNode = node;
-            return this._store.findLinkByTimeline(sourceNode, targetNode, 'invite', event['event_id']);
-        }).then(existingLink => {
-            if (existingLink) return Promise.resolve();
-            else return this._store.createLink(sourceNode, targetNode, 'invite', event['origin_server_ts'])
-                .then(link => this._store.createTimelineEvent(link, event['origin_server_ts'], event['event_id']));
-        }).then(() => {
-            return this._client.joinRoom(roomId);
-        }).then(room => {
-            return this._tryUpdateRoomNodeVersion(room);
-        }).catch(err => {
-            // TODO: {Client Update} Verify that errcode checking still works
-            log.error("VoyagerBot", err);
-            if (err.errcode == "M_FORBIDDEN" && (!event.__voyagerRepeat || event.__voyagerRepeat < 25)) { // 25 is arbitrary
-                event.__voyagerRepeat = (event.__voyagerRepeat ? event.__voyagerRepeat : 0) + 1;
-                log.info("VoyagerBot", "Forbidden as part of event " + event['event_id'] + " - will retry for attempt #" + event.__voyagerRepeat + " shortly.");
-                setTimeout(() => this._onInvite(roomId, event), 1000); // try again later
-            } else if (event.__voyagerRepeat) {
-                log.error("VoyagerBot", "Failed to retry event " + event['event_id']);
-            }
-        });
+        return this._client.joinRoom(roomId)
+            .then(() => Promise.all([this.getNode(event['sender'], 'user'), this.getNode(roomId, 'room')]))
+            .then(nodes => this._store.findLinkByTimeline(nodes[0], nodes[1], 'invite', event['event_id']))
+            .then(existingLink => {
+                if (existingLink) return Promise.resolve();
+                else return this._store.createLink(sourceNode, targetNode, 'invite', event['origin_server_ts']);
+            })
+            .then(link => link ? this._store.createTimelineEvent(link, event['origin_server_ts'], event['event_id']) : Promise.resolve())
+            .then(() => this._tryUpdateRoomNodeVersion(roomId))
+            .catch(err => {
+                log.error("VoyagerBot", err);
+
+                // Sometimes the error is nested under another object
+                if (err['body']) err = err['body'];
+
+                // Convert the error to an object if we can
+                if (typeof(err) === 'string') {
+                    try {
+                        err = JSON.parse(err);
+                    } catch (e) {
+                    }
+                }
+
+                if ((err['errcode'] == "M_FORBIDDEN" || err['errcode'] == "M_GUEST_ACCESS_FORBIDDEN") && (!event.__voyagerRepeat || event.__voyagerRepeat < 25)) { // 25 is arbitrary
+                    event.__voyagerRepeat = (event.__voyagerRepeat ? event.__voyagerRepeat : 0) + 1;
+                    log.info("VoyagerBot", "Forbidden as part of event " + event['event_id'] + " - will retry for attempt #" + event.__voyagerRepeat + " shortly.");
+                    setTimeout(() => this._onInvite(roomId, event), 1000); // try again later
+                } else if (event.__voyagerRepeat) {
+                    log.error("VoyagerBot", "Failed to retry event " + event['event_id']);
+                }
+            });
     }
 
     _onKick(roomId, event) {
@@ -300,7 +306,7 @@ class VoyagerBot {
             // 5. Show 'Empty Room' - this shouldn't happen as it is an error condition in the spec
 
             // using canonical alias
-            if (version.primaryAlias && version.primaryAlias.trim().length > 0){
+            if (version.primaryAlias && version.primaryAlias.trim().length > 0) {
                 version.displayName = version.primaryAlias;
                 return version;
             }
@@ -321,11 +327,11 @@ class VoyagerBot {
             if (memberArray.length === 1) {
                 version.displayName = memberArray[0];
                 return version;
-            }  else if (memberArray.length === 2) {
+            } else if (memberArray.length === 2) {
                 version.displayName = memberArray[0] + " and " + memberArray[1];
                 return version;
             } else if (memberArray.length > 2) {
-                version.displayName = memberArray[0] +" and " + (memberArray.length - 1) + " others";
+                version.displayName = memberArray[0] + " and " + (memberArray.length - 1) + " others";
                 return version;
             }
 
@@ -351,27 +357,27 @@ class VoyagerBot {
         return this._client.getJoinedRooms().then(joinedRooms => {
             var promiseChain = Promise.resolve();
             _.forEach(joinedRooms, roomId => {
-               promiseChain = promiseChain
-                   .then(() => this._client.getRoomState(roomId))
-                   .then(state => {
-                       var isMatch = roomIdOrAlias === roomId;
-                       var isMember = false;
+                promiseChain = promiseChain
+                    .then(() => this._client.getRoomState(roomId))
+                    .then(state => {
+                        var isMatch = roomIdOrAlias === roomId;
+                        var isMember = false;
 
-                       for (var event of state) {
-                           if (event['type'] === 'm.room.canonical_alias' && event['content']['alias'] === roomIdOrAlias) {
-                               isMatch = true;
-                           } else if (event['type'] === 'm.room.aliases' && event['content']['aliases'].indexOf(roomIdOrAlias) !== -1) {
-                               isMatch = true;
-                           } else if (event['type'] === 'm.room.member' && event['user_id'] === userId && event['membership'] === 'join') {
-                               isMember = true;
-                           }
+                        for (var event of state) {
+                            if (event['type'] === 'm.room.canonical_alias' && event['content']['alias'] === roomIdOrAlias) {
+                                isMatch = true;
+                            } else if (event['type'] === 'm.room.aliases' && event['content']['aliases'].indexOf(roomIdOrAlias) !== -1) {
+                                isMatch = true;
+                            } else if (event['type'] === 'm.room.member' && event['user_id'] === userId && event['membership'] === 'join') {
+                                isMember = true;
+                            }
 
-                           if (isMatch && isMember) break; // to save a couple clock cycles
-                       }
+                            if (isMatch && isMember) break; // to save a couple clock cycles
+                        }
 
-                       if (isMatch && isMember) return Promise.reject(roomId); // reject === break loop
-                       else return Promise.resolve(); // resolve === try next room
-                   });
+                        if (isMatch && isMember) return Promise.reject(roomId); // reject === break loop
+                        else return Promise.resolve(); // resolve === try next room
+                    });
             });
 
             // Invert the success and fail because of how the promise chain is dealt with
@@ -386,7 +392,7 @@ class VoyagerBot {
         }
 
         if (this._queuedObjectIds.indexOf(nodeMeta.node) !== -1) {
-            log.info("VoyagerBot", "Node update queue attempt for " + objectId + " - skipped because the node is already queued");
+            log.info("VoyagerBot", "Node update queue attempt for " + nodeMeta.node + " - skipped because the node is already queued");
             return;
         }
 

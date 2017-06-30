@@ -3,6 +3,7 @@ var log = require("./../LogService");
 var Sequelize = require('sequelize');
 var dbConfig = require("../../config/database.json");
 var map = require("promise-map");
+var Promise = require('bluebird');
 
 /**
  * Primary storage for Voyager.

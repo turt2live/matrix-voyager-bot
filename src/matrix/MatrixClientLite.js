@@ -72,6 +72,7 @@ class MatrixLiteClient extends EventEmitter {
             log.verbose("MatrixClientLite", "Creating new filter");
             filterPromise = this._do("POST", "/_matrix/client/r0/user/" + this.selfId + "/filter", null, filter).then(response => {
                 this._filterId = response["filter_id"];
+                this._kvStore.removeItem("m.synctoken"); // clear token because we've got a new filter
                 this._kvStore.setItem("m.filter", JSON.stringify({
                     id: this._filterId,
                     filter: filter
