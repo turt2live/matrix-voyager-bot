@@ -12,8 +12,8 @@ var _ = require('lodash');
  * * "room_join" (roomId)
  * * "room_invite" (roomId, inviteEvent)
  * * "room_message" (roomId, messageEvent) - only fired for joined rooms
- * * TODO: "room_name" (roomId, nameEvent)
- * * TODO: "room_avatar" (roomId, avatarEvent)
+ * * "room_name" (roomId, nameEvent)
+ * * "room_avatar" (roomId, avatarEvent)
  * * "user_name" (roomId, nameEvent)
  * * "user_avatar" (roomId, avatarEvent)
  */
@@ -196,6 +196,8 @@ class MatrixLiteClient extends EventEmitter {
             for (var event of roomInfo['timeline']['events']) {
                 if (event['type'] === 'm.room.message') this.emit("room_message", roomId, event);
                 else if (event['type'] === 'm.room.member') this._checkMembershipUpdate(roomId, event);
+                else if (event['type'] === 'm.room.name') this.emit("room_name", roomId, event);
+                else if (event['type'] === 'm.room.avatar') this.emit("room_avatar", roomId, event);
                 else log.silly("MatrixClientLite", "Not handling sync event " + event['type']);
             }
         }
