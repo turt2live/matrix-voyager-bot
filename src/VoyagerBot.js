@@ -446,35 +446,46 @@ class VoyagerBot {
         this._processingNodes = true;
         var nodesToProcess = this._nodeUpdateQueue.splice(0, 2500);
         this._savePendingNodeUpdates();
-        var i = 0;
 
         log.info("VoyagerBot", "Processing " + nodesToProcess.length + " pending node updates. " + this._nodeUpdateQueue.length + " remaining");
 
-        var processPendingNode = (obj) => {
-            var idx = this._queuedObjectIds.indexOf(obj.node);
+        var promiseChain = Promise.resolve();
+        _.forEach(nodesToProcess, node => {
+            var idx = this._queuedObjectIds.indexOf(node.node);
             if (idx !== -1) this._queuedObjectIds.splice(idx, 1);
 
-            switch (obj.type) {
-                case "room":
-                    return this._tryUpdateRoomNodeVersion(obj.node);
-                case "user":
-                    return this._tryUpdateUserNodeVersion(obj.node);
-                default:
-                    log.warn("VoyagerBot", "Could not handle node in update queue: " + JSON.stringify(obj));
-                    return Promise.resolve();
-            }
-        };
+            var promise = Promise.resolve();
 
-        var handler = () => {
-            if (i < nodesToProcess.length) {
-                return processPendingNode(nodesToProcess[i++]).then(handler);
-            } else {
-                log.info("VoyagerBot", "Processed " + nodesToProcess.length + " node updates. " + this._nodeUpdateQueue.length + " remaining");
-                this._processingNodes = false;
-                return Promise.resolve();
+            try {
+                switch (node.type) {
+                    case "room":
+                        promise = this._tryUpdateRoomNodeVersion(node.node);
+                        break;
+                    case "user":
+                        promise = this._tryUpdateUserNodeVersion(node.node);
+                        break;
+                    default:
+                        log.warn("VoyagerBot", "Could not handle node in update queue: " + JSON.stringify(node));
+                        return Promise.resolve();
+                }
+            } catch (error) {
+                promise = Promise.reject(error);
             }
-        };
-        handler().catch(err => log.error("VoyagerBot", err));
+
+            return promise.then(() => log.info("VoyagerBot", "Completed update for " + node.node)).catch(err => {
+                log.error("VoyagerBot", "Error updating node " + node.node);
+                log.error("VoyagerBot", err);
+            });
+        });
+
+        promiseChain.then(() => {
+            log.info("VoyagerBot", "Processed " + nodesToProcess.length + " node updates. " + this._nodeUpdateQueue.length + " remaining");
+            this._processingNodes = false;
+        }).catch(err => {
+            log.info("VoyagerBot", "Processed " + nodesToProcess.length + " node updates (with errors). " + this._nodeUpdateQueue.length + " remaining");
+            log.error("VoyagerBot", err);
+            this._processingNodes = false;
+        });
     }
 
     _tryUpdateNodeVersions() {
