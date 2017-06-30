@@ -16,6 +16,7 @@ export class GraphComponent implements OnInit {
     private data: {links: NetworkLink[], nodes: NetworkNode[], nodeLinks: string[]};
     private isDragging = false;
     private isHovering = false;
+    private lastSeenNodes: number[] = [];
 
     public isBrowserSupported = false;
     public highlightedNode: NetworkNode = null;
@@ -49,6 +50,8 @@ export class GraphComponent implements OnInit {
         }
 
         this.appendNetwork(0, commonNetwork);
+
+        this.lastSeenNodes = this.localStorageService.get<number[]>('seenNodes') || [];
     }
 
     private appendNetwork(since: number, resultsSoFar: VoyagerNetworkHelper) {
@@ -251,14 +254,13 @@ export class GraphComponent implements OnInit {
             ctx.stroke();
             ctx.fill();
 
-            const seenNodes = this.localStorageService.get<number[]>('seenNodes') || [];
             if (n.avatarUrl && n.avatarUrl.trim().length > 0) {
                 n.image = this.drawImageCircle(ctx, n.x, n.y, r, n.x - r, n.y - r, r * 2, r * 2, n.avatarUrl, n.image);
             } else {
                 this.drawNodeAvatar(ctx, n.x, n.y, r, n);
             }
 
-            let isNew = seenNodes.length > 0 && (seenNodes.indexOf(n.id) === -1);
+            let isNew = this.lastSeenNodes.length > 0 && (this.lastSeenNodes.indexOf(n.id) === -1);
             if (isNew && n.type === 'room') {
                 this.drawNodeIsNew(ctx, n.x, n.y, r);
             }
