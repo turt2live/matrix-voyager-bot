@@ -77,12 +77,12 @@ class CommandProcessor {
                 if (!powerLevels)
                     return this._reply(roomId, event, "Error processing command: Could not find m.room.power_levels state event").then(() => Promise.reject("Missing m.room.power_levels in room " + roomId));
 
-                var powerLevel = powerLevels['content']['users'][event['sender']];
-                if (!powerLevel && powerLevel !== 0) powerLevel = powerLevels['content']['users_default'];
-                if (powerLevel < powerLevels['content']['kick'])
-                    return this._reply(roomId, event, "You must be at least power level " + powerLevels['content']['kick'] + " to kick me from the room").then(() => Promise.reject(event['sender'] + " does not have permission to kick in room " + roomId));
+                var powerLevel = powerLevels['users'][event['sender']];
+                if (!powerLevel && powerLevel !== 0) powerLevel = powerLevels['users_default'];
+                if (powerLevel < powerLevels['kick'])
+                    return this._reply(roomId, event, "You must be at least power level " + powerLevels['kick'] + " to kick me from the room").then(() => Promise.reject(event['sender'] + " does not have permission to kick in room " + roomId));
             })
-            .then(() => Promise.all(this._bot.getNode(event['sender'], 'user'), this._bot.getNode(roomId, 'room')))
+            .then(() => Promise.all([this._bot.getNode(event['sender'], 'user'), this._bot.getNode(roomId, 'room')]))
             .then(userRoomNodes => this._store.createLink(userRoomNodes[0], userRoomNodes[1], 'soft_kick', event['origin_server_ts'], false, false))
             .then(link => this._store.createTimelineEvent(link, event['origin_server_ts'], event['event_id'], 'Soft kicked'))
             .then(() => this._bot.leaveRoom(roomId))
