@@ -50,13 +50,13 @@ class VoyagerBot {
      */
     start() {
         this._client.start().then(() => {
+            log.info("VoyagerBot", "Enabling node updates now that the bot is syncing");
+            this._queueNodesForUpdate = true;
+
             this._tryUpdateNodeVersions();
 
             this._processNodeVersions();
             setInterval(() => this._processNodeVersions(), 15000);
-
-            log.info("VoyagerBot", "Enabling node updates now that the bot is syncing");
-            this._queueNodesForUpdate = true;
         });
     }
 
