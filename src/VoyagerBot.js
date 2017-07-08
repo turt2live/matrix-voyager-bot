@@ -229,15 +229,15 @@ class VoyagerBot {
 
     _getUserVersion(userId) {
         var version = {
-            displayName: null,
-            avatarUrl: null,
+            displayName: "",
+            avatarUrl: "",
             isAnonymous: !this._store.isEnrolled(userId),
             primaryAlias: null, // users can't have aliases
         };
 
         return this._client.getUserInfo(userId).then(userInfo=> {
-            if (userInfo['displayname']) version.displayName = userInfo['displayname'];
-            if (userInfo['avatar_url']) version.avatarUrl = userInfo['avatar_url'];
+            version.displayName = userInfo['displayname'];
+            version.avatarUrl = userInfo['avatar_url'];
 
             if (!version.avatarUrl || version.avatarUrl.trim().length == 0)
                 version.avatarUrl = null;
@@ -292,7 +292,8 @@ class VoyagerBot {
                     version.displayName = event['content']['name'];
                 } else if (event['type'] === 'm.room.avatar') {
                     log.silly("VoyagerBot", "m.room.avatar for " + roomId + " is " + event['content']['url']);
-                    version.avatarUrl = this._client.convertMediaToThumbnail(event['content']['url'], 256, 256);
+                    if (event['content']['url'] && event['content']['url'].trim().length > 0)
+                        version.avatarUrl = this._client.convertMediaToThumbnail(event['content']['url'], 256, 256);
                 } else log.silly("VoyagerBot", "Not handling state event " + event['type'] + " in room " + roomId);
             }
 
