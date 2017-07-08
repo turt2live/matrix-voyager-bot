@@ -279,11 +279,13 @@ class VoyagerBot {
                     roomMembers.push(displayName);
                     if (event['membership'] === 'join' || event['membership'] === 'invite') joinedMembers.push(displayName);
                 } else if (event['type'] === 'm.room.aliases') {
-                    log.silly("VoyagerBot", "m.room.aliases for " + roomId + " on domain " + event['state_key'] + " is: " + event['content']['aliases'].join(', '));
-                    for (var alias of event['content']['aliases']) {
-                        version.aliases.push(alias);
-                        if (alias.endsWith(":matrix.org")) matrixDotOrgAliases.push(alias);
-                    }
+                    if (event['content']['aliases']) {
+                        log.silly("VoyagerBot", "m.room.aliases for " + roomId + " on domain " + event['state_key'] + " is: " + event['content']['aliases'].join(', '));
+                        for (var alias of event['content']['aliases']) {
+                            version.aliases.push(alias);
+                            if (alias.endsWith(":matrix.org")) matrixDotOrgAliases.push(alias);
+                        }
+                    } else log.silly("VoyagerBot", "m.room.aliases for " + roomId + " on domain " + event['state_key'] + " is empty/null");
                 } else if (event['type'] === 'm.room.canonical_alias') {
                     log.silly("VoyagerBot", "m.room.canonical_alias for " + roomId + " is " + event['content']['alias']);
                     version.primaryAlias = event['content']['alias'];
