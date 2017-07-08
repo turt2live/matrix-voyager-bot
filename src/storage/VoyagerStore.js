@@ -4,6 +4,7 @@ var Sequelize = require('sequelize');
 var dbConfig = require("../../config/database.json");
 var map = require("promise-map");
 var Promise = require('bluebird');
+var moment = require("moment");
 
 /**
  * Primary storage for Voyager.
@@ -411,7 +412,10 @@ class VoyagerStore {
     }
 
     _updateNodeTimestamp(node, timestamp) {
-        if (node.firstTimestamp.getTime() <= timestamp && node.firstTimestamp.getTime() != 0) return Promise.resolve();
+        var timezoneOffset = node.firstTimestamp.getTimezoneOffset() * -60000;
+        var time = node.firstTimestamp.getTime() - timezoneOffset;
+        // HACK: All matrix events should be after 2014 and dates default to 1970 for 0. Treat anything over 2000 as valid as a fallback.
+        if (time <= timestamp && time != 0 && node.firstTimestamp.getFullYear() > 2000) return Promise.resolve();
         node.firstTimestamp = new Date(timestamp);
         return node.save();
     }
