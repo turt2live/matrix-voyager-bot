@@ -99,6 +99,7 @@ class CommandProcessor {
             // We have to score these ourselves now (the database just does a rough contains check to get a smaller dataset)
             for (var result of results) {
                 result.rank = 0;
+                result.rank += result.mentionCount * 0.1; // 10% of mention count is added to score to bump numbers
                 for (var keyword of keywords) {
                     if (result.primaryAlias) result.rank += result.meta.primaryAlias.toLowerCase().split(':', 2)[0].score(keyword.toLowerCase());
                     if (result.displayName) result.rank += result.meta.displayName.toLowerCase().score(keyword.toLowerCase());

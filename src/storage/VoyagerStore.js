@@ -4,7 +4,7 @@ var Sequelize = require('sequelize');
 var dbConfig = require("../../config/database.json");
 var map = require("promise-map");
 var Promise = require('bluebird');
-var moment = require("moment");
+var _ = require("lodash");
 
 /**
  * Primary storage for Voyager.
@@ -700,13 +700,13 @@ class VoyagerStore {
         return Promise.all([metaPromise, aliasPromise, redactedNodesPromise]).then(() => {
             for (var meta of rawMeta) {
                 if (!nodeMap[meta.nodeId])
-                    nodeMap[meta.nodeId] = new NodeSearchResult();
+                    nodeMap[meta.nodeId] = new NodeSearchResult(meta.nodeId);
                 nodeMap[meta.nodeId].meta = meta;
             }
 
             for (var alias of rawAliases) {
                 if (!nodeMap[alias.nodeId])
-                    nodeMap[alias.nodeId] = new NodeSearchResult();
+                    nodeMap[alias.nodeId] = new NodeSearchResult(alias.nodeId);
                 if (!nodeMap[alias.nodeId].aliases)
                     nodeMap[alias.nodeId].aliases = [];
                 nodeMap[alias.nodeId].aliases.push(alias);
@@ -724,7 +724,7 @@ class VoyagerStore {
         }).then(foundMeta => {
             for (var meta of foundMeta) {
                 if (!nodeMap[meta.nodeId])
-                    nodeMap[meta.nodeId] = new NodeSearchResult();
+                    nodeMap[meta.nodeId] = new NodeSearchResult(meta.nodeId);
                 nodeMap[meta.nodeId].meta = new NodeMeta(meta);
             }
 
@@ -739,6 +739,26 @@ class VoyagerStore {
             }
 
             return finalNodes;
+        }).then(nodes => {
+            var promise = Promise.resolve();
+            _.forEach(nodes, node => {
+                promise = promise.then(() => {
+                    return this.__Links.findAll({
+                        where: {
+                            $or: [
+                                {sourceNodeId: node.id},
+                                {targetNodeId: node.id}
+                            ]
+                        }
+                    });
+                }).then(links => {
+                    for (var link of links) {
+                        if (link.sourceNodeId === link.targetNodeId) continue;
+                        node.mentionCount++;
+                    }
+                });
+            });
+            return promise.then(() => nodes);
         });
     }
 
@@ -824,9 +844,11 @@ class NodeVersion {
 }
 
 class NodeSearchResult {
-    constructor() {
+    constructor(nodeId) {
+        this.id = nodeId;
         this.meta = null; // NodeMeta
         this.aliases = []; // NodeAlias[]
+        this.mentionCount = 0;
     }
 }
 
