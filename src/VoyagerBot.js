@@ -61,11 +61,11 @@ class VoyagerBot {
     }
 
     _onRoomUpdated(roomId, event) {
-        this._queueNodeUpdate({node: roomId, type: 'room'});
+        this._queueNodeUpdate({objectId: roomId, type: 'room'});
     }
 
     _onUserUpdated(roomId, event) {
-        this._queueNodeUpdate({node: event['sender'], inRoom: roomId, type: 'user'});
+        this._queueNodeUpdate({objectId: event['sender'], inRoom: roomId, type: 'user'});
     }
 
     _onRoomMessage(roomId, event) {
@@ -398,33 +398,27 @@ class VoyagerBot {
         });
     }
 
-    _queueNodeUpdate(nodeMeta) {
-        if (!nodeMeta.node) {
+    _queueNodeUpdate(nodeMeta, doSave = true) {
+        if (!nodeMeta.objectId) {
             log.warn("VoyagerBot", "Unexpected node: " + JSON.stringify(nodeMeta));
             return;
         }
 
-        if (this._queuedObjectIds.indexOf(nodeMeta.node) !== -1) {
-            log.info("VoyagerBot", "Node update queue attempt for " + nodeMeta.node + " - skipped because the node is already queued");
+        if (this._queuedObjectIds.indexOf(nodeMeta.objectId) !== -1) {
+            log.info("VoyagerBot", "Node update queue attempt for " + nodeMeta.objectId + " - skipped because the node is already queued");
             return;
         }
 
         this._nodeUpdateQueue.push(nodeMeta);
-        this._queuedObjectIds.push(nodeMeta.node);
-        this._savePendingNodeUpdates();
+        this._queuedObjectIds.push(nodeMeta.objectId);
+        if (doSave) this._savePendingNodeUpdates();
 
-        log.info("VoyagerBot", "Queued update for " + nodeMeta.node);
+        log.info("VoyagerBot", "Queued update for " + nodeMeta.objectId);
     }
 
     _savePendingNodeUpdates() {
-        var simpleNodes = [];
-        for (var pendingNodeUpdate of this._nodeUpdateQueue) {
-            var obj = {type: pendingNodeUpdate.type, objectId: pendingNodeUpdate.node};
-
-            simpleNodes.push(obj);
-        }
-
-        this._localStorage.setItem("voyager_node_update_queue", JSON.stringify(simpleNodes));
+        log.info("VoyagerBot", "Saving queued node updates");
+        this._localStorage.setItem("voyager_node_update_queue", JSON.stringify(this._nodeUpdateQueue));
     }
 
     _loadPendingNodeUpdates() {
@@ -432,9 +426,12 @@ class VoyagerBot {
         if (pendingNodeUpdates) {
             var nodeUpdatesAsArray = JSON.parse(pendingNodeUpdates);
             for (var update of nodeUpdatesAsArray) {
-                var nodeUpdate = {type: update.type, node: update.objectId};
-
-                this._queueNodeUpdate(nodeUpdate);
+                update.retryCount = 0;
+                if (update.node && !update.objectId) {
+                    update.objectId = update.node;
+                    update.node = null;
+                }
+                this._queueNodeUpdate(update, /*doSave:*/false);
             }
         }
         log.info("VoyagerBot", "Loaded " + this._nodeUpdateQueue.length + " previously pending node updates");
@@ -455,7 +452,7 @@ class VoyagerBot {
         var promiseChain = Promise.resolve();
         _.forEach(nodesToProcess, node => {
             promiseChain = promiseChain.then(() => {
-                var idx = this._queuedObjectIds.indexOf(node.node);
+                var idx = this._queuedObjectIds.indexOf(node.objectId);
                 if (idx !== -1) this._queuedObjectIds.splice(idx, 1);
 
                 var promise = Promise.resolve();
@@ -463,10 +460,10 @@ class VoyagerBot {
                 try {
                     switch (node.type) {
                         case "room":
-                            promise = this._tryUpdateRoomNodeVersion(node.node);
+                            promise = this._tryUpdateRoomNodeVersion(node.objectId);
                             break;
                         case "user":
-                            promise = this._tryUpdateUserNodeVersion(node.node);
+                            promise = this._tryUpdateUserNodeVersion(node.objectId);
                             break;
                         default:
                             log.warn("VoyagerBot", "Could not handle node in update queue: " + JSON.stringify(node));
@@ -476,19 +473,19 @@ class VoyagerBot {
                     promise = Promise.reject(error);
                 }
 
-                return promise.then(() => log.info("VoyagerBot", "Completed update for " + node.node)).catch(err => {
-                    log.error("VoyagerBot", "Error updating node " + node.node);
+                return promise.then(() => log.info("VoyagerBot", "Completed update for " + node.objectId)).catch(err => {
+                    log.error("VoyagerBot", "Error updating node " + node.objectId);
                     log.error("VoyagerBot", err);
 
                     if (node.retryCount >= 5) {
-                        log.error("VoyagerBot", "Not retrying node update for node " + node.node + " due to the maximum number of retries reached (5)");
+                        log.error("VoyagerBot", "Not retrying node update for node " + node.objectId + " due to the maximum number of retries reached (5)");
                         return;
                     }
 
                     if (!node.retryCount) node.retryCount = 0;
                     node.retryCount++;
 
-                    log.warn("VoyagerBot", "Re-queueing node " + node.node + " for updates due to failure. This will be retry #" + node.retryCount);
+                    log.warn("VoyagerBot", "Re-queueing node " + node.objectId + " for updates due to failure. This will be retry #" + node.retryCount);
 
                     this._queueNodeUpdate(node);
                 });
@@ -511,17 +508,27 @@ class VoyagerBot {
             return;
         }
 
+        var promises = [];
+
         if (this._queueRoomsOnStartup) {
-            this._client.getJoinedRooms().then(joinedRooms => {
-                _.forEach(joinedRooms, roomId => this._queueNodeUpdate({node: roomId, type: 'room'}));
-            });
+            promises.push(this._client.getJoinedRooms().then(joinedRooms => {
+                _.forEach(joinedRooms, roomId => this._queueNodeUpdate({
+                    objectId: roomId,
+                    type: 'room'
+                }, /*saveQueue:*/false));
+            }));
         }
 
         if (this._queueUsersOnStartup) {
-            this._store.getNodesByType('user').then(users => {
-                _.forEach(users, user => this._queueNodeUpdate({node: user.objectId, type: 'user'}));
-            });
+            promises.push(this._store.getNodesByType('user').then(users => {
+                _.forEach(users, user => this._queueNodeUpdate({
+                    objectId: user.objectId,
+                    type: 'user'
+                }, /*saveQueue:*/false));
+            }));
         }
+
+        Promise.all(promises).then(() => this._savePendingNodeUpdates());
     }
 
     _tryUpdateUserNodeVersion(userId) {
