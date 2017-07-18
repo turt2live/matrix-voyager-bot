@@ -22,7 +22,7 @@
     "node-cache": "^4.1.1",
     "node-localstorage": "^1.3.0",
     "node-natural-sort": "^0.8.6",
-    "pg": "^6.4.1",
+    "pg": "^7.0.1",
     "pg-hstore": "^2.3.2",
     "promise-map": "^1.2.0",
     "q": "^1.5.0",
