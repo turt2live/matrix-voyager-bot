@@ -1,6 +1,7 @@
 import { Component, OnInit, ElementRef } from "@angular/core";
 import { ApiService } from "../shared/api.service";
 import { VoyagerNetwork } from "../shared/voyager-network";
+import * as WebWorkerService from "angular2-web-worker";
 import { D3Service, D3, Selection, ForceLink } from "d3-ng2-service";
 import { NetworkLink, NetworkNode } from "./network-dto";
 import { LocalStorageService } from "angular-2-local-storage";
@@ -14,7 +15,6 @@ export class GraphComponent implements OnInit {
     private d3: D3;
     private parentNativeElement: any;
     private data: {links: NetworkLink[], nodes: NetworkNode[], nodeLinks: string[]};
-    private isDragging = false;
     private isHovering = false;
     private lastSeenNodes: number[] = [];
 
@@ -25,6 +25,7 @@ export class GraphComponent implements OnInit {
                 element: ElementRef,
                 d3Service: D3Service,
                 /*private modalService: NgbModal,*/
+                private webworkerService: WebWorkerService,
                 private localStorageService: LocalStorageService) {
         this.d3 = d3Service.getD3();
         this.parentNativeElement = element.nativeElement;
@@ -42,6 +43,7 @@ export class GraphComponent implements OnInit {
         try {
             let hasPath = (new Path2D()) !== undefined;
             console.log("Path support: " + hasPath); // this is to stop ts from yelling at us
+
             this.isBrowserSupported = hasPath;
         } catch (err) {
             this.isBrowserSupported = false;
@@ -123,28 +125,6 @@ export class GraphComponent implements OnInit {
         simulation.force<ForceLink<NetworkNode, NetworkLink>>("link").links(this.data.links);
 
         let lastTransform = d3.zoomIdentity;
-
-        canvasElement.call(d3.drag()
-            .subject(() => this.findSubject(lastTransform))
-            .on("start", () => {
-                if (!d3.event.active) simulation.alphaTarget(0.3).restart();
-                // d3.event.subject.fx = lastTransform.invertX(d3.event.subject.x);
-                // d3.event.subject.fy = lastTransform.invertY(d3.event.subject.y);
-                this.isDragging = true;
-                this.isHovering = true;
-            })
-            .on("drag", () => {
-                d3.event.subject.fx = (d3.event.sourceEvent.pageX - lastTransform.x) / lastTransform.k;
-                d3.event.subject.fy = (d3.event.sourceEvent.pageY - lastTransform.y) / lastTransform.k;
-                this.renderAll(ctx, lastTransform, width, height);
-            })
-            .on("end", () => {
-                if (!d3.event.active) simulation.alphaTarget(0).restart();
-                d3.event.subject.fx = null;
-                d3.event.subject.fy = null;
-                this.isDragging = false;
-                this.isHovering = false;
-            }));
 
         canvasElement.call(d3.zoom()
             .scaleExtent([-1, 10])
