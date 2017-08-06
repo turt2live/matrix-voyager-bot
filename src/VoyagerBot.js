@@ -79,7 +79,7 @@ class VoyagerBot {
             return;
         }
 
-        var matches = body.match(/[#!][a-zA-Z0-9.\-_#]+:[a-zA-Z0-9.\-_]+[a-zA-Z0-9]/g);
+        var matches = body.match(/[#!][a-zA-Z0-9.\-_#=]+:[a-zA-Z0-9.\-_]+[a-zA-Z0-9]/g);
         if (!matches) return;
 
         var promise = Promise.resolve();
