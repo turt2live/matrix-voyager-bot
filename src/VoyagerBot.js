@@ -109,7 +109,7 @@ class VoyagerBot {
 
         return this._client.joinRoom(matchedValue).then(rid => {
             roomId = rid;
-            return this.getNode(inRoomId, 'room');
+            return this.getNode(roomId, 'room');
         }, err => {
             if (err.httpStatus == 500 && retryCount < 5) {
                 return this._processMatchedLink(event, matchedValue, ++retryCount);
@@ -121,7 +121,7 @@ class VoyagerBot {
             if (!roomId) return Promise.resolve();
             targetNode = node;
 
-            return this.getNode(roomId, 'room');
+            return this.getNode(inRoomId, 'room');
         }).then(node => {
             if (!roomId) return Promise.resolve();
             sourceNode = node;
