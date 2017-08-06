@@ -412,6 +412,8 @@ class VoyagerStore {
     }
 
     _updateNodeTimestamp(node, timestamp) {
+        if (typeof(node.firstTimestamp) === "string") node.firstTimestamp = Number(node.firstTimestamp);
+        if (typeof(node.firstTimestamp) === "number") node.firstTimestamp = new Date(node.firstTimestamp);
         var timezoneOffset = node.firstTimestamp.getTimezoneOffset() * -60000;
         var time = node.firstTimestamp.getTime() - timezoneOffset;
         // HACK: All matrix events should be after 2014 and dates default to 1970 for 0. Treat anything over 2000 as valid as a fallback.
