@@ -516,6 +516,8 @@ class VoyagerBot {
                     objectId: roomId,
                     type: 'room'
                 }, /*saveQueue:*/false));
+            }).catch(err => {
+                log.warn("VoyagerBot", "Failed to update rooms from startup: Matrix error.");
             }));
         }
 
