@@ -87,6 +87,7 @@
     "typescript": "^2.5.1",
     "url-loader": "^0.5.8",
     "webpack": "^3.5.5",
+    "webpack-dashboard": "^1.0.0-2",
     "webpack-dev-server": "^2.7.1",
     "zone.js": "^0.8.14"
   },
