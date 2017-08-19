@@ -6,6 +6,7 @@ var autoprefixer = require('autoprefixer');
 var HtmlWebpackPlugin = require('html-webpack-plugin');
 var ExtractTextPlugin = require('extract-text-webpack-plugin');
 var CopyWebpackPlugin = require('copy-webpack-plugin');
+const DashboardPlugin = require('webpack-dashboard/plugin');
 
 var isProd = process.env.npm_lifecycle_event == 'build';
 
@@ -106,7 +107,8 @@ module.exports = function () {
             template: './web/public/index.html',
             chunksSortMode: 'dependency'
         }),
-        new ExtractTextPlugin({filename: 'css/[name].[hash].css', disable: !isProd})
+        new ExtractTextPlugin({filename: 'css/[name].[hash].css', disable: !isProd}),
+        //new DashboardPlugin(),
     ];
 
     if (isProd) {

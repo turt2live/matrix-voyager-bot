@@ -32,3 +32,12 @@ div.tooltip.link-tooltip {
 div.unsupported-browser {
   color: red;
 }
+
+div.progress-bar {
+  background-color: #03a9f4;
+  height: 3px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+}

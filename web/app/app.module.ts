@@ -12,6 +12,7 @@ import { removeNgStyles, createNewHosts } from "@angularclass/hmr";
 import { D3Service } from "d3-ng2-service";
 import { NgbModule } from "@ng-bootstrap/ng-bootstrap";
 import { LocalStorageModule } from 'angular-2-local-storage';
+import { WebWorkerService } from 'angular2-web-worker/web-worker.service';
 
 @NgModule({
     imports: [
@@ -33,7 +34,8 @@ import { LocalStorageModule } from 'angular-2-local-storage';
     ],
     providers: [
         ApiService,
-        D3Service
+        D3Service,
+        WebWorkerService,
     ],
     bootstrap: [AppComponent],
     entryComponents: [GraphDialogComponent]

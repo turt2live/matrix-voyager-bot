@@ -1,9 +1,9 @@
-import { Component, OnInit, ElementRef } from "@angular/core";
-import { ApiService } from "../shared/api.service";
-import { VoyagerNetwork } from "../shared/voyager-network";
+import { OnInit, Component, ElementRef } from "@angular/core";
 import { D3Service, D3, Selection, ForceLink } from "d3-ng2-service";
-import { NetworkLink, NetworkNode } from "./network-dto";
+import { ApiService } from "../shared/api.service";
 import { LocalStorageService } from "angular-2-local-storage";
+import { VoyagerNetwork } from "../shared/voyager-network";
+import { NetworkLink, NetworkNode } from "./network-dto";
 
 @Component({
     selector: 'my-graph',
@@ -11,12 +11,12 @@ import { LocalStorageService } from "angular-2-local-storage";
     styleUrls: ['./graph.component.scss']
 })
 export class GraphComponent implements OnInit {
+
     private d3: D3;
-    private parentNativeElement: any;
-    private data: {links: NetworkLink[], nodes: NetworkNode[], nodeLinks: string[]};
-    private isDragging = false;
-    private isHovering = false;
     private lastSeenNodes: number[] = [];
+    private data: NetworkData;
+    private parentNativeElement: any;
+    private isHovering = false;
 
     public isBrowserSupported = false;
     public highlightedNode: NetworkNode = null;
@@ -24,7 +24,6 @@ export class GraphComponent implements OnInit {
     constructor(private api: ApiService,
                 element: ElementRef,
                 d3Service: D3Service,
-                /*private modalService: NgbModal,*/
                 private localStorageService: LocalStorageService) {
         this.d3 = d3Service.getD3();
         this.parentNativeElement = element.nativeElement;
@@ -41,7 +40,7 @@ export class GraphComponent implements OnInit {
 
         try {
             let hasPath = (new Path2D()) !== undefined;
-            console.log("Path support: " + hasPath); // this is to stop ts from yelling at us
+
             this.isBrowserSupported = hasPath;
         } catch (err) {
             this.isBrowserSupported = false;
@@ -49,9 +48,9 @@ export class GraphComponent implements OnInit {
             return;
         }
 
-        this.appendNetwork(0, commonNetwork);
-
         this.lastSeenNodes = this.localStorageService.get<number[]>('seenNodes') || [];
+
+        this.appendNetwork(0, commonNetwork);
     }
 
     private appendNetwork(since: number, resultsSoFar: VoyagerNetworkHelper) {
@@ -86,6 +85,7 @@ export class GraphComponent implements OnInit {
         }, error => alert(<any>error));
     }
 
+
     private processNetworkData(network: VoyagerNetwork) {
         let d3 = this.d3;
         let d3ParentElement: Selection<any, any, any, any>;
@@ -107,7 +107,6 @@ export class GraphComponent implements OnInit {
         canvasElement.attr("width", width).attr("height", height);
 
         this.processNetwork(network);
-
         this.localStorageService.set('seenNodes', this.data.nodes.map(n => n.id));
 
         let simulation = d3.forceSimulation(this.data.nodes)
@@ -115,36 +114,21 @@ export class GraphComponent implements OnInit {
                 .id(n => <any>n.id)
                 .distance(k => Math.sqrt(k.value) * 75))
             .force("charge", d3.forceManyBody<NetworkNode>()
-                .strength(n => Math.max(-400, n.linkCount * -40)))
+                .strength(node => Math.max(-400, node.linkCount * -40)))
             .force("center", d3.forceCenter(width / 2, height / 2))
-            .force("collide", d3.forceCollide<NetworkNode>(n => n.type === 'room' ? 20 : 15).strength(0.5));
+            .force("collide", d3.forceCollide<NetworkNode>(i => i.type === 'room' ? 20 : 15)
+                .strength(0.5));
 
-        simulation.on('tick', () => this.onTick(ctx, this.data.links, this.data.nodes, width, height, lastTransform));
         simulation.force<ForceLink<NetworkNode, NetworkLink>>("link").links(this.data.links);
 
-        let lastTransform = d3.zoomIdentity;
+        simulation.stop();
 
-        canvasElement.call(d3.drag()
-            .subject(() => this.findSubject(lastTransform))
-            .on("start", () => {
-                if (!d3.event.active) simulation.alphaTarget(0.3).restart();
-                // d3.event.subject.fx = lastTransform.invertX(d3.event.subject.x);
-                // d3.event.subject.fy = lastTransform.invertY(d3.event.subject.y);
-                this.isDragging = true;
-                this.isHovering = true;
-            })
-            .on("drag", () => {
-                d3.event.subject.fx = (d3.event.sourceEvent.pageX - lastTransform.x) / lastTransform.k;
-                d3.event.subject.fy = (d3.event.sourceEvent.pageY - lastTransform.y) / lastTransform.k;
-                this.renderAll(ctx, lastTransform, width, height);
-            })
-            .on("end", () => {
-                if (!d3.event.active) simulation.alphaTarget(0).restart();
-                d3.event.subject.fx = null;
-                d3.event.subject.fy = null;
-                this.isDragging = false;
-                this.isHovering = false;
-            }));
+        for (let i = 0, n = Math.ceil(Math.log(simulation.alphaMin()) / Math.log(1 - simulation.alphaDecay())); i < n; ++i) {
+            // postMessage({type: "tick", progress: i / n});
+            simulation.tick();
+        }
+
+        let lastTransform = d3.zoomIdentity;
 
         canvasElement.call(d3.zoom()
             .scaleExtent([-1, 10])
@@ -153,22 +137,24 @@ export class GraphComponent implements OnInit {
                 this.renderAll(ctx, lastTransform, width, height);
             }));
 
-        const self = this;
+        const voyagerSelf = this;
         canvasElement.on('mousemove', function () {
             const mouse = d3.mouse(this);
-            const subject = self.findSubject(lastTransform, mouse[0], mouse[1]);
+            const subject = voyagerSelf.findSubject(lastTransform, mouse[0], mouse[1]);
             if (!subject) {
                 nodeTooltip.transition().duration(100).style('opacity', 0);
-                self.isHovering = false;
+                voyagerSelf.isHovering = false;
                 return;
             }
 
-            self.highlightedNode = subject;
-            self.isHovering = true;
+            voyagerSelf.highlightedNode = subject;
+            voyagerSelf.isHovering = true;
             nodeTooltip.transition().duration(100).style("opacity", 0.9);
             nodeTooltip.style("left", d3.event.pageX + "px");
             nodeTooltip.style("top", d3.event.pageY + "px");
         });
+
+        this.renderAll(ctx, lastTransform, width, height);
     }
 
     private findSubject(lastTransform, sx = null, sy = null) {
@@ -199,9 +185,6 @@ export class GraphComponent implements OnInit {
         return node.type === 'room' ? 15 : 8;
     }
 
-    private onTick(ctx, links, nodes, width, height, transform) {
-        this.render(ctx, nodes, links, width, height, transform);
-    }
 
     private render(ctx, nodes, links, width, height, transform) {
         ctx.clearRect(0, 0, width, height);
@@ -474,4 +457,10 @@ class VoyagerNetworkHelper extends VoyagerNetwork {
     handledNodeIds: number[];
     handledLinkIds: number[];
     maxLinkTimestamp: number;
+}
+
+class NetworkData {
+    links: NetworkLink[];
+    nodes: NetworkNode[];
+    nodeLinks: string[];
 }
