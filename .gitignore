@@ -23,6 +23,21 @@ db/localstorage
 db/voyager_local_storage*
 db/mtx_client_lite_localstorage*
 
+.DS_Store
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+
 # Logs
 logs
 *.log
