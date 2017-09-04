@@ -22,12 +22,12 @@
             <g :transform="transformStr">
                 <path v-for="link in graph.links"
                       :d="getLinkParams(link)" :stroke-width="Math.sqrt(link.value)"
-                      :stroke="link.stroke" stroke-opacity="0.7" fill="none"
+                      :stroke="link.stroke" :stroke-opacity="isLinkHovered(link) ? 0.7 : 0.1" fill="none"
                       @mouseover="enterItem(link, linkHover, $event)" @mouseout="exitItem(linkHover)">
                 </path>
 
                 <circle v-for="node in graph.nodes"
-                        :cx="node.x" :cy="node.y"
+                        :cx="node.x" :cy="node.y" :opacity="isNodeHovered(node) ? 1 : 0.2"
                         :r="node.r" :fill="'url(#fillFor'+node.id+')'" stroke='white' stroke-width='2'
                         @mouseover="enterItem(node, nodeHover, $event)" @mouseout="exitItem(nodeHover)">
                 </circle>
@@ -35,7 +35,7 @@
 
             <pattern v-for="node in graph.nodes"
                      :id="'fillFor'+node.id" x="0%" y="0%" width="100%" height="100%"
-                     :viewBox="'0 0 ' + node.r + ' ' + node.r">
+                     :viewBox="'0 0 ' + node.r + ' ' + node.r" :opacity="isNodeHovered(node) ? 1 : 0.2">
 
                 <!-- has avatar -->
                 <rect v-if="node.avatarUrl" fill="#fff" :width="node.r" :height="node.r"></rect>

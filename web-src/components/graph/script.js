@@ -41,6 +41,25 @@ export default {
             }));
     },
     methods: {
+        isNodeHovered (node) {
+            if (!this.nodeHover.item || !this.nodeHover.is) {
+                return true;
+            }
+
+            for (var link of node.directLinks) {
+                if (link.target.id === this.nodeHover.item.id || link.source.id === this.nodeHover.item.id) {
+                    return true;
+                }
+            }
+
+            return false;
+        },
+        isLinkHovered (link) {
+            if (!this.nodeHover.item || !this.nodeHover.is) {
+                return true;
+            }
+            return link.target.id === this.nodeHover.item.id || link.source.id === this.nodeHover.item.id;
+        },
         enterItem (item, state, event) {
             state.x = event.clientX;
             state.y = event.clientY;
