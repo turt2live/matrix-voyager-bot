@@ -15,8 +15,8 @@
         </div>
         <svg xmlns="http://www.w3.org/2000/svg" :width="width+'px'" :height="height+'px'" id="graphsvg">
             <path v-for="link in graph.links"
-                  :d="getLinkParams(link)"
-                  :stroke="link.stroke" stroke-width="2" stroke-opacity="0.7"
+                  :d="getLinkParams(link)" :stroke-width="Math.sqrt(link.value)"
+                  :stroke="link.stroke" stroke-opacity="0.7"
                   @mouseover="enterItem(link, linkHover, $event)" @mouseout="exitItem(linkHover)">
             </path>
 
