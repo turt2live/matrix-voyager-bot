@@ -16,7 +16,7 @@ export default {
         };
     },
     mounted () {
-        return this.$http.get("/api/v1/network", {since: 0, limit: 100000}).then(response => {
+        return this.$http.get("/api/v1/network", {since: 0, limit: 10000}).then(response => {
             this.graph = this.processNetwork(response.body.results);
             this.genGraph();
             this.stylize();
