@@ -1,0 +1,11 @@
+<div class="stats">
+    <div v-if="isLoading">
+        <h1>Loading...</h1>
+    </div>
+    <div v-if="!isLoading && error">
+        <h1>{{ error }}</h1>
+    </div>
+    <div class="stats-container" v-if="!isLoading && !error">
+        <h2>todo: this page</h2>
+    </div>
+</div>
