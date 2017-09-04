@@ -16,12 +16,12 @@
         <svg xmlns="http://www.w3.org/2000/svg" :width="width+'px'" :height="height+'px'" id="graphsvg">
             <path v-for="link in graph.links"
                   :d="getLinkParams(link)" :stroke-width="Math.sqrt(link.value)"
-                  :stroke="link.stroke" stroke-opacity="0.7"
+                  :stroke="link.stroke" stroke-opacity="0.7" :transform="transformStr"
                   @mouseover="enterItem(link, linkHover, $event)" @mouseout="exitItem(linkHover)">
             </path>
 
             <circle v-for="node in graph.nodes"
-                    :cx="node.x" :cy="node.y"
+                    :cx="node.x" :cy="node.y" :transform="transformStr"
                     :r="node.r" :fill="'url(#fillFor'+node.id+')'" stroke='white' stroke-width='2'
                     @mouseover="enterItem(node, nodeHover, $event)" @mouseout="exitItem(nodeHover)">
             </circle>

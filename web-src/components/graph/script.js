@@ -8,8 +8,11 @@ export default {
             graph: null,
             nodeHover: {x: 0, y: 0, item: null, is: false},
             linkHover: {x: 0, y: 0, item: null, is: false},
+            transformStr: "",
             width: Math.max(document.documentElement.clientWidth, window.innerWidth || 0),
-            height: Math.max(document.documentElement.clientHeight, window.innerHeight || 0) - 40
+            height: Math.max(document.documentElement.clientHeight, window.innerHeight || 0) - 40,
+
+            hasBoundZoom: false
         };
     },
     mounted () {
@@ -23,6 +26,19 @@ export default {
             this.isLoading = false;
             console.error(error);
         });
+    },
+    updated () {
+        if (this.hasBoundZoom) {
+            return;
+        }
+
+        this.hasBoundZoom = true;
+        d3.select("#graphsvg").call(d3.zoom()
+            .scaleExtent([-1, 10])
+            .on('zoom', () => {
+                this.transformStr = "translate(" + d3.event.transform.x + "," + d3.event.transform.y + ")"
+                    + "scale(" + d3.event.transform.k + "," + d3.event.transform.k + ")";
+            }));
     },
     methods: {
         enterItem (item, state, event) {
