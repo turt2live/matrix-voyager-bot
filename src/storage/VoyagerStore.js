@@ -784,6 +784,61 @@ class VoyagerStore {
     getNodeAliases(node) {
         return this.__NodeAliases.findAll({where: {nodeId: node.id}}).then(aliases => aliases.map(a => new NodeAlias(a)));
     }
+
+    /**
+     * Gets basic information about where Voyager has been
+     * @returns {Promise<StatsContainer>} resolves to the stats about voyager
+     */
+    getBasicStats() {
+        if (!this._isPsql) return this._getSqliteBasicStats();
+
+        var statsContainer = {rooms: 0, aliases: 0, users: 0, servers: 0, mentions: 0};
+        var select = {type: Sequelize.QueryTypes.SELECT};
+
+        return this._orm.query("SELECT COUNT(*) AS rooms FROM nodes WHERE \"type\"='room'", select).then(roomStats => {
+            statsContainer.rooms = roomStats[0].rooms;
+            return this._orm.query("SELECT COUNT(*) AS aliases FROM node_aliases", select);
+        }).then(aliasStats => {
+            statsContainer.aliases = aliasStats[0].aliases;
+            return this._orm.query("SELECT COUNT(*) AS mentions FROM links WHERE \"type\"='message'", select);
+        }).then(mentionStats => {
+            statsContainer.mentions = mentionStats[0].mentions;
+            return this._orm.query("SELECT COUNT(*) AS users FROM nodes WHERE \"type\"='user'", select);
+        }).then(userStats => {
+            statsContainer.users = userStats[0].users;
+            return this._orm.query("SELECT COUNT(DISTINCT (STRING_TO_ARRAY(\"objectId\", ':')::text[])[2]) AS servers FROM nodes", select);
+        }).then(serverStats => {
+            statsContainer.servers = serverStats[0].servers;
+        }).then(() => statsContainer);
+    }
+
+    _getSqliteBasicStats() {
+        var statsContainer = {rooms: 0, aliases: 0, users: 0, servers: 0, mentions: 0};
+        var select = {type: Sequelize.QueryTypes.SELECT};
+
+        return this._orm.query("SELECT COUNT(*) AS rooms FROM nodes WHERE type='room'", select).then(roomStats => {
+            statsContainer.rooms = roomStats[0].rooms;
+            return this._orm.query("SELECT COUNT(*) AS aliases FROM node_aliases", select);
+        }).then(aliasStats => {
+            statsContainer.aliases = aliasStats[0].aliases;
+            return this._orm.query("SELECT COUNT(*) AS mentions FROM links WHERE type='message'", select);
+        }).then(mentionStats => {
+            statsContainer.mentions = mentionStats[0].mentions;
+            return this._orm.query("SELECT COUNT(*) AS users FROM nodes WHERE type='user'", select);
+        }).then(userStats => {
+            statsContainer.users = userStats[0].users;
+            return this._orm.query("SELECT objectId AS objectId FROM nodes", select);
+        }).then(objectIds => {
+            var servers = [];
+            for (var obj of objectIds) {
+                var serverParts = obj.objectId.split(':');
+                var server = serverParts[serverParts.length - 1];
+                if (servers.indexOf(server) === -1) servers.push(server);
+            }
+
+            statsContainer.servers = servers.length;
+        }).then(() => statsContainer);
+    }
 }
 
 function dbToBool(val) {
@@ -913,6 +968,16 @@ class CompleteTimelineEvent {
         this.targetNode = new Node(dbFields.link.targetNode);
         this.sourceNodeMeta = new NodeMeta(dbFields.link.sourceNode.nodeMeta);
         this.targetNodeMeta = new NodeMeta(dbFields.link.targetNode.nodeMeta);
+    }
+}
+
+class StatsContainer {
+    constructor(dbFields) {
+        this.rooms = dbFields.rooms;
+        this.aliases = dbFields.aliases;
+        this.users = dbFields.users;
+        this.servers = dbFields.servers;
+        this.mentions = dbFields.mentions;
     }
 }
 

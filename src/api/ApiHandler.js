@@ -4,6 +4,7 @@ var config = require("config");
 var moment = require('moment');
 
 const USE_SAMPLE = false;
+const STATS_CACHE_TIME_MS = 1 * 60 * 60 * 1000; // 1 hour
 
 /**
  * Processes and controls API requests
@@ -16,6 +17,7 @@ class ApiHandler {
      */
     constructor(store) {
         this._store = store;
+        this._lastStats = null;
 
         this._app = express();
         this._app.use(express.static('web-dist'));
@@ -24,11 +26,35 @@ class ApiHandler {
         this._app.get('/api/v1/nodes', this._getNodes.bind(this));
         this._app.get('/api/v1/nodes/:id', this._getNode.bind(this));
         this._app.get('/api/v1/events', this._getEvents.bind(this));
+        this._app.get('/api/v1/stats', this._getStats.bind(this));
     }
 
     start() {
         this._app.listen(config.get('web.port'), config.get('web.address'));
         log.info("ApiHandler", "API Listening on " + config.get("web.address") + ":" + config.get("web.port"));
+    }
+
+    _getStats(request, response) {
+        if (this._lastStats) {
+            var msDiff = moment().valueOf() - this._lastStats.updated;
+            if (msDiff < STATS_CACHE_TIME_MS) {
+                response.setHeader("Content-Type", "application/json");
+                response.send(JSON.stringify(this._lastStats));
+                return;
+            }
+        }
+
+        log.info("ApiHandler", "Stats expired. Getting updated stats to cache...");
+        this._store.getBasicStats().then(stats => {
+            log.info("ApiHandler", "Got updated stats. " + JSON.stringify(stats));
+            stats.updated = moment().valueOf();
+            this._lastStats = stats;
+            response.setHeader("Content-Type", "application/json");
+            response.send(JSON.stringify(this._lastStats));
+        }).catch(err => {
+            log.error("ApiHandler", err);
+            response.sendStatus(500);
+        });
     }
 
     _getNetwork(request, response) {

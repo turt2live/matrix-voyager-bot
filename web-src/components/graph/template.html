@@ -47,7 +47,7 @@
                       alignment-baseline="central"
                       :x="node.r / 2" :y="node.r / 2" font-family="sans-serif" :font-size="node.type === 'room' ? 8 : 6"
                       fill="#fff">
-                    {{ node.isAnonymous ? (node.type === 'room' ? '#' : '@') : (node.name[0] === '!' || node.name[0] === '@' || node.name[0] === '#' ? node.name[1] : node.name[0]) }}
+                    {{ (node.isAnonymous ? (node.type === 'room' ? '#' : '@') : (node.name[0] === '!' || node.name[0] === '@' || node.name[0] === '#' ? node.name[1] : node.name[0])).toUpperCase() }}
                 </text>
             </pattern>
         </svg>

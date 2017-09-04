@@ -1,0 +1,22 @@
+.stats {
+    background: #eee;
+    width: 100%;
+    height: 100%;
+}
+
+.stats-container {
+    min-width: 960px;
+    max-width: 1500px;
+    margin: auto;
+}
+
+.stats-header {
+    display: flex;
+    align-items: stretch;
+}
+
+.stat-box {
+    flex-grow: 1;
+    flex-basis: 0;
+    margin: 20px 10px;
+}

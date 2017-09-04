@@ -6,6 +6,12 @@
         <h1>{{ error }}</h1>
     </div>
     <div class="stats-container" v-if="!isLoading && !error">
-        <h2>todo: this page</h2>
+        <div class="stats-header">
+            <stat-box name="Discovered Rooms" color="#9bdaff" :value="stats.rooms" icon="comments"></stat-box>
+            <stat-box name="Room Aliases" color="#aa9bff" :value="stats.aliases" icon="hashtag"></stat-box>
+            <stat-box name="Discovered Users" color="#9dd896" :value="stats.users" icon="users"></stat-box>
+            <stat-box name="Discovered Servers" color="#ffe06f" :value="stats.servers" icon="globe"></stat-box>
+            <stat-box name="Room Mentions" color="#ff6fc5" :value="stats.mentions" icon="quote-left"></stat-box>
+        </div>
     </div>
 </div>

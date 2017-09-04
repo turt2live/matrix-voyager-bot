@@ -4,8 +4,16 @@ import Vue from "vue";
 import App from "./App";
 import router from "./vendorconf/router";
 import http from "./vendorconf/http";
+import 'vue-awesome/icons';
+import Icon from 'vue-awesome/components/Icon'
+import numeral from 'numeral';
 
 Vue.config.productionTip = false;
+
+Vue.component("icon", Icon);
+Vue.filter('formatNumber', (value) => {
+   return numeral(value).format("0,0");
+});
 
 /* eslint-disable no-new */
 new Vue({
