@@ -1,6 +1,6 @@
 import Vue from "vue";
 import Router from "vue-router";
-import Graph from "@/components/Graph";
+import Graph from "@/components/graph/graph";
 
 Vue.use(Router);
 
