@@ -9,6 +9,6 @@ db.prepare().then(() => {
     var bot = new VoyagerBot(db);
     bot.start();
 
-    var api = new ApiHandler(db);
+    var api = new ApiHandler(db, bot);
     api.start();
 });

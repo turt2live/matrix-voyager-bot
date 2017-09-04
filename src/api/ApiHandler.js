@@ -14,9 +14,11 @@ class ApiHandler {
     /**
      * Creates a new API handler
      * @param {VoyagerStore} store the store to use
+     * @param {VoyagerBot} bot the bot to use
      */
-    constructor(store) {
+    constructor(store, bot) {
         this._store = store;
+        this._bot = bot;
         this._lastStats = null;
 
         this._app = express();
@@ -24,6 +26,7 @@ class ApiHandler {
 
         this._app.get('/api/v1/network', this._getNetwork.bind(this));
         this._app.get('/api/v1/nodes', this._getNodes.bind(this));
+        this._app.get('/api/v1/nodes/publicRooms', this._getPublicRooms.bind(this));
         this._app.get('/api/v1/nodes/:id', this._getNode.bind(this));
         this._app.get('/api/v1/events', this._getEvents.bind(this));
         this._app.get('/api/v1/stats', this._getStats.bind(this));
@@ -142,6 +145,27 @@ class ApiHandler {
         }, err => {
             log.error("ApiHandler", err);
             response.sendStatus(500);
+        }).catch(err => {
+            log.error("ApiHandler", err);
+            response.sendStatus(500);
+        });
+    }
+
+    _getPublicRooms(request, response) {
+        this._store.getPublicRooms().then(nodes => {
+            var promise = Promise.resolve();
+            var mapped = nodes.map(r => this._nodeToJsonObject(r, r.currentMeta));
+            mapped = mapped.map(r => {
+                promise = promise
+                    .then(() => this._bot.getRoomStats(r.meta.objectId))
+                    .then(stats => r.meta.stats = stats);
+                return r;
+            });
+
+            promise.then(() => {
+                response.setHeader("Content-Type", "application/json");
+                response.send(JSON.stringify(mapped));
+            });
         }).catch(err => {
             log.error("ApiHandler", err);
             response.sendStatus(500);

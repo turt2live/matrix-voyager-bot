@@ -6,6 +6,9 @@ var naturalSort = require("node-natural-sort");
 var MatrixClientLite = require("./matrix/MatrixClientLite");
 var _ = require("lodash");
 var Promise = require('bluebird');
+var moment = require('moment');
+
+const STATS_CACHE_MS = 1 * 60 * 60 * 1000; // 1 hour
 
 /**
  * The main entry point for the bot. Handles most of the business logic and bot actions
@@ -28,6 +31,7 @@ class VoyagerBot {
 
         this._store = store;
         this._commandProcessor = new CommandProcessor(this, store);
+        this._statsCache = {};
 
         this._client = new MatrixClientLite(config['matrix']['homeserverUrl'], config['matrix']['accessToken'], config['matrix']['userId']);
 
@@ -57,6 +61,53 @@ class VoyagerBot {
 
             this._processNodeVersions();
             setInterval(() => this._processNodeVersions(), 15000);
+        });
+    }
+
+    getRoomStats(roomId) {
+        var cachedStats = this._statsCache[roomId];
+        if (cachedStats && (moment().valueOf() - cachedStats.lastUpdated) < STATS_CACHE_MS)
+            return Promise.resolve(cachedStats);
+
+        return this._client.getRoomState(roomId).then(state => {
+            var servers = [];
+            var users = 0;
+            var aliases = [];
+
+            var tryAddServer = (component) => {
+                var serverParts = component.split(':');
+                var server = serverParts[serverParts.length - 1];
+                if (servers.indexOf(server) == -1)
+                    servers.push(server);
+            };
+
+            for (var event of state) {
+                if (event.type === "m.room.member" && event.content.membership === 'join') {
+                    users++;
+                    tryAddServer(event.state_key);
+                }
+                if (event.type === "m.room.aliases" && event.content.aliases) {
+                    for (var alias of event.content.aliases) {
+                        if (aliases.indexOf(alias) === -1)
+                            aliases.push(alias);
+                        tryAddServer(alias);
+                    }
+                }
+                if (event.type === "m.room.canonical_alias" && event.content.alias) {
+                    if (aliases.indexOf(event.content.alias) === -1)
+                        aliases.push(event.content.alias);
+                    tryAddServer(event.content.alias);
+                }
+            }
+
+            var stats = {users: users, servers: servers.length, aliases: aliases.length};
+            stats.lastUpdated = moment().valueOf();
+
+            this._statsCache[roomId] = stats;
+            return stats;
+        }).catch(error => {
+            // Just return a fallback instead of complaining
+            return {users: 0, servers: 0, aliases: 0};
         });
     }
 

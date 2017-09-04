@@ -119,6 +119,33 @@ Gets information about a particular node
 
 If the node is not found, `404 Not Found` is returned.
 
+## `GET /api/v1/nodes/publicRooms` 
+
+Gets a list of public room nodes with extra information about their composition.
+
+**Response:**
+```javascript
+[
+  {
+    id: 1234,
+    firstIntroduced: 1234567890, // milliseconds since epoch
+    meta: {
+      type: 'room',
+      displayName: 'Some Display Name',
+      avatarUrl: 'https://...', // not included if the avatar is missing
+      objectId: '!someroom:domain.com',
+      isAnonymous: false,
+      primaryAlias: '#somewhere:domain.com', // always present for rooms on this endpoint
+      stats: {
+        users: 123, // number of users in the room (cached)
+        servers: 123, // number of servers in the room (cached)
+        aliases: 123 // number of aliases for the room (cached)
+      }
+    }
+  }
+]
+```
+
 ## `GET /api/v1/events`
 
 Gets all known events. This will include state events for the 'extra' link types.
@@ -231,5 +258,20 @@ If no events were found for the given range, the following is returned as `200 O
     targetNodeId: 1235,
     type: 'message' // any of the link types
   }
+}
+```
+
+## `GET /api/v1/stats` 
+
+Gets various stats about voyager's participation in the network.
+
+**Response:**
+```javascript
+{
+  users: 123,    // The total number of users discovered
+  rooms: 123,    // The total number of rooms discovered
+  aliases: 123,  // The total number of room aliases discovered (current)
+  servers: 123,  // The total number of discovered servers
+  mentions: 123  // The total number of times a room alias has been mentioned (successfully)
 }
 ```
