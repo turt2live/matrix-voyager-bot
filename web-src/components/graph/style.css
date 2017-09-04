@@ -16,3 +16,14 @@ div.tooltip.node-tooltip, div.tooltip.link-tooltip {
     background: #bfdbff;
     border: 1px solid #98c3f9;
 }
+
+.graph, .graph .graph-container {
+    padding: 0;
+    margin: 0;
+    height: 100%;
+}
+
+#graphsvg {
+    padding: 0;
+    margin: 0;
+}

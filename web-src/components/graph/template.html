@@ -5,40 +5,46 @@
     <div v-if="!isLoading && error">
         <h1>{{ error }}</h1>
     </div>
-    <div v-if="!isLoading && !error">
+    <div class="graph-container" v-if="!isLoading && !error">
         <!--<button style="z-index: 99999" @click="downloadSvg()">Download</button>-->
-        <div class="tooltip link-tooltip" :style="{opacity: linkHover.is ? 1 : 0, left: linkHover.x + 'px', top: linkHover.y + 'px'}">
-            {{ getLinkText(linkHover.item) }}</div>
-        <div class="tooltip node-tooltip" :style="{opacity: nodeHover.is ? 1 : 0, left: nodeHover.x + 'px', top: nodeHover.y + 'px'}">
+        <div class="tooltip link-tooltip"
+             :style="{opacity: linkHover.is ? 1 : 0, left: linkHover.x + 'px', top: linkHover.y + 'px'}">
+            {{ getLinkText(linkHover.item) }}
+        </div>
+        <div class="tooltip node-tooltip"
+             :style="{opacity: nodeHover.is ? 1 : 0, left: nodeHover.x + 'px', top: nodeHover.y + 'px'}">
             <strong>{{ nodeHover.item ? nodeHover.item.name : '' }}</strong><br/>
             {{ nodeHover.item ? nodeHover.item.primaryAlias : '' }}
         </div>
         <svg xmlns="http://www.w3.org/2000/svg" :width="width+'px'" :height="height+'px'" id="graphsvg">
-            <path v-for="link in graph.links"
-                  :d="getLinkParams(link)" :stroke-width="Math.sqrt(link.value)"
-                  :stroke="link.stroke" stroke-opacity="0.7" :transform="transformStr"
-                  @mouseover="enterItem(link, linkHover, $event)" @mouseout="exitItem(linkHover)">
-            </path>
+            <rect width="100%" height="100%" x="0%" y="0%" fill="#eee"></rect>
 
-            <circle v-for="node in graph.nodes"
-                    :cx="node.x" :cy="node.y" :transform="transformStr"
-                    :r="node.r" :fill="'url(#fillFor'+node.id+')'" stroke='white' stroke-width='2'
-                    @mouseover="enterItem(node, nodeHover, $event)" @mouseout="exitItem(nodeHover)">
-            </circle>
+            <g :transform="transformStr">
+                <path v-for="link in graph.links"
+                      :d="getLinkParams(link)" :stroke-width="Math.sqrt(link.value)"
+                      :stroke="link.stroke" stroke-opacity="0.7" fill="none"
+                      @mouseover="enterItem(link, linkHover, $event)" @mouseout="exitItem(linkHover)">
+                </path>
+
+                <circle v-for="node in graph.nodes"
+                        :cx="node.x" :cy="node.y"
+                        :r="node.r" :fill="'url(#fillFor'+node.id+')'" stroke='white' stroke-width='2'
+                        @mouseover="enterItem(node, nodeHover, $event)" @mouseout="exitItem(nodeHover)">
+                </circle>
+            </g>
 
             <pattern v-for="node in graph.nodes"
-                     :id="'fillFor'+node.id"
-                     x="0%" y="0%" width="100%" height="100%"
+                     :id="'fillFor'+node.id" x="0%" y="0%" width="100%" height="100%"
                      :viewBox="'0 0 ' + node.r + ' ' + node.r">
 
                 <!-- has avatar -->
                 <rect v-if="node.avatarUrl" fill="#fff" :width="node.r" :height="node.r"></rect>
-                <image v-if="node.avatarUrl" x="0%" y="0%"
-                       :width="node.r" :height="node.r" :xlink:href="node.avatarUrl"></image>
+                <image v-if="node.avatarUrl" x="0%" y="0%" :width="node.r" :height="node.r" :xlink:href="node.avatarUrl"></image>
 
                 <!-- no avatar -->
                 <rect v-if="!node.avatarUrl" :width="node.r" :height="node.r" :fill="getFillForText(node.name)"></rect>
-                <text v-if="!node.avatarUrl" text-anchor="middle" dominant-baseline="central" alignment-baseline="central"
+                <text v-if="!node.avatarUrl" text-anchor="middle" dominant-baseline="central"
+                      alignment-baseline="central"
                       :x="node.r / 2" :y="node.r / 2" font-family="sans-serif" :font-size="node.type === 'room' ? 8 : 6"
                       fill="#fff">
                     {{ node.isAnonymous ? (node.type === 'room' ? '#' : '@') : (node.name[0] === '!' || node.name[0] === '@' || node.name[0] === '#' ? node.name[1] : node.name[0]) }}

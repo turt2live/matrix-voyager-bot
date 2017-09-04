@@ -1,9 +1,9 @@
 var express = require("express");
 var log = require("./../LogService");
 var config = require("config");
-var NodeCache = require("node-cache");
 var moment = require('moment');
-var sortedIndex = require('lodash.sortedindex');
+
+const USE_SAMPLE = true;
 
 /**
  * Processes and controls API requests
@@ -16,7 +16,6 @@ class ApiHandler {
      */
     constructor(store) {
         this._store = store;
-        this._cache = new NodeCache();
 
         this._app = express();
         this._app.use(express.static('web-dist'));
@@ -33,6 +32,13 @@ class ApiHandler {
     }
 
     _getNetwork(request, response) {
+        if (USE_SAMPLE) {
+            var json = require("./network_sample.json");
+            response.setHeader("Content-Type", "application/json");
+            response.send(JSON.stringify(json));
+            return;
+        }
+
         var limit = Math.max(0, Math.min(10000, request.query.limit || 1000));
         var since = Math.max(0, request.query.since || 0);
 

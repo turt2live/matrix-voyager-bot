@@ -10,7 +10,7 @@ export default {
             linkHover: {x: 0, y: 0, item: null, is: false},
             transformStr: "",
             width: Math.max(document.documentElement.clientWidth, window.innerWidth || 0),
-            height: Math.max(document.documentElement.clientHeight, window.innerHeight || 0) - 40,
+            height: Math.max(document.documentElement.clientHeight, window.innerHeight || 0) - 4,
 
             hasBoundZoom: false
         };
