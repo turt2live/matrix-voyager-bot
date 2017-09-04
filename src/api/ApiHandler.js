@@ -3,7 +3,7 @@ var log = require("./../LogService");
 var config = require("config");
 var moment = require('moment');
 
-const USE_SAMPLE = true;
+const USE_SAMPLE = false;
 
 /**
  * Processes and controls API requests
