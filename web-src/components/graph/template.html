@@ -7,15 +7,23 @@
     </div>
     <div v-if="!isLoading && !error">
         <!--<button style="z-index: 99999" @click="downloadSvg()">Download</button>-->
+        <div class="tooltip link-tooltip" :style="{opacity: linkHover.is ? 1 : 0, left: linkHover.x + 'px', top: linkHover.y + 'px'}">
+            {{ getLinkText(linkHover.item) }}</div>
+        <div class="tooltip node-tooltip" :style="{opacity: nodeHover.is ? 1 : 0, left: nodeHover.x + 'px', top: nodeHover.y + 'px'}">
+            <strong>{{ nodeHover.item ? nodeHover.item.name : '' }}</strong><br/>
+            {{ nodeHover.item ? nodeHover.item.primaryAlias : '' }}
+        </div>
         <svg xmlns="http://www.w3.org/2000/svg" :width="width+'px'" :height="height+'px'" id="graphsvg">
             <path v-for="link in graph.links"
                   :d="getLinkParams(link)"
-                  :stroke="link.stroke" stroke-width="2" stroke-opacity="0.7">
+                  :stroke="link.stroke" stroke-width="2" stroke-opacity="0.7"
+                  @mouseover="enterItem(link, linkHover, $event)" @mouseout="exitItem(linkHover)">
             </path>
 
             <circle v-for="node in graph.nodes"
                     :cx="node.x" :cy="node.y"
-                    :r="node.r" :fill="'url(#fillFor'+node.id+')'" stroke='white' stroke-width='2'>
+                    :r="node.r" :fill="'url(#fillFor'+node.id+')'" stroke='white' stroke-width='2'
+                    @mouseover="enterItem(node, nodeHover, $event)" @mouseout="exitItem(nodeHover)">
             </circle>
 
             <pattern v-for="node in graph.nodes"

@@ -1,0 +1,18 @@
+div.tooltip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    text-align: left;
+    padding: 5px;
+    border-radius: 3px;
+    pointer-events: none;
+    opacity: 0;
+    color: #000;
+    font-size: 14px;
+    transition: opacity 0.5s;
+}
+
+div.tooltip.node-tooltip, div.tooltip.link-tooltip {
+    background: #bfdbff;
+    border: 1px solid #98c3f9;
+}

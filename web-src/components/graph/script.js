@@ -6,6 +6,8 @@ export default {
             isLoading: true,
             error: null,
             graph: null,
+            nodeHover: {x: 0, y: 0, item: null, is: false},
+            linkHover: {x: 0, y: 0, item: null, is: false},
             width: Math.max(document.documentElement.clientWidth, window.innerWidth || 0),
             height: Math.max(document.documentElement.clientHeight, window.innerHeight || 0) - 40
         };
@@ -23,6 +25,22 @@ export default {
         });
     },
     methods: {
+        enterItem (item, state, event) {
+            state.x = event.clientX;
+            state.y = event.clientY;
+            state.item = item;
+            state.is = true;
+        },
+        exitItem (state) {
+            state.is = false;
+        },
+        getLinkText (link) {
+            if (!link) {
+                return "";
+            }
+
+            return link.value + ' ' + link.type.replace(/_ /g, ' ') + (link.value !== 1 ? 's' : '') + ' from ' + link.source.name + ' to ' + link.target.name;
+        },
         getFillForText (text) {
             let hash = text.hashCode();
             if (hash < 0) hash = hash * -1;
