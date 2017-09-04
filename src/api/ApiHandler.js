@@ -155,12 +155,12 @@ class ApiHandler {
         this._store.getPublicRooms().then(nodes => {
             var promise = Promise.resolve();
             var mapped = nodes.map(r => this._nodeToJsonObject(r, r.currentMeta));
-            mapped = mapped.map(r => {
-                promise = promise
-                    .then(() => this._bot.getRoomStats(r.meta.objectId))
-                    .then(stats => r.meta.stats = stats);
-                return r;
-            });
+            // mapped = mapped.map(r => {
+            //     promise = promise
+            //         .then(() => this._bot.getRoomStats(r.meta.objectId))
+            //         .then(stats => r.meta.stats = stats);
+            //     return r;
+            // });
 
             promise.then(() => {
                 response.setHeader("Content-Type", "application/json");
