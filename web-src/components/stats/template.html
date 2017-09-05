@@ -27,6 +27,9 @@
             <tbody>
             <tr v-for="room in rooms">
                 <td>
+                    <img :src="room.meta.avatarUrl" height="18px" width="18px" class="room-icon" v-if="room.meta.avatarUrl">
+                    <div class="room-icon missing" v-if="!room.meta.avatarUrl">{{ room.meta.displayName[0].toUpperCase() }}</div>
+
                     <span class="new-room" v-if="isNew(room)">New!</span>
                     {{ room.meta.displayName }}
                 </td>
