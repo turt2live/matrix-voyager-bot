@@ -27,3 +27,18 @@ div.tooltip.node-tooltip, div.tooltip.link-tooltip {
     padding: 0;
     margin: 0;
 }
+
+.nav {
+    position: absolute;
+    top: 0;
+    right: 150px;
+    background-color: #ccc;
+    border: 1px solid #aaa;
+    border-top: none;
+    border-radius: 0 0 7px 7px;
+    padding: 5px 10px;
+}
+
+.nav a {
+    text-decoration: none;
+}
