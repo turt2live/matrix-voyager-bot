@@ -19,9 +19,9 @@
             <tr>
                 <th class="left-data">Room Name</th>
                 <th class="left-data">Room Alias</th>
-                <!--<th class="right-metric">Users</th>-->
-                <!--<th class="right-metric">Servers</th>-->
-                <!--<th class="right-metric">Aliases</th>-->
+                <th class="right-metric">Users</th>
+                <th class="right-metric">Servers</th>
+                <th class="right-metric">Aliases</th>
             </tr>
             </thead>
             <tbody>
@@ -31,9 +31,9 @@
                     {{ room.meta.displayName }}
                 </td>
                 <td><a :href="'https://matrix.to/#/' + room.meta.primaryAlias">{{ room.meta.primaryAlias }}</a></td>
-                <!--<td class="metric">{{ room.meta.stats.users | formatNumber }}</td>-->
-                <!--<td class="metric">{{ room.meta.stats.servers | formatNumber }}</td>-->
-                <!--<td class="metric">{{ room.meta.stats.aliases | formatNumber }}</td>-->
+                <td class="metric">{{ room.meta.stats.users | formatNumber }}</td>
+                <td class="metric">{{ room.meta.stats.servers | formatNumber }}</td>
+                <td class="metric">{{ room.meta.stats.aliases | formatNumber }}</td>
             </tr>
             </tbody>
         </table>

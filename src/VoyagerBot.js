@@ -64,53 +64,6 @@ class VoyagerBot {
         });
     }
 
-    getRoomStats(roomId) {
-        var cachedStats = this._statsCache[roomId];
-        if (cachedStats && (moment().valueOf() - cachedStats.lastUpdated) < STATS_CACHE_MS)
-            return Promise.resolve(cachedStats);
-
-        return this._client.getRoomState(roomId).then(state => {
-            var servers = [];
-            var users = 0;
-            var aliases = [];
-
-            var tryAddServer = (component) => {
-                var serverParts = component.split(':');
-                var server = serverParts[serverParts.length - 1];
-                if (servers.indexOf(server) == -1)
-                    servers.push(server);
-            };
-
-            for (var event of state) {
-                if (event.type === "m.room.member" && event.content.membership === 'join') {
-                    users++;
-                    tryAddServer(event.state_key);
-                }
-                if (event.type === "m.room.aliases" && event.content.aliases) {
-                    for (var alias of event.content.aliases) {
-                        if (aliases.indexOf(alias) === -1)
-                            aliases.push(alias);
-                        tryAddServer(alias);
-                    }
-                }
-                if (event.type === "m.room.canonical_alias" && event.content.alias) {
-                    if (aliases.indexOf(event.content.alias) === -1)
-                        aliases.push(event.content.alias);
-                    tryAddServer(event.content.alias);
-                }
-            }
-
-            var stats = {users: users, servers: servers.length, aliases: aliases.length};
-            stats.lastUpdated = moment().valueOf();
-
-            this._statsCache[roomId] = stats;
-            return stats;
-        }).catch(error => {
-            // Just return a fallback instead of complaining
-            return {users: 0, servers: 0, aliases: 0};
-        });
-    }
-
     _onRoomUpdated(roomId, event) {
         this._queueNodeUpdate({objectId: roomId, type: 'room'});
     }
@@ -307,13 +260,22 @@ class VoyagerBot {
             avatarUrl: null,
             isAnonymous: true,
             primaryAlias: null,
-            aliases: []
+            aliases: [],
+            stats: {users: 0, servers: 0} // aliases handled by above array
         };
 
         return this._client.getRoomState(roomId).then(state => {
             var roomMembers = []; // displayNames (strings)
             var joinedMembers = []; // same as room members
             var matrixDotOrgAliases = []; // special case handling
+            var servers = [];
+
+            var tryAddServer = (component) => {
+                var serverParts = component.split(':');
+                var server = serverParts[serverParts.length - 1];
+                if (servers.indexOf(server) == -1)
+                    servers.push(server);
+            };
 
             for (var event of state) {
                 if (event['type'] === 'm.room.join_rules') {
@@ -329,17 +291,20 @@ class VoyagerBot {
 
                     roomMembers.push(displayName);
                     if (event['membership'] === 'join' || event['membership'] === 'invite') joinedMembers.push(displayName);
+                    tryAddServer(event['user_id']);
                 } else if (event['type'] === 'm.room.aliases') {
                     if (event['content']['aliases']) {
                         log.silly("VoyagerBot", "m.room.aliases for " + roomId + " on domain " + event['state_key'] + " is: " + event['content']['aliases'].join(', '));
                         for (var alias of event['content']['aliases']) {
                             version.aliases.push(alias);
                             if (alias.endsWith(":matrix.org")) matrixDotOrgAliases.push(alias);
+                            tryAddServer(alias);
                         }
                     } else log.silly("VoyagerBot", "m.room.aliases for " + roomId + " on domain " + event['state_key'] + " is empty/null");
                 } else if (event['type'] === 'm.room.canonical_alias') {
                     log.silly("VoyagerBot", "m.room.canonical_alias for " + roomId + " is " + event['content']['alias']);
                     version.primaryAlias = event['content']['alias'];
+                    tryAddServer(event['content']['alias']);
                 } else if (event['type'] === 'm.room.name') {
                     log.silly("VoyagerBot", "m.room.name for " + roomId + " is " + event['content']['name']);
                     version.displayName = event['content']['name'];
@@ -349,6 +314,14 @@ class VoyagerBot {
                         version.avatarUrl = this._client.convertMediaToThumbnail(event['content']['url'], 256, 256);
                 } else log.silly("VoyagerBot", "Not handling state event " + event['type'] + " in room " + roomId);
             }
+
+            // Populate stats
+            version.stats.users = joinedMembers.length;
+            version.stats.servers = servers.length;
+
+            // HACK: This is technically against spec, but we'll pick a reasonable default for a room's alias if there is none.
+            if (!version.primaryAlias && version.aliases.length > 0)
+                version.primaryAlias = (matrixDotOrgAliases.length > 0 ? matrixDotOrgAliases[0] : version.aliases[0]);
 
             // Now that we've processed room state: determine the room name
             if (version.displayName && version.displayName.trim().length > 0) return version; // we're done :)
@@ -401,6 +374,7 @@ class VoyagerBot {
 
             // weird fallback scenario (alone in room)
             version.displayName = "Empty Room";
+
             return version;
         });
     }
@@ -648,7 +622,12 @@ class VoyagerBot {
         var updated = false;
         var aliasesUpdated = false;
 
-        var defaults = {displayName: '', avatarUrl: '', isAnonymous: true, primaryAlias: ''};
+        var defaults = {
+            displayName: '',
+            avatarUrl: '',
+            isAnonymous: true,
+            primaryAlias: ''
+        };
 
         // Ensure that `null != ''` doesn't end up triggering an update
         this._replaceNulls(meta, defaults);
@@ -672,6 +651,7 @@ class VoyagerBot {
         }
 
         if (currentVersion.aliases) {
+            newVersion.aliasCount = storedAliases.length;
             if (currentVersion.aliases.length != storedAliases.length) {
                 aliasesUpdated = true;
             } else {
@@ -684,10 +664,20 @@ class VoyagerBot {
             }
         }
 
+        if (node.id == 54)
+            console.log(currentVersion);
+        newVersion.userCount = (currentVersion.stats ? currentVersion.stats.users : 0);
+        newVersion.serverCount = (currentVersion.stats ? currentVersion.stats.servers : 0);
+
+        var statsUpdated =
+            meta.userCount != newVersion.userCount
+            || meta.aliasCount != newVersion.aliasCount
+            || meta.serverCount != newVersion.serverCount;
+
         var versionPromise = Promise.resolve();
         var aliasPromise = Promise.resolve();
 
-        if (updated) {
+        if (updated || statsUpdated) {
             log.info("VoyagerBot", "Updating meta for node " + node.objectId + " to: " + JSON.stringify(newVersion));
 
             var oldValues = {};

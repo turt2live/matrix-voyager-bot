@@ -262,7 +262,7 @@ class VoyagerStore {
     /**
      * Creates a new node version
      * @param {Node} node the node to append a version to
-     * @param {{displayName: String?, avatarUrl: String?, isAnonymous: boolean?, primaryAlias: String?}} fields the fields to update
+     * @param {{displayName: String?, avatarUrl: String?, isAnonymous: boolean?, primaryAlias: String?, userCount: Number?, serverCount: Number?, aliasCount: Number?}} fields the fields to update
      * @returns {Promise<NodeVersion>} resolves with the created node version
      */
     createNodeVersion(node, fields) {
@@ -284,6 +284,10 @@ class VoyagerStore {
             var avatarUrl = valOrDBNull(fields.avatarUrl);
             var isAnonymous = valOrDBNull(fields.isAnonymous);
             var primaryAlias = valOrDBNull(fields.primaryAlias);
+            var userCount = valOrDBNull(fields.userCount);
+            var serverCount = valOrDBNull(fields.serverCount);
+            var aliasCount = valOrDBNull(fields.aliasCount);
+
             var changed = false;
 
             if (displayName !== null && nodeMeta.displayName != displayName) {
@@ -302,8 +306,20 @@ class VoyagerStore {
                 nodeMeta.primaryAlias = primaryAlias;
                 changed = true;
             }
+            if (userCount !== nodeMeta.userCount) {
+                nodeMeta.userCount = userCount;
+                changed = true;
+            }
+            if (serverCount !== nodeMeta.serverCount) {
+                nodeMeta.serverCount = serverCount;
+                changed = true;
+            }
+            if (aliasCount !== nodeMeta.aliasCount) {
+                nodeMeta.aliasCount = aliasCount;
+                changed = true;
+            }
 
-            if (changed)return nodeMeta.save();
+            if (changed) return nodeMeta.save();
             else return Promise.resolve();
         }).then(() => this.getNodeVersionById(nodeVersion.id));
     }
@@ -926,6 +942,9 @@ class NodeMeta {
         this.isAnonymous = dbToBool(dbFields.isAnonymous);
         this.primaryAlias = dbFields.primaryAlias;
         this.nodeId = dbFields.nodeId;
+        this.userCount = dbFields.userCount;
+        this.serverCount = dbFields.serverCount;
+        this.aliasCount = dbFields.aliasCount;
     }
 }
 

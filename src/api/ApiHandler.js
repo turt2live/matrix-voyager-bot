@@ -155,12 +155,6 @@ class ApiHandler {
         this._store.getPublicRooms().then(nodes => {
             var promise = Promise.resolve();
             var mapped = nodes.map(r => this._nodeToJsonObject(r, r.currentMeta));
-            // mapped = mapped.map(r => {
-            //     promise = promise
-            //         .then(() => this._bot.getRoomStats(r.meta.objectId))
-            //         .then(stats => r.meta.stats = stats);
-            //     return r;
-            // });
 
             promise.then(() => {
                 response.setHeader("Content-Type", "application/json");
@@ -257,7 +251,12 @@ class ApiHandler {
             firstIntroduced: node.firstTimestamp,
             meta: {
                 type: node.type,
-                isAnonymous: meta.isAnonymous === null ? true : meta.isAnonymous
+                isAnonymous: meta.isAnonymous === null ? true : meta.isAnonymous,
+                stats: {
+                    users: meta.userCount ? meta.userCount : 0,
+                    servers: meta.serverCount ? meta.serverCount : 0,
+                    aliases: meta.aliasCount ? meta.aliasCount : 0
+                }
             }
         };
 
