@@ -20,18 +20,35 @@
         <table class="room-list">
             <thead>
             <tr>
-                <th class="left-data">Room Name</th>
-                <th class="left-data">Room Alias</th>
-                <th class="right-metric">Users</th>
-                <th class="right-metric">Servers</th>
-                <th class="right-metric">Aliases</th>
+                <th class="left-data sortable" @click="setSort('name')">
+                    <sort-icon :current="sortBy" :direction="sortDir" watch="name"></sort-icon>
+                    Room Name
+                </th>
+                <th class="left-data sortable" @click="setSort('alias')">
+                    <sort-icon :current="sortBy" :direction="sortDir" watch="alias"></sort-icon>
+                    Room Alias
+                </th>
+                <th class="right-metric sortable" @click="setSort('users')">
+                    <sort-icon :current="sortBy" :direction="sortDir" watch="users"></sort-icon>
+                    Users
+                </th>
+                <th class="right-metric sortable" @click="setSort('servers')">
+                    <sort-icon :current="sortBy" :direction="sortDir" watch="servers"></sort-icon>
+                    Servers
+                </th>
+                <th class="right-metric sortable" @click="setSort('aliases')">
+                    <sort-icon :current="sortBy" :direction="sortDir" watch="aliases"></sort-icon>
+                    Aliases
+                </th>
             </tr>
             </thead>
             <tbody>
-            <tr v-for="room in rooms">
+            <tr v-for="room in sortedRooms">
                 <td>
-                    <img :src="room.meta.avatarUrl" height="18px" width="18px" class="room-icon" v-if="room.meta.avatarUrl">
-                    <div class="room-icon missing" v-if="!room.meta.avatarUrl">{{ room.meta.displayName[0].toUpperCase() }}</div>
+                    <img :src="room.meta.avatarUrl" height="18px" width="18px" class="room-icon"
+                         v-if="room.meta.avatarUrl">
+                    <div class="room-icon missing"
+                         v-if="!room.meta.avatarUrl">{{ room.meta.displayName[0].toUpperCase() }}</div>
 
                     <span class="new-room" v-if="isNew(room)">New!</span>
                     {{ room.meta.displayName }}

@@ -43,8 +43,8 @@
 }
 
 .room-list .right-metric {
-    max-width: 100px;
-    width: 75px;
+    max-width: 110px;
+    width: 85px;
     text-align: center;
 }
 
@@ -81,4 +81,8 @@
 
 .nav a {
     text-decoration: none;
+}
+
+.sortable {
+    cursor: pointer;
 }
