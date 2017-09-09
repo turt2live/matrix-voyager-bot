@@ -39,6 +39,7 @@ export default {
     },
     methods: {
         isNew (item) {
+            if (this.seenRooms.length === 0) return false;
             return this.seenRooms.indexOf(item.id) === -1;
         }
     }
