@@ -76,6 +76,7 @@ class VoyagerStore {
         this.__TimelineEvents = this._orm.import(__dirname + "/models/timeline_events");
         this.__NodeMeta = this._orm.import(__dirname + "/models/node_meta");
         this.__NodeAliases = this._orm.import(__dirname + "/models/node_aliases");
+        this.__Dnt = this._orm.import(__dirname + "/models/dnt");
 
         // Relationships
 
@@ -121,6 +122,37 @@ class VoyagerStore {
                 this._enrolledIds.push(result.objectId);
             }
             log.info("VoyagerStore", "Populated enrolled users. Found " + this._enrolledIds.length + " users enrolled");
+        });
+    }
+
+    /**
+     * Sets the Do Not Track state for a user.
+     * @param {string} userId the user ID to set the state for
+     * @param {boolean} dntState if true, the user will no longer be tracked. False to permit tracking (the default)
+     * @returns {Promise<*>} resolves when the state has been updated
+     */
+    setDnt(userId, dntState) {
+        return this.__Dnt.findAll({where: {userId: userId}})
+            .then(flags => Promise.all(flags.map(f => f.destroy())))
+            .then(() => this.__Dnt.create({userId: userId, isDnt: dntState}));
+    }
+
+    /**
+     * Gets whether or not a user has asked to not be tracked by the bot
+     * @param {string} userId the user ID to look up
+     * @returns {Promise<boolean>} resolves to the track status of the user (true is 'do not track').
+     */
+    isDnt(userId) {
+        return this.__Dnt.findAll({where: {userId: userId}}).then(flags => {
+            var dnt = false;
+            for (var flag of flags) {
+                if (flag.isDnt) {
+                    dnt = true;
+                    break;
+                }
+            }
+
+            return dnt;
         });
     }
 

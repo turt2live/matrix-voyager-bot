@@ -79,17 +79,28 @@ class VoyagerBot {
         if (!body) return; // likely redacted
 
         if (body.startsWith("!voyager")) {
-            this._commandProcessor.processCommand(roomId, event, body.substring("!voyager".length).trim().split(" "));
+            this._commandProcessor.processCommand(roomId, event, body.substring("!voyager".length).trim().split(" ")).catch(err => {
+                log.error("VoyagerBot", "Error processing command " + body);
+                log.error("VoyagerBot", err);
+                this._commandProcessor._reply(roomId, event, "There was an error processing your command"); // HACK: Should not be calling private methods
+            });
             return;
         }
 
-        var matches = body.match(/[#!][a-zA-Z0-9.\-_#=]+:[a-zA-Z0-9.\-_]+[a-zA-Z0-9]/g);
-        if (!matches) return;
+        this._store.isDnt(event['sender']).then(dnt => {
+            if (dnt) {
+                log.warn("VoyagerBot", "Received message from " + event['sender'] + " but the user has set DNT. Ignoring message.");
+                return;
+            } //else log.silly("VoyagerBot", "User " + event['sender'] + " does not have DNT");
 
-        var promise = Promise.resolve();
-        _.forEach(matches, match => promise = promise.then(() => this._processMatchedLink(roomId, event, match)));
+            var matches = body.match(/[#!][a-zA-Z0-9.\-_#=]+:[a-zA-Z0-9.\-_]+[a-zA-Z0-9]/g);
+            if (!matches) return;
 
-        promise.then(() => this._client.sendReadReceipt(roomId, event['event_id']));
+            var promise = Promise.resolve();
+            _.forEach(matches, match => promise = promise.then(() => this._processMatchedLink(roomId, event, match)));
+
+            promise.then(() => this._client.sendReadReceipt(roomId, event['event_id']));
+        });
     }
 
     _onRoomLeave(roomId, event) {

@@ -48,6 +48,10 @@ class CommandProcessor {
             return this._handleSelfRedact(roomId, event, /*isAdding=*/true);
         } else if (cmdArguments[0] == 'removeme') {
             return this._handleSelfRedact(roomId, event, /*isAdding=*/false);
+        } else if (cmdArguments[0] == 'dnt' || cmdArguments[0] == 'donottrack' || cmdArguments[0] == 'untrackme') {
+            return this._handleDnt(roomId, event, /*isTracking=*/false);
+        } else if (cmdArguments[0] == 'trackme') {
+            return this._handleDnt(roomId, event, /*isTracking=*/true);
         } else return this._reply(roomId, event, "Unknown command. Try !voyager help");
     }
 
@@ -65,10 +69,18 @@ class CommandProcessor {
             "!voyager leave             - Forces the bot to leave the room, but keep the room on the graph\n" +
             "!voyager removeme          - Takes your user node, and associated links, off of the graph\n" +
             "!voyager addme             - Adds your user node, and associated links, to the graph\n" +
+            "!voyager dnt               - The bot will read your messages, but not follow any links to rooms in them\n" +
+            "!voyager trackme           - The bot will read and follow rooms links in your messages. This is the default.\n" +
             "!voyager help              - This menu\n" +
             "\n" +
             "View the current graph online at https://voyager.t2bot.io"
         );
+    }
+
+    _handleDnt(roomId, event, isTracking) {
+        return this._store.setDnt(event['sender'], !isTracking).then(() => {
+            return this._reply(roomId, event, isTracking ? "I'll follow room links you post" : "I'll stop following links to rooms you post in rooms");
+        });
     }
 
     _handleSoftKick(roomId, event) {
