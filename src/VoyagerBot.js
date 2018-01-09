@@ -439,6 +439,11 @@ class VoyagerBot {
             log.warn("VoyagerBot", "Unexpected node: " + JSON.stringify(nodeMeta));
             return;
         }
+      
+        if (nodeMeta.type === 'user') {
+            log.warn("VoyagerBot", "Skipping user node update for " + nodeMeta.objectId);
+            return;
+        }
 
         if (this._queuedObjectIds.indexOf(nodeMeta.objectId) !== -1) {
             log.info("VoyagerBot", "Node update queue attempt for " + nodeMeta.objectId + " - skipped because the node is already queued");
