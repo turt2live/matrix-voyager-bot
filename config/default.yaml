@@ -1,14 +1,11 @@
 # The configuration for the matrix portion of the bot. The bot's matrix account must already
-# be created proiot to running the bot.
+# be created prior to running the bot.
 matrix:
   # The homeserver URL for the bot. For example, https://matrix.org
   homeserverUrl: "https://t2bot.io"
 
   # The access token for the bot that authenticates it on the above homeserver.
   accessToken: "YOUR_TOKEN_HERE"
-
-  # The Matrix ID for the bot's account. For example, @voyager:t2bot.io
-  userId: "@voyager:t2bot.io"
 
 # The web settings for the bot (serves the graph)
 web:
@@ -18,16 +15,14 @@ web:
   # The address to bind to (0.0.0.0 for all interfaces)
   address: '0.0.0.0'
 
-# Advanced settings to control behaviour of the bot
-bot:
-  # if enabled, the bot will process all node update requests on startup. This is disabled
-  # by default to prevent the bot from attempting to use significant resources on startup.
-  processNodeUpdatesOnStartup: false
+# The database to use. Only postgres is supported.
+database:
+  host: "localhost"
+  port: 5432
+  username: "voyager"
+  password: "secret"
+  database: "matrix-voyager"
 
-  # If node updates are enabled, which nodes should be updated on startup?
-  nodeUpdatesOnStartup:
-    rooms: true
-    users: true
 
 # Settings for controlling how logging works
 logging:

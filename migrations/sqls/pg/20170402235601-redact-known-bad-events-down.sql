@@ -1,1 +1,0 @@
-update links set "isRedacted" = false where "id" in (select "linkId" from timeline_events where "matrixEventId" = '$1490298427314CIwPU:matrix.magnap.dk');
