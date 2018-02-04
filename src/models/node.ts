@@ -1,8 +1,7 @@
-import { AutoIncrement, BelongsTo, Column, ForeignKey, Model, PrimaryKey, Table } from "sequelize-typescript";
-import NodeMeta from "./node_meta";
+import { AutoIncrement, Column, Model, PrimaryKey, Table } from "sequelize-typescript";
 
 @Table({
-    tableName: "nodes",
+    tableName: "voyager_nodes",
     underscoredAll: false,
     timestamps: false,
 })
@@ -13,13 +12,13 @@ export default class Node extends Model<Node> {
     id: number;
 
     /**
-     * The type of this node. Either 'room' or 'user'
+     * The type of this node. Currently one of 'room', 'user'.
      */
     @Column
     type: string;
 
     /**
-     * The matrix identifier for the object (room ID or user ID)
+     * The matrix identifier for the object (room ID, user ID, etc)
      */
     @Column
     objectId: string;
@@ -39,19 +38,25 @@ export default class Node extends Model<Node> {
     isRedacted: boolean;
 
     /**
+     * Whether or not the node is considered "public". For users, this means that they
+     * wish to be included on the graph and other resources. For rooms, this means that
+     * the room is public enough to be joined by other users (including the bot).
+     */
+    isPublic: boolean;
+
+    /**
+     * The current display name for the object.
+     */
+    displayName: string;
+
+    /**
+     * The current avatar URL for the object.
+     */
+    avatarUrl: string;
+
+    /**
      * The timestamp this node was first encountered.
      */
     @Column
-    firstTimestamp: Date;
-
-    @Column
-    @ForeignKey(() => NodeMeta)
-    nodeMetaId: number;
-
-    // TODO: Move node meta into the node
-    /**
-     * Additional metadata about the node
-     */
-    @BelongsTo(() => NodeMeta)
-    meta: NodeMeta;
+    firstTimestamp: number;
 }
