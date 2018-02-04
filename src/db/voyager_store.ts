@@ -8,6 +8,7 @@ import MatrixEvent from "../models/event";
 import * as Promise from "bluebird";
 import Room from "../models/room";
 import GraphNode from "../models/node";
+import User from "../models/user";
 
 class _VoyagerStore {
 
@@ -27,6 +28,7 @@ class _VoyagerStore {
             Link,
             GraphNode,
             Room,
+            User,
             MatrixEvent,
         ]);
     }
@@ -44,6 +46,13 @@ class _VoyagerStore {
         });
 
         return migrator.up();
+    }
+
+    public isUserTrackable(userId: string): Promise<boolean> {
+        return User.findOne({where: {userId: userId}}).then(user => {
+            if (!user) return true; // Have not opted out
+            return !user.doNotTrack;
+        });
     }
 }
 

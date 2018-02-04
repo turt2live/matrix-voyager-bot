@@ -21,6 +21,7 @@ export default class MatrixLiteClient extends EventEmitter {
     private requestId = 0;
     private filterId = 0;
     private stopSyncing = false;
+    private lastJoinedRoomIds = [];
 
     /**
      * Creates a new matrix client
@@ -180,13 +181,16 @@ export default class MatrixLiteClient extends EventEmitter {
 
         // Process rooms we've joined and their events
         for (let roomId in joinedRooms) {
-            this.emit("room.join", roomId);
+            if (this.lastJoinedRoomIds.indexOf(roomId) === -1) {
+                this.emit("room.join", roomId);
+                this.lastJoinedRoomIds.push(roomId);
+            }
 
             const room = joinedRooms[roomId];
             if (!room['timeline'] || !room['timeline']['events']) continue;
 
             for (let event of room['timeline']['events']) {
-                if (event['type'] !== 'm.room.message') this.emit("room.messsage", roomId, event);
+                if (event['type'] === 'm.room.message') this.emit("room.message", roomId, event);
                 else LogService.silly("MatrixClientLite", "Not handling event " + event['type']);
             }
         }

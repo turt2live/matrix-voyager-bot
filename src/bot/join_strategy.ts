@@ -1,5 +1,6 @@
 import VoyagerBot from "../matrix/default_client";
 import { LogService } from "matrix-js-snippets";
+import * as Promise from "bluebird";
 
 // Note: The schedule must not have duplicate values to avoid problems in positioning.
 const SCHEDULE = [
@@ -10,22 +11,25 @@ const SCHEDULE = [
     15 * 60 * 1000, // 15 minutes
 ];
 
-export default function joinRoom(roomId: string): Promise<string> {
+export default function joinRoom(roomIdOrAlias: string): Promise<string> {
     let currentSchedule = SCHEDULE[0];
 
-    const doJoin = () => waitPromise(currentSchedule).then(() => VoyagerBot.joinRoom(roomId));
+    LogService.info("join_strategy", "Starting join for " + roomIdOrAlias);
 
-    return doJoin().catch(err => {
+    const doJoin = () => waitPromise(currentSchedule).then(() => VoyagerBot.joinRoom(roomIdOrAlias));
+    const errorHandler = err => {
         LogService.error("join_strategy", err);
         const idx = SCHEDULE.indexOf(currentSchedule);
         if (idx === SCHEDULE.length - 1) {
-            LogService.warn("join_strategy", "Failed to join room after the retry schedule - giving up.");
+            LogService.warn("join_strategy", "Failed to join room " + roomIdOrAlias + " after the retry schedule - giving up.");
             return Promise.reject(err);
         } else {
             currentSchedule = SCHEDULE[idx + 1];
-            return doJoin();
+            return doJoin().catch(errorHandler);
         }
-    });
+    };
+
+    return doJoin().catch(errorHandler);
 }
 
 function waitPromise(interval: number): Promise<any> {

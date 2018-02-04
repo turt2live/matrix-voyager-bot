@@ -1,11 +1,12 @@
-import VoyagerBot from "../matrix/default_client";
 import GraphNode from "../models/node";
 import * as Promise from "bluebird";
 import joinRoom from "./join_strategy";
 import Link from "../models/link";
 import { LogService } from "matrix-js-snippets";
+import VoyagerBot from "../matrix/default_client";
+import { VoyagerStore } from "../db/voyager_store";
 
-class Voyager {
+class _Voyager {
 
     constructor() {
     }
@@ -14,6 +15,7 @@ class Voyager {
         VoyagerBot.on("room.invite", this.onInvite.bind(this));
         VoyagerBot.on("room.join", this.onJoin.bind(this));
         VoyagerBot.on("room.leave", this.onLeave.bind(this));
+        VoyagerBot.on("room.message", this.onMessage.bind(this));
     }
 
     private onInvite(roomId: string, event: any) {
@@ -71,6 +73,45 @@ class Voyager {
         }).then(() => LogService.info("Voyager", "Recorded " + type + " for room " + roomId));
     }
 
+    private onMessage(roomId: string, event: any) {
+        if (event['sender'] === VoyagerBot.userId) return; // Ignore echo
+        if (!event['content'] || !event['content']['body']) return; // Probably redacted
+
+        const body = event['content']['body'];
+        if (body.startsWith("!voyager")) {
+            // TODO: Commands
+        } else {
+            VoyagerStore.isUserTrackable(event['sender']).then(canTrack => {
+                if (!canTrack) {
+                    LogService.warn("Voyager", "Received message from " + event['sender'] + " however they are on the do not track list.");
+                    return; // Stop processing.
+                }
+
+                const matches = body.match(/[#!][a-zA-Z0-9.\-_#=]+:[a-zA-Z0-9.\-_]+[a-zA-Z0-9]/g);
+                if (!matches) return;
+
+                return Promise.all(matches.map(m => this.processMatch(roomId, event, m)))
+                    .then(() => VoyagerBot.sendReadReceipt(roomId, event['event_id']));
+            })
+        }
+    }
+
+    private processMatch(roomId: string, event: any, matched: string): Promise<any> {
+        return joinRoom(matched).then(joinedRoomId => {
+            return Promise.all([this.getNode(roomId, 'room'), this.getNode(joinedRoomId, 'room')]);
+        }).then(nodes => {
+            // TODO: Record link_added event
+            return Link.create({
+                type: "message",
+                sourceNodeId: nodes[0].id,
+                targetNodeId: nodes[1].id,
+                timestamp: new Date().getTime(),
+                isVisible: true,
+                eventId: event['event_id'],
+            });
+        }).then(() => LogService.info("Voyager", "Created message link from " + roomId + " to " + matched));
+    }
+
     private getNode(objectId: string, type: string): Promise<GraphNode> {
         return GraphNode.findOne({where: {objectId: objectId, type: type}}).then(node => {
             if (!node) {
@@ -92,4 +133,4 @@ class Voyager {
     }
 }
 
-export default new Voyager() as Voyager;
+export const Voyager = new _Voyager();
