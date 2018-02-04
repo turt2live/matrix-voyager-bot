@@ -2,12 +2,12 @@ import { Model, Sequelize } from "sequelize-typescript";
 import config from "../config";
 import { LogService } from "matrix-js-snippets";
 import Link from "../models/link";
-import Node from "../models/node";
 import * as path from "path";
 import * as Umzug from "umzug";
-import Room from "../models/room";
 import MatrixEvent from "../models/event";
 import * as Promise from "bluebird";
+import Room from "../models/room";
+import GraphNode from "../models/node";
 
 class _VoyagerStore {
 
@@ -25,7 +25,7 @@ class _VoyagerStore {
         });
         this.sequelize.addModels(<Array<typeof Model>>[
             Link,
-            Node,
+            GraphNode,
             Room,
             MatrixEvent,
         ]);

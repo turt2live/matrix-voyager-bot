@@ -15,8 +15,9 @@ import { EventEmitter } from "events";
  */
 export default class MatrixLiteClient extends EventEmitter {
 
+    public userId: string;
+
     private kvStore: Storage;
-    private userId: string;
     private requestId = 0;
     private filterId = 0;
     private stopSyncing = false;
@@ -154,10 +155,10 @@ export default class MatrixLiteClient extends EventEmitter {
         // Process rooms we've been invited to
         for (let roomId in inviteRooms) {
             const room = inviteRooms[roomId];
-            if (!room['timeline'] || !room['timeline']['events']) continue;
+            if (!room['invite_state'] || !room['invite_state']['events']) continue;
 
             let inviteEvent = null;
-            for (let event of room['timeline']['events']) {
+            for (let event of room['invite_state']['events']) {
                 if (event['type'] !== 'm.room.member') continue;
                 if (event['state_key'] !== this.userId) continue;
                 if (event['membership'] !== "invite") continue;

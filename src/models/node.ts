@@ -5,7 +5,7 @@ import { AutoIncrement, Column, Model, PrimaryKey, Table } from "sequelize-types
     underscoredAll: false,
     timestamps: false,
 })
-export default class Node extends Model<Node> {
+export default class GraphNode extends Model<GraphNode> {
     @PrimaryKey
     @AutoIncrement
     @Column
@@ -42,16 +42,19 @@ export default class Node extends Model<Node> {
      * wish to be included on the graph and other resources. For rooms, this means that
      * the room is public enough to be joined by other users (including the bot).
      */
+    @Column
     isPublic: boolean;
 
     /**
      * The current display name for the object.
      */
+    @Column
     displayName: string;
 
     /**
      * The current avatar URL for the object.
      */
+    @Column
     avatarUrl: string;
 
     /**

@@ -41,17 +41,10 @@ export default class Link extends Model<Link> {
 
     /**
      * Whether or not this link is visible. This is used to track links/events on rooms,
-     * but not advertise them on the graph.
+     * but not advertise them on the graph. They may also be redacted with this flag.
      */
     @Column
     isVisible: boolean;
-
-    /**
-     * Whether or not the link is redacted. Redacted links are not considered to exist when
-     * performing calculations.
-     */
-    @Column
-    isRedacted: boolean;
 
     /**
      * The matrix event ID this link was generated from. Older links may not have this.
