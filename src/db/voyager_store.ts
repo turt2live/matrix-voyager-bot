@@ -49,10 +49,18 @@ class _VoyagerStore {
     }
 
     public isUserTrackable(userId: string): Promise<boolean> {
-        return User.findOne({where: {userId: userId}}).then(user => {
-            if (!user) return true; // Have not opted out
+        return this.getUser(userId).then(user => {
             return !user.doNotTrack;
         });
+    }
+
+    public getUser(userId: string): Promise<User> {
+        return User.findOne({where: {userId: userId}}).then(user => {
+            if (!user) {
+                return User.create({userId: userId, doNotTrack: false});
+            }
+            return user;
+        }).then(resolveIfExists);
     }
 }
 

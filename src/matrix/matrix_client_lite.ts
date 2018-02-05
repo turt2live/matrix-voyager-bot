@@ -217,11 +217,11 @@ export default class MatrixLiteClient extends EventEmitter {
     }
 
     /**
-     * Gets information on a given user
+     * Gets the profile for a given user
      * @param {string} userId the user ID to lookup
-     * @returns {Promise<*>} information on the user
+     * @returns {Promise<*>} the profile of the user
      */
-    public getUserInfo(userId: string): Promise<any> {
+    public getUserProfile(userId: string): Promise<any> {
         return this.do("GET", "/_matrix/client/r0/profile/" + userId);
     }
 
@@ -276,6 +276,19 @@ export default class MatrixLiteClient extends EventEmitter {
             body: text,
             msgtype: "m.notice"
         }).then(response => {
+            return response['event_id'];
+        });
+    }
+
+    /**
+     * Sends a message to the given room
+     * @param {string} roomId the room ID to send the notice to
+     * @param {string} content the event body to send
+     * @returns {Promise<string>} resolves to the event ID that represents the message
+     */
+    public sendMessage(roomId: string, content: any): Promise<string> {
+        const txnId = (new Date().getTime()) + "__REQ" + this.requestId;
+        return this.do("PUT", "/_matrix/client/r0/rooms/" + roomId + "/send/m.room.message/" + txnId, null, content).then(response => {
             return response['event_id'];
         });
     }

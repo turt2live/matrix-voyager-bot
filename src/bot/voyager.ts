@@ -5,6 +5,7 @@ import Link from "../models/link";
 import { LogService } from "matrix-js-snippets";
 import VoyagerBot from "../matrix/default_client";
 import { VoyagerStore } from "../db/voyager_store";
+import { CommandHandler } from "./command_handler";
 
 class _Voyager {
 
@@ -79,7 +80,7 @@ class _Voyager {
 
         const body = event['content']['body'];
         if (body.startsWith("!voyager")) {
-            // TODO: Commands
+            CommandHandler.handleCommand(roomId, event, body.substring("!voyager".length).trim().split(" "));
         } else {
             VoyagerStore.isUserTrackable(event['sender']).then(canTrack => {
                 if (!canTrack) {
@@ -112,7 +113,7 @@ class _Voyager {
         }).then(() => LogService.info("Voyager", "Created message link from " + roomId + " to " + matched));
     }
 
-    private getNode(objectId: string, type: string): Promise<GraphNode> {
+    public getNode(objectId: string, type: string): Promise<GraphNode> {
         return GraphNode.findOne({where: {objectId: objectId, type: type}}).then(node => {
             if (!node) {
                 // TODO: Record node_created event
@@ -129,6 +130,22 @@ class _Voyager {
             }
 
             return node;
+        });
+    }
+
+    public sendPilledMessage(roomId: string, userId: string, message: string): Promise<any> {
+        return VoyagerBot.getUserProfile(userId).then(profile => {
+            const displayName = profile['displayname'] || userId;
+
+            const htmlVersion = "<a href=\"https://matrix.to/#/" + userId + "\">" + displayName + "</a>: " + message;
+            const textVersion = displayName + ": " + message;
+
+            return VoyagerBot.sendMessage(roomId, {
+                msgtype: "m.notice",
+                format: "org.matrix.custom.html",
+                body: textVersion,
+                formatted_body: htmlVersion,
+            });
         });
     }
 }
