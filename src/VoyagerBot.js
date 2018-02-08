@@ -249,6 +249,11 @@ class VoyagerBot {
             isAnonymous: !this._store.isEnrolled(userId),
             primaryAlias: null, // users can't have aliases
         };
+      
+        // Don't get profile information if the user isn't public
+        if (version.isAnonymous) {
+            return Promise.resolve(version);
+        }
 
         return this._client.getUserInfo(userId).then(userInfo=> {
             version.displayName = userInfo['displayname'];
@@ -440,10 +445,10 @@ class VoyagerBot {
             return;
         }
       
-        if (nodeMeta.type === 'user') {
-            log.warn("VoyagerBot", "Skipping user node update for " + nodeMeta.objectId);
-            return;
-        }
+        //if (nodeMeta.type === 'user') {
+        //    log.warn("VoyagerBot", "Skipping user node update for " + nodeMeta.objectId);
+        //    return;
+        //}
 
         if (this._queuedObjectIds.indexOf(nodeMeta.objectId) !== -1) {
             log.info("VoyagerBot", "Node update queue attempt for " + nodeMeta.objectId + " - skipped because the node is already queued");
@@ -583,17 +588,20 @@ class VoyagerBot {
 
         var userNode;
         var userMeta;
+      
+        // We won't bother updating the user information, just create the user
+        return this.getNode(userId, 'user');
 
-        return this.getNode(userId, 'user').then(node => {
-            userNode = node;
+        //return this.getNode(userId, 'user').then(node => {
+        //    userNode = node;
 
-            return this._store.getCurrentNodeState(userNode);
-        }).then(meta=> {
-            userMeta = meta;
-            return this._getUserVersion(userId);
-        }).then(realVersion => {
-            return this._tryUpdateNodeVersion(userNode, userMeta, realVersion);
-        });
+        //    return this._store.getCurrentNodeState(userNode);
+        //}).then(meta=> {
+        //    userMeta = meta;
+        //    return this._getUserVersion(userId);
+        //}).then(realVersion => {
+        //    return this._tryUpdateNodeVersion(userNode, userMeta, realVersion);
+        //});
     }
 
     _tryUpdateRoomNodeVersion(roomId) {
