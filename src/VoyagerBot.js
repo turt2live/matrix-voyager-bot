@@ -308,9 +308,6 @@ class VoyagerBot {
                     roomMembers.push(displayName);
                     if (event['membership'] === 'join' || event['membership'] === 'invite') joinedMembers.push(displayName);
                     tryAddServer(event['user_id']);
-                  
-                    // Queue the user so we get a better idea of their status
-                    this._queueNodeUpdate({objectId: event['user_id'], inRoom: roomId, type: 'user'});
                 } else if (event['type'] === 'm.room.aliases') {
                     if (event['content']['aliases']) {
                         log.silly("VoyagerBot", "m.room.aliases for " + roomId + " on domain " + event['state_key'] + " is: " + event['content']['aliases'].join(', '));
