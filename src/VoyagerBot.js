@@ -320,7 +320,7 @@ class VoyagerBot {
                 } else if (event['type'] === 'm.room.canonical_alias') {
                     log.silly("VoyagerBot", "m.room.canonical_alias for " + roomId + " is " + event['content']['alias']);
                     version.primaryAlias = event['content']['alias'];
-                    tryAddServer(event['content']['alias']);
+                    if (event['content']['alias']) tryAddServer(event['content']['alias']);
                 } else if (event['type'] === 'm.room.name') {
                     log.silly("VoyagerBot", "m.room.name for " + roomId + " is " + event['content']['name']);
                     version.displayName = event['content']['name'];
