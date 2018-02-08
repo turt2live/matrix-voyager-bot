@@ -310,7 +310,7 @@ class VoyagerBot {
                     tryAddServer(event['user_id']);
                   
                     // Queue the user so we get a better idea of their status
-                    this._queueNodeUpdate({objectId: event['user_id'], inRoom: roomId, type: 'user'});
+                    this._queueNodeUpdate({objectId: event['user_id'], inRoom: roomId, type: 'user'}, /*save:*/false);
                 } else if (event['type'] === 'm.room.aliases') {
                     if (event['content']['aliases']) {
                         log.silly("VoyagerBot", "m.room.aliases for " + roomId + " on domain " + event['state_key'] + " is: " + event['content']['aliases'].join(', '));
@@ -333,6 +333,8 @@ class VoyagerBot {
                         version.avatarUrl = this._client.convertMediaToThumbnail(event['content']['url'], 256, 256);
                 } else log.silly("VoyagerBot", "Not handling state event " + event['type'] + " in room " + roomId);
             }
+          
+            this._savePendingNodeUpdates(); // save the queued users
 
             // Populate stats
             version.stats.users = joinedMembers.length;
