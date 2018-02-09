@@ -293,12 +293,13 @@ class VoyagerBot {
                     servers.push(server);
             };
 
-            for (var event of state) {
+            var chain = Promise.resolve();
+            state.map(event => chain = chain.then(() => {
                 if (event['type'] === 'm.room.join_rules') {
                     log.silly("VoyagerBot", "m.room.join_rules for " + roomId + " is " + event['content']['join_rule']);
                     version.isAnonymous = event['content']['join_rule'] !== 'public';
                 } else if (event['type'] === 'm.room.member') {
-                    if (event['user_id'] === this._client.selfId) continue; // skip ourselves, always
+                    if (event['user_id'] === this._client.selfId) return; // skip ourselves, always
                     log.silly("VoyagerBot", "m.room.member of " + event['user_id'] + " in " + roomId + " is " + event['membership']);
 
                     var displayName = event['content']['displayname'];
@@ -310,7 +311,7 @@ class VoyagerBot {
                     tryAddServer(event['user_id']);
 
                     // Create the node, but don't bother updating the information for it
-                    this.getNode(event['user_id'], 'user').then(n => log.silly("VoyagerBot", "Got node for " + n.objectId + ": " + n.id));
+                    return this.getNode(event['user_id'], 'user').then(n => log.silly("VoyagerBot", "Got node for " + n.objectId + ": " + n.id));
                 } else if (event['type'] === 'm.room.aliases') {
                     if (event['content']['aliases']) {
                         log.silly("VoyagerBot", "m.room.aliases for " + roomId + " on domain " + event['state_key'] + " is: " + event['content']['aliases'].join(', '));
@@ -332,69 +333,71 @@ class VoyagerBot {
                     if (event['content']['url'] && event['content']['url'].trim().length > 0)
                         version.avatarUrl = this._client.convertMediaToThumbnail(event['content']['url'], 256, 256);
                 } else log.silly("VoyagerBot", "Not handling state event " + event['type'] + " in room " + roomId);
-            }
+            }));
 
-            // Populate stats
-            version.stats.users = joinedMembers.length;
-            version.stats.servers = servers.length;
+            return chain.then(() => {
+                // Populate stats
+                version.stats.users = joinedMembers.length;
+                version.stats.servers = servers.length;
 
-            // HACK: This is technically against spec, but we'll pick a reasonable default for a room's alias if there is none.
-            if (!version.primaryAlias && version.aliases.length > 0)
-                version.primaryAlias = (matrixDotOrgAliases.length > 0 ? matrixDotOrgAliases[0] : version.aliases[0]);
+                // HACK: This is technically against spec, but we'll pick a reasonable default for a room's alias if there is none.
+                if (!version.primaryAlias && version.aliases.length > 0)
+                    version.primaryAlias = (matrixDotOrgAliases.length > 0 ? matrixDotOrgAliases[0] : version.aliases[0]);
 
-            // Now that we've processed room state: determine the room name
-            if (version.displayName && version.displayName.trim().length > 0) return version; // we're done :)
+                // Now that we've processed room state: determine the room name
+                if (version.displayName && version.displayName.trim().length > 0) return version; // we're done :)
 
-            matrixDotOrgAliases.sort();
-            version.aliases.sort();
-            joinedMembers.sort(naturalSort({caseSensitive: false}));
-            roomMembers.sort(naturalSort({caseSensitive: false}));
+                matrixDotOrgAliases.sort();
+                version.aliases.sort();
+                joinedMembers.sort(naturalSort({caseSensitive: false}));
+                roomMembers.sort(naturalSort({caseSensitive: false}));
 
-            // Display name logic (according to matrix spec) | http://matrix.org/docs/spec/client_server/r0.2.0.html#id222
-            // 1. Use m.room.name (handled above)
-            // 2. Use m.room.canonical_alias
-            //   a. *Against Spec* Use m.room.aliases, picking matrix.org aliases over other aliases, if no canonical alias
-            // 3. Use joined/invited room members (not including self)
-            //    a. 1 member - use their display name
-            //    b. 2 members - use their display names, lexically sorted
-            //    c. 3+ members - use first display name, lexically, and show 'and N others'
-            // 4. Consider left users and repeat #3 ("Empty room (was Alice and Bob)")
-            // 5. Show 'Empty Room' - this shouldn't happen as it is an error condition in the spec
+                // Display name logic (according to matrix spec) | http://matrix.org/docs/spec/client_server/r0.2.0.html#id222
+                // 1. Use m.room.name (handled above)
+                // 2. Use m.room.canonical_alias
+                //   a. *Against Spec* Use m.room.aliases, picking matrix.org aliases over other aliases, if no canonical alias
+                // 3. Use joined/invited room members (not including self)
+                //    a. 1 member - use their display name
+                //    b. 2 members - use their display names, lexically sorted
+                //    c. 3+ members - use first display name, lexically, and show 'and N others'
+                // 4. Consider left users and repeat #3 ("Empty room (was Alice and Bob)")
+                // 5. Show 'Empty Room' - this shouldn't happen as it is an error condition in the spec
 
-            // using canonical alias
-            if (version.primaryAlias && version.primaryAlias.trim().length > 0) {
-                version.displayName = version.primaryAlias;
+                // using canonical alias
+                if (version.primaryAlias && version.primaryAlias.trim().length > 0) {
+                    version.displayName = version.primaryAlias;
+                    return version;
+                }
+
+                // using other aliases, against spec, preferring matrix.org
+                if (version.aliases.length > 0) {
+                    if (matrixDotOrgAliases.length > 0) {
+                        version.displayName = matrixDotOrgAliases[0];
+                    } else version.displayName = version.aliases[0];
+                    return version;
+                }
+
+                // pick the appropriate collection of members
+                var memberArray = joinedMembers;
+                if (memberArray.length === 0) memberArray = roomMembers;
+
+                // build a room name using those members
+                if (memberArray.length === 1) {
+                    version.displayName = memberArray[0];
+                    return version;
+                } else if (memberArray.length === 2) {
+                    version.displayName = memberArray[0] + " and " + memberArray[1];
+                    return version;
+                } else if (memberArray.length > 2) {
+                    version.displayName = memberArray[0] + " and " + (memberArray.length - 1) + " others";
+                    return version;
+                }
+
+                // weird fallback scenario (alone in room)
+                version.displayName = "Empty Room";
+
                 return version;
-            }
-
-            // using other aliases, against spec, preferring matrix.org
-            if (version.aliases.length > 0) {
-                if (matrixDotOrgAliases.length > 0) {
-                    version.displayName = matrixDotOrgAliases[0];
-                } else version.displayName = version.aliases[0];
-                return version;
-            }
-
-            // pick the appropriate collection of members
-            var memberArray = joinedMembers;
-            if (memberArray.length === 0) memberArray = roomMembers;
-
-            // build a room name using those members
-            if (memberArray.length === 1) {
-                version.displayName = memberArray[0];
-                return version;
-            } else if (memberArray.length === 2) {
-                version.displayName = memberArray[0] + " and " + memberArray[1];
-                return version;
-            } else if (memberArray.length > 2) {
-                version.displayName = memberArray[0] + " and " + (memberArray.length - 1) + " others";
-                return version;
-            }
-
-            // weird fallback scenario (alone in room)
-            version.displayName = "Empty Room";
-
-            return version;
+            });
         });
     }
 
