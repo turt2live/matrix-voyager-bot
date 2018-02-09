@@ -23,7 +23,7 @@ class VoyagerStore {
     prepare() {
         var env = process.env.NODE_ENV || "development";
         log.info("VoyagerStore", "Running migrations");
-        return new Promise((resolve, reject)=> {
+        return new Promise((resolve, reject) => {
             var dbMigrate = DBMigrate.getInstance(true, {
                 config: "./config/database.json",
                 env: env
@@ -107,6 +107,12 @@ class VoyagerStore {
 
     _populateEnrolledUsers() {
         log.info("VoyagerStore", "Populating enrolled users list...");
+        if (this._isPsql) {
+            // Optimize query for postgres users
+            return this._orm.query("SELECT \"objectId\" FROM nodes JOIN node_meta ON node_meta.\"nodeId\" = nodes.\"id\" WHERE \"isReal\" = true AND \"isAnonymous\" = false AND \"type\" = 'user'").then((results, metadata) => {
+                this._enrolledIds = results;
+            });
+        }
         return this.__Nodes.findAll({
             include: [{
                 model: this.__NodeMeta,
@@ -387,7 +393,7 @@ class VoyagerStore {
                 as: 'link'
             }]
         }).then(events => {
-            if (!events)return Promise.resolve(null);
+            if (!events) return Promise.resolve(null);
 
             for (var event of events) {
                 if (event.link) return Promise.resolve(event.link);
@@ -416,7 +422,7 @@ class VoyagerStore {
             timestamp: new Date(timestamp),
             isRedacted: isRedacted,
             isVisible: isVisible
-        }).then(k=> {
+        }).then(k => {
             link = k;
             return this.createStateEvent('link_added', {linkId: link.id});
         }).then(() => this.getLinkById(link.id));
@@ -578,7 +584,7 @@ class VoyagerStore {
                 as: 'link'
             }],
             limit: limit
-        }).then(lse=> {
+        }).then(lse => {
             linkResults = lse;
             return this.__StateEvents.findAndCountAll({
                 where: {
@@ -594,7 +600,7 @@ class VoyagerStore {
                 }],
                 limit: limit
             });
-        }).then(nse=> {
+        }).then(nse => {
             nodeResults = nse;
 
             var linkEvents = linkResults.rows.map(r => new CompleteStateEvent(r));
