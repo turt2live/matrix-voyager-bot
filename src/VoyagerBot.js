@@ -207,10 +207,10 @@ class VoyagerBot {
 
         log.info("VoyagerBot", "Recording " + type + " for " + roomId + " made by " + event['sender']);
 
-        return this.getNode(event['sender'], 'user').then(node=> {
+        return this.getNode(event['sender'], 'user').then(node => {
             userNode = node;
             return this.getNode(roomId, 'room');
-        }).then(node=> {
+        }).then(node => {
             roomNode = node;
             return this._store.redactNode(roomNode);
         }).then(() => {
@@ -249,13 +249,13 @@ class VoyagerBot {
             isAnonymous: !this._store.isEnrolled(userId),
             primaryAlias: null, // users can't have aliases
         };
-      
+
         // Don't get profile information if the user isn't public
         if (version.isAnonymous) {
             return Promise.resolve(version);
         }
 
-        return this._client.getUserInfo(userId).then(userInfo=> {
+        return this._client.getUserInfo(userId).then(userInfo => {
             version.displayName = userInfo['displayname'];
             version.avatarUrl = userInfo['avatar_url'];
 
@@ -308,6 +308,9 @@ class VoyagerBot {
                     roomMembers.push(displayName);
                     if (event['membership'] === 'join' || event['membership'] === 'invite') joinedMembers.push(displayName);
                     tryAddServer(event['user_id']);
+
+                    // Create the node, but don't bother updating the information for it
+                    this.getNode(event['user_id'], 'user').then(n => log.silly("VoyagerBot", "Got node for " + n.objectId + ": " + n.id));
                 } else if (event['type'] === 'm.room.aliases') {
                     if (event['content']['aliases']) {
                         log.silly("VoyagerBot", "m.room.aliases for " + roomId + " on domain " + event['state_key'] + " is: " + event['content']['aliases'].join(', '));
@@ -444,7 +447,7 @@ class VoyagerBot {
             log.warn("VoyagerBot", "Unexpected node: " + JSON.stringify(nodeMeta));
             return;
         }
-      
+
         //if (nodeMeta.type === 'user') {
         //    log.warn("VoyagerBot", "Skipping user node update for " + nodeMeta.objectId);
         //    return;
@@ -588,7 +591,7 @@ class VoyagerBot {
 
         var userNode;
         var userMeta;
-      
+
         // We won't bother updating the user information, just create the user
         return this.getNode(userId, 'user');
 
