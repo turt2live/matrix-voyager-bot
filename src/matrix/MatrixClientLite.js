@@ -269,7 +269,7 @@ class MatrixLiteClient extends EventEmitter {
         return this._do("GET", "/_matrix/client/r0/directory/room/" + roomIdOrAlias).then(response => {
             if (this._joinedRooms.indexOf(response['room_id']) !== -1) {
                 log.info("MatrixClientLite", "No-oping join: Already joined room");
-                return response['room_id'];
+                return response;
             }
 
             // Actually do the join because we aren't joined
