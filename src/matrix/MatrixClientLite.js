@@ -40,6 +40,8 @@ class MatrixLiteClient extends EventEmitter {
         // Note: We use localstorage because we don't need the complexity of a database, and this makes resetting state a lot easier.
         this._kvStore = new LocalStorage("db/mtx_client_lite_localstorage", 100 * 1024 * 1024); // quota is 100mb
 
+        this._joinedRooms = [];
+
         log.verbose("MatrixClientLite", "New client created for " + this.selfId + " at homeserver " + this._homeserverUrl);
     }
 
@@ -81,8 +83,10 @@ class MatrixLiteClient extends EventEmitter {
             });
         }
 
-        // Start sync after filter is created
-        return filterPromise.then(() => {
+        return this.getJoinedRooms().then(roomIds => {
+            this._joinedRooms = roomIds;
+            return filterPromise;
+        }).then(() => {
             log.info("MatrixClientLite", "Starting sync with filter ID " + this._filterId);
             this._startSync();
         });
@@ -254,8 +258,23 @@ class MatrixLiteClient extends EventEmitter {
      * @returns {Promise<string>} resolves to the joined room ID
      */
     joinRoom(roomIdOrAlias) {
+        if (this._joinedRooms.indexOf(roomIdOrAlias) !== -1) {
+            log.info("MatrixClientLite", "No-oping join: Already joined room");
+            return Promise.resolve(roomIdOrAlias);
+        }
+
         roomIdOrAlias = encodeURIComponent(roomIdOrAlias);
-        return this._do("POST", "/_matrix/client/r0/join/" + roomIdOrAlias).then(response => {
+
+        // Do a directory lookup to get the room ID
+        return this._do("GET", "/_matrix/client/r0/directory/room/" + roomIdOrAlias).then(response => {
+            if (this._joinedRooms.indexOf(response['room_id']) !== -1) {
+                log.info("MatrixClientLite", "No-oping join: Already joined room");
+                return response['room_id'];
+            }
+
+            // Actually do the join because we aren't joined
+            return this._do("POST", "/_matrix/client/r0/join/" + roomIdOrAlias);
+        }).then(response => {
             return response['room_id'];
         });
     }
