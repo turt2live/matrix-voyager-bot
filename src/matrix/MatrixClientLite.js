@@ -263,10 +263,15 @@ class MatrixLiteClient extends EventEmitter {
             return Promise.resolve(roomIdOrAlias);
         }
 
+        var isRoom = roomIdOrAlias[0] === '!';
+        var originalId = roomIdOrAlias;
         roomIdOrAlias = encodeURIComponent(roomIdOrAlias);
+      
+        // TODO: Make this better
+        var joinPromise = isRoom ? Promise.resolve({room_id: originalId}) : this._do("GET", "/_matrix/client/r0/directory/room/" + roomIdOrAlias);
 
         // Do a directory lookup to get the room ID
-        return this._do("GET", "/_matrix/client/r0/directory/room/" + roomIdOrAlias).then(response => {
+        return joinPromise.then(response => {
             if (this._joinedRooms.indexOf(response['room_id']) !== -1) {
                 log.info("MatrixClientLite", "No-oping join: Already joined room");
                 return response;
