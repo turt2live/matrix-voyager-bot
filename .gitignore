@@ -3,6 +3,9 @@ network_sample.json
 
 web-dist/
 
+workers-build/
+config/worker*
+
 logs/
 
 db/*.db

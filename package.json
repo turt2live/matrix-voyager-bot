@@ -7,6 +7,7 @@
     "url": "git+https://github.com/turt2live/matrix-voyager-bot.git"
   },
   "dependencies": {
+    "amqplib": "^0.5.3",
     "bluebird": "^3.5.0",
     "chalk": "^2.1.0",
     "config": "^1.26.2",
@@ -15,7 +16,7 @@
     "db-migrate-sqlite3": "^0.2.1",
     "events": "^1.1.1",
     "express": "^4.15.4",
-    "js-yaml": "^3.9.1",
+    "js-yaml": "^3.12.0",
     "lodash": "^4.17.4",
     "lodash.sortedindex": "^4.1.0",
     "moment": "^2.18.1",
@@ -26,6 +27,7 @@
     "pg-hstore": "^2.3.2",
     "promise-map": "^1.2.0",
     "q": "^1.5.0",
+    "random-string": "^0.2.0",
     "reflect-metadata": "^0.1.10",
     "request": "^2.81.0",
     "sequelize": "^4.6.0",
@@ -73,6 +75,7 @@
     "rimraf": "^2.6.0",
     "semver": "^5.3.0",
     "shelljs": "^0.7.6",
+    "typescript": "^3.2.2",
     "url-loader": "^0.5.8",
     "vue-awesome": "^2.3.3",
     "vue-loader": "^13.0.4",
@@ -89,7 +92,9 @@
     "dev": "node build/dev-server.js",
     "start": "node build/dev-server.js",
     "build": "node build/build.js",
-    "lint": "eslint --ext .js,.vue src"
+    "lint": "eslint --ext .js,.vue src",
+    "worker-test": "tsc && node workers-build/test.js",
+    "worker-publish": "tsc && node workers-build/publish-test.js"
   },
   "engines": {
     "node": ">= 4.0.0",
