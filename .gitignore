@@ -5,6 +5,8 @@ web-dist/
 
 workers-build/
 config/worker*
+lib/
+voyager-registration.yaml
 
 logs/
 

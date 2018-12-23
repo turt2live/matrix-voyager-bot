@@ -5,11 +5,11 @@
       "pretty": true,
       "sourceMap": true,
       "target": "es6",
-      "outDir": "./workers-build",
-      "baseUrl": "./workers"
+      "outDir": "./lib",
+      "baseUrl": "./src"
     },
     "include": [
-      "workers/**/*.ts"
+      "src/**/*.ts"
     ],
     "exclude": [
       "node_modules"
