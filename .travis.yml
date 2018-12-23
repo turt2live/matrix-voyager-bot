@@ -4,8 +4,9 @@ node_js:
 env:
 - NODE_ENV=development
 before_install:
-- npm i -g npm
+  - npm i -g npm
 install:
   - npm install
 script:
+  - npm run lint
   - npm run build
