@@ -140,8 +140,13 @@ export class PostgresDatabase implements IPostgresTransaction {
 
     public async startTransaction(): Promise<IPostgresTransaction> {
         const pgClient = await this.getClient();
-        const txn = new PostgresDatabase(pgClient.client);
-        await txn.query("BEGIN");
-        return txn;
+        try {
+            const txn = new PostgresDatabase(pgClient.client);
+            await txn.query("BEGIN");
+            return txn;
+        } catch (e) {
+            pgClient.client.release();
+            throw e;
+        }
     }
 }
