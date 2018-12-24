@@ -15,6 +15,9 @@ import {
     TYPE_STATE_EVENT
 } from "../mq/consts";
 
+const RETRY_MATCH_JOIN_INTERVAL = 5000;
+const RETRY_MATCH_MAXIMUM = 10;
+
 /**
  * Creates an appservice worker
  * @constructor
@@ -70,6 +73,11 @@ export class AppserviceWorker implements IWorker {
     }
 
     private handleEvent(roomId: string, event: any) {
+        if (!event['content']) {
+            LogService.warn("AppserviceWorker", "Received event without content (probably redacted) - ignoring");
+            return;
+        }
+
         if (event["type"] === "m.room.member" && event["state_key"] === this.appservice.botUserId) {
             return this.processMembershipEvent(roomId, event);
         }
@@ -79,7 +87,7 @@ export class AppserviceWorker implements IWorker {
             return;
         }
 
-        if (event["type"] === "m.room.message" && event["content"] && !event['state_key'] && event['state_key'] !== '') {
+        if (event["type"] === "m.room.message" && !event['state_key'] && event['state_key'] !== '') {
             return this.processMessageEvent(roomId, event);
         }
         if (event["state_key"] || event["state_key"] === '') {
@@ -87,9 +95,18 @@ export class AppserviceWorker implements IWorker {
         }
     }
 
-    private async processMembershipEvent(roomId: string, event: any) {
-        if (!event["content"]) return;
+    private updateJoinedRooms(roomId: string, isJoined: boolean) {
+        if (isJoined) {
+            if (this.joinedRooms.indexOf(roomId) === -1) {
+                this.joinedRooms.push(roomId);
+            }
+        } else {
+            const idx = this.joinedRooms.indexOf(roomId);
+            if (idx !== -1) this.joinedRooms.splice(idx, 1);
+        }
+    }
 
+    private async processMembershipEvent(roomId: string, event: any) {
         const membership = event["content"]["membership"];
         if (membership === "invite") {
             LogService.info("AppserviceWorker", "Received invite to a room");
@@ -100,13 +117,14 @@ export class AppserviceWorker implements IWorker {
             });
             return this.appservice.botIntent.joinRoom(roomId);
         } else if (membership === "join") {
-            if (this.joinedRooms.indexOf(roomId) === -1) this.joinedRooms.push(roomId);
+            this.updateJoinedRooms(roomId, true);
             LogService.info("AppserviceWorker", "Successfully joined a room");
             return await this.mq.sendPayload(TOPIC_ROOM_STATE, TYPE_STATE_EVENT, <IRoomStatePayload>{
                 roomId: roomId,
                 event: event,
             });
         } else if (membership === "leave") {
+            this.updateJoinedRooms(roomId, false);
             if (event["sender"] !== event["state_key"]) {
                 LogService.info("AppserviceWorker", "Kicked from a room");
                 return await this.mq.sendPayload(TOPIC_LINKS, TYPE_CREATE_LINK, <ICreateLink>{
@@ -124,6 +142,7 @@ export class AppserviceWorker implements IWorker {
                 });
             }
         } else if (membership === "ban") {
+            this.updateJoinedRooms(roomId, false);
             LogService.info("AppserviceWorker", "Banned from a room");
             return await this.mq.sendPayload(TOPIC_LINKS, TYPE_CREATE_LINK, <ICreateLink>{
                 from: {type: "user", id: event["sender"]},
@@ -134,8 +153,25 @@ export class AppserviceWorker implements IWorker {
         }
     }
 
-    private processMessageEvent(roomId: string, event: any) {
-        LogService.info("AppserviceWorker", "TODO: Process message");
+    private async processMessageEvent(roomId: string, event: any) {
+        const body: string = event["content"]["body"];
+        if (!body) return;
+
+        if (body.startsWith("!voyager")) {
+            LogService.info("AppserviceWorker", "COMMAND");
+            //return this.processCommand(roomId, event);
+        }
+
+        // TODO: Match matrix.to links and parse ?via arguments
+        const matches = body.match(/[#!][a-zA-Z0-9.\-_#=]+:[a-zA-Z0-9.\-_]+[a-zA-Z0-9]/g);
+        if (!matches) return;
+
+        for (const match of matches) {
+            // noinspection JSIgnoredPromiseFromCall
+            this.processMatch(roomId, event, match);
+        }
+
+        await this.appservice.botIntent.underlyingClient.sendReadReceipt(roomId, event["event_id"]);
     }
 
     private processStateEvent(roomId: string, event: any) {
@@ -144,6 +180,41 @@ export class AppserviceWorker implements IWorker {
             roomId: roomId,
             event: event,
         });
+    }
+
+    private async processMatch(roomId: string, event: any, match: string, retryCount = 0) {
+        if (retryCount > RETRY_MATCH_MAXIMUM) {
+            LogService.warn("AppserviceWorker", `Failed to process match ${match} in ${roomId}`);
+            return;
+        }
+        try {
+            LogService.info("AppserviceWorker", `Processing match ${match} in ${roomId}`);
+
+            const targetRoomId = await this.appservice.botIntent.underlyingClient.resolveRoom(match);
+            if (!targetRoomId) {
+                LogService.warn("AppserviceWorker", `No resulting room ID for ${match} - retrying`);
+                setTimeout(() => this.processMatch(roomId, event, match, retryCount++), RETRY_MATCH_JOIN_INTERVAL);
+                return;
+            }
+
+            if (this.joinedRooms.indexOf(targetRoomId) === -1) {
+                await this.appservice.botIntent.joinRoom(match);
+            } else {
+                LogService.info("AppserviceWorker", `Already joined to ${targetRoomId} - skipping join`);
+            }
+
+            await this.mq.sendPayload(TOPIC_LINKS, TYPE_CREATE_LINK, <ICreateLink>{
+                from: {type: "room", id: roomId},
+                to: {type: "room", id: targetRoomId},
+                type: "message",
+                message: match,
+            });
+            LogService.info("AppserviceWorker", `Linked ${match} (${targetRoomId}) to ${roomId} as type 'message'`);
+        } catch (e) {
+            LogService.error("AppserviceWorker", `Error processing match ${match} in ${roomId} - retrying`);
+            LogService.error("AppserviceWorker", e);
+            setTimeout(() => this.processMatch(roomId, event, match, retryCount++), RETRY_MATCH_JOIN_INTERVAL);
+        }
     }
 
     /**
