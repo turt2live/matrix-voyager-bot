@@ -5,6 +5,7 @@ import { IWorkerFactory } from "./IWorker";
 import { AppserviceWorker, NewAppserviceWorker } from "./appservice/worker";
 import * as yaml from "js-yaml";
 import * as fs from "fs";
+import { NewRoomHandlerWorker } from "./room_handler/worker";
 
 LogService.configure(VoyagerConfig.logging);
 LogService.info("index", "Starting Voyager");
@@ -26,6 +27,7 @@ if (program.generateRegistration) {
 
 const knownWorkers: { [name: string]: IWorkerFactory } = {
     appservice: NewAppserviceWorker,
+    room_handler: NewRoomHandlerWorker,
 };
 
 if (!(program.worker in knownWorkers)) {

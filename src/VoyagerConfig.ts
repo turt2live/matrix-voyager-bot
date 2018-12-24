@@ -18,6 +18,17 @@ interface IVoyagerConfig {
     data: {
         appservice: string;
     };
+    rabbitmq: {
+        protocol: string;
+        host: string;
+        port: number;
+        user: string;
+        password: string;
+        vhost: string;
+        exchange: string;
+        deadLetterExchange: string;
+        deadLetterQueue: string;
+    };
     logging: LogConfig;
 }
 

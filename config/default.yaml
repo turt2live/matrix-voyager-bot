@@ -38,6 +38,36 @@ data:
   # file.
   appservice: "/data/appservice.json"
 
+# The configuration for the RabbitMQ connection. The various queues and exchanges
+# will be created upon startup.
+rabbitmq:
+  # The protocol to use. Typically left unchanged.
+  protocol: amqp
+
+  # The host to connect to
+  host: localhost
+
+  # The port to connect on
+  port: 5672
+
+  # The username to use
+  user: voyager
+
+  # The password to use
+  password: passw0rd
+
+  # The vhost to connect on
+  vhost: "/voyager"
+
+  # The exchange that everything is tied into
+  exchange: ex
+
+  # The exchange that is used to retry events
+  deadLetterExchange: dlx
+
+  # The queue name that is used to hold dead letters
+  deadLetterQueue: dlq
+
 # Settings for controlling how logging works
 logging:
   file: logs/voyager.log

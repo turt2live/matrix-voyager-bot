@@ -5,6 +5,15 @@ import * as escapeStringRegexp from "escape-string-regexp";
 import * as mkdirp from "mkdirp";
 import * as path from "path";
 import { LogService } from "matrix-js-snippets";
+import { MqConnection } from "../mq/mq";
+import {
+    ICreateLink,
+    IRoomStatePayload,
+    TOPIC_LINKS,
+    TOPIC_ROOM_STATE,
+    TYPE_CREATE_LINK,
+    TYPE_STATE_EVENT
+} from "../mq/consts";
 
 /**
  * Creates an appservice worker
@@ -20,9 +29,13 @@ export function NewAppserviceWorker(): AppserviceWorker {
  */
 export class AppserviceWorker implements IWorker {
 
+    private mq: MqConnection;
     private appservice: Appservice;
+    private joinedRooms: string[] = [];
 
     constructor() {
+        this.mq = new MqConnection();
+
         mkdirp.sync(path.normalize(path.join(VoyagerConfig.data.appservice, '..')));
 
         // Generate a registration and change the user namespace to make the bot-sdk
@@ -45,39 +58,78 @@ export class AppserviceWorker implements IWorker {
         this.appservice.on("room.event", this.handleEvent.bind(this));
     }
 
-    start(): Promise<any> {
-        return this.appservice.begin();
+    public async start(): Promise<any> {
+        LogService.info("AppserviceWorker", "Getting joined rooms for bot...");
+        this.joinedRooms = await this.appservice.botIntent.underlyingClient.getJoinedRooms();
+        LogService.info("AppserviceWorker", `Bot resides in ${this.joinedRooms.length} rooms - starting normal routine`);
+
+        return Promise.all([
+            this.appservice.begin(),
+            this.mq.start(),
+        ]);
     }
 
     private handleEvent(roomId: string, event: any) {
         if (event["type"] === "m.room.member" && event["state_key"] === this.appservice.botUserId) {
-            this.processMembershipEvent(roomId, event);
+            return this.processMembershipEvent(roomId, event);
         }
-        if (event["type"] === "m.room.message" && event["content"]) {
-            this.processMessageEvent(roomId, event);
+
+        if (this.joinedRooms.indexOf(roomId) === -1) {
+            LogService.warn("AppserviceWorker", "Received event for which the bot does not reside - ignoring");
+            return;
+        }
+
+        if (event["type"] === "m.room.message" && event["content"] && !event['state_key'] && event['state_key'] !== '') {
+            return this.processMessageEvent(roomId, event);
         }
         if (event["state_key"] || event["state_key"] === '') {
-            this.processStateEvent(roomId, event);
+            return this.processStateEvent(roomId, event);
         }
     }
 
-    private processMembershipEvent(roomId: string, event: any) {
+    private async processMembershipEvent(roomId: string, event: any) {
         if (!event["content"]) return;
 
         const membership = event["content"]["membership"];
         if (membership === "invite") {
-            LogService.info("AppserviceWorker", "RECEIVED INVITE");
-            this.appservice.botIntent.joinRoom(roomId);
+            LogService.info("AppserviceWorker", "Received invite to a room");
+            await this.mq.sendPayload(TOPIC_LINKS, TYPE_CREATE_LINK, <ICreateLink>{
+                from: {type: "user", id: event["sender"]},
+                to: {type: "room", id: roomId},
+                type: "invite",
+            });
+            return this.appservice.botIntent.joinRoom(roomId);
         } else if (membership === "join") {
-            LogService.info("AppserviceWorker", "JOINED ROOM");
+            LogService.info("AppserviceWorker", "Successfully joined a room");
+            return await this.mq.sendPayload(TOPIC_ROOM_STATE, TYPE_STATE_EVENT, <IRoomStatePayload>{
+                roomId: roomId,
+                event: event,
+            });
         } else if (membership === "leave") {
             if (event["sender"] !== event["state_key"]) {
-                LogService.info("AppserviceWorker", "KICKED FROM ROOM");
+                LogService.info("AppserviceWorker", "Kicked from a room");
+                return await this.mq.sendPayload(TOPIC_LINKS, TYPE_CREATE_LINK, <ICreateLink>{
+                    from: {type: "user", id: event["sender"]},
+                    to: {type: "room", id: roomId},
+                    type: "kick",
+                    message: event["content"]["reason"],
+                });
             } else {
-                LogService.info("AppserviceWorker", "LEFT ROOM PEACEFULLY");
+                LogService.info("AppserviceWorker", "Left peacefully from a room");
+                return await this.mq.sendPayload(TOPIC_LINKS, TYPE_CREATE_LINK, <ICreateLink>{
+                    from: {type: "user", id: event["sender"]},
+                    to: {type: "room", id: roomId},
+                    type: "leave",
+                });
             }
         } else if (membership === "ban") {
-            LogService.info("AppserviceWorker", "BANNED FROM ROOM");
+            LogService.info("AppserviceWorker", "Banned from a room");
+            return await this.mq.sendPayload(TOPIC_LINKS, TYPE_CREATE_LINK, <ICreateLink>{
+                from: {type: "user", id: event["sender"]},
+                to: {type: "room", id: roomId},
+                type: "ban",
+                message: event["content"]["reason"],
+            });
         }
     }
 
@@ -86,7 +138,11 @@ export class AppserviceWorker implements IWorker {
     }
 
     private processStateEvent(roomId: string, event: any) {
-        LogService.info("AppserviceWorker", "TODO: Process state event");
+        LogService.info("AppserviceWorker", "Broadcasting receipt of generic state event");
+        return this.mq.sendPayload(TOPIC_ROOM_STATE, TYPE_STATE_EVENT, <IRoomStatePayload>{
+            roomId: roomId,
+            event: event,
+        });
     }
 
     /**

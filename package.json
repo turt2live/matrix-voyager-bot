@@ -29,7 +29,9 @@
     "build": "rimraf lib && npm run build:bot",
     "build:bot": "tsc",
     "start:appservice": "npm run build && npm run run:appservice",
-    "run:appservice": "node lib/index.js -w appservice"
+    "start:room_handler": "npm run build && npm run run:room_handler",
+    "run:appservice": "node lib/index.js -w appservice",
+    "run:room_handler": "node lib/index.js -w room_handler"
   },
   "engines": {
     "node": ">= 8.0.0",

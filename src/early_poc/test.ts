@@ -2,7 +2,7 @@ import * as yaml from "js-yaml";
 import * as fs from "fs";
 import * as amqp from "amqplib";
 import * as randomString from "random-string";
-import { TOPIC_ROOM_STATE, TYPE_STATE_EVENT } from "./consts";
+import { TOPIC_ROOM_STATE, TYPE_STATE_EVENT } from "../mq/consts";
 
 const TOPICS = [TOPIC_ROOM_STATE];
 const SUPPORTED_TYPES = [TYPE_STATE_EVENT];
