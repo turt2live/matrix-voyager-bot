@@ -1,5 +1,5 @@
 export const TABLE_ROOM_SNAPSHOTS = "room_snapshots";
-export const TABLE_CURRENT_ROOM_SNAPSHOTS = "room_snapshot_current";
+export const TABLE_CURRENT_ROOM_SNAPSHOTS = "room_snapshots_current";
 
 export interface IRoomSnapshot {
     id: string;

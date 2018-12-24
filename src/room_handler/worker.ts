@@ -1,6 +1,13 @@
 import { IWorker } from "../IWorker";
 import { MqConnection } from "../mq/mq";
-import { IRoomStatePayload, TOPIC_ROOM_STATE, TYPE_STATE_EVENT } from "../mq/consts";
+import {
+    IRoomStatePayload,
+    IRoomUpdated,
+    TOPIC_LINKS,
+    TOPIC_ROOM_STATE,
+    TYPE_ROOM_UPDATED,
+    TYPE_STATE_EVENT
+} from "../mq/consts";
 import { RoomStateCalculator } from "./RoomStateCalculator";
 import { now, simpleDiff } from "../util";
 import { LogService } from "matrix-js-snippets";
@@ -84,12 +91,12 @@ export class RoomHandlerWorker implements IWorker {
             }
         }
 
+        const createdTs = now();
+        const key = sha512().update(`${createdTs}${JSON.stringify(state)}`).digest('hex');
+        const snapshot: IRoomSnapshot = Object.assign({id: key, captured_ts: createdTs}, currentSnapshot);
+
         const txn = await this.db.startTransaction();
         try {
-            const createdTs = now();
-            const key = sha512().update(`${createdTs}${JSON.stringify(state)}`).digest('hex');
-            const snapshot: IRoomSnapshot = Object.assign({id: key, captured_ts: createdTs}, currentSnapshot);
-
             await txn.insert(TABLE_ROOM_SNAPSHOTS, snapshot);
             await txn.upsert(TABLE_CURRENT_ROOM_SNAPSHOTS, "room_id", currentSnapshot);
             await txn.commitTransaction();
@@ -99,6 +106,11 @@ export class RoomHandlerWorker implements IWorker {
         } finally {
             txn.release();
         }
+
+        await this.mq.sendPayload(TOPIC_LINKS, TYPE_ROOM_UPDATED, <IRoomUpdated>{
+            roomId: state.id,
+            currentSnapshot: snapshot,
+        });
     }
 
 }
