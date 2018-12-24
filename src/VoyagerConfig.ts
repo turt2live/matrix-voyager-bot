@@ -18,6 +18,7 @@ interface IVoyagerConfig {
     data: {
         appservice: string;
         avatarCache: string;
+        postgres: string;
     };
     rabbitmq: {
         protocol: string;

@@ -18,6 +18,7 @@
     "matrix-bot-sdk": "^0.2.2",
     "matrix-js-snippets": "^0.2.8",
     "mkdirp": "^0.5.1",
+    "pg": "^7.7.1",
     "random-string": "^0.2.0",
     "request": "^2.88.0"
   },

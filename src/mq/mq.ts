@@ -60,6 +60,7 @@ export class MqConnection {
         if (this.boundTopics.indexOf(topic) !== -1) return;
         LogService.info("mq", `Binding topic ${topic} on ${VoyagerConfig.rabbitmq.exchange} to queue ${this.queueName}...`);
         await this.channel.bindQueue(this.queueName, VoyagerConfig.rabbitmq.exchange, topic);
+        this.boundTopics.push(topic);
     }
 
     /**

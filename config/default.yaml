@@ -42,6 +42,9 @@ data:
   # file.
   avatarCache: "/data/avatars.json"
 
+  # Postgres connection information
+  postgres: "postgresql://user:passw0rd@localhost:5432/database?sslmode=require"
+
 # The configuration for the RabbitMQ connection. The various queues and exchanges
 # will be created upon startup.
 rabbitmq:

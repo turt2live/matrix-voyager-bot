@@ -25,3 +25,33 @@ export async function downloadFromUrl(url: string): Promise<any> {
 export function now(): number {
     return (new Date()).getTime();
 }
+
+export function simpleDiff(a: any, ...b: any[]): string[] {
+    const all = [a, ...b];
+    const mismatchProperties = [];
+
+    for (let i = 0; i < all.length; i++) {
+        for (let j = 0; j < all.length; j++) {
+            if (i === j) continue;
+
+            const sideA = all[i];
+            const sideB = all[j];
+
+            for (const aKey of Object.keys(sideA)) {
+                // noinspection JSUnfilteredForInLoop
+                if (sideB[aKey] !== sideA[aKey]) {
+                    mismatchProperties.push(aKey);
+                }
+            }
+
+            for (const bKey of Object.keys(sideB)) {
+                // noinspection JSUnfilteredForInLoop
+                if (sideB[bKey] !== sideA[bKey]) {
+                    mismatchProperties.push(bKey);
+                }
+            }
+        }
+    }
+
+    return mismatchProperties.filter((p, i) => mismatchProperties.indexOf(p) === i);
+}
