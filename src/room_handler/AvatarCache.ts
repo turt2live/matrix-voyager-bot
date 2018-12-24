@@ -26,6 +26,6 @@ export class AvatarCache {
     public static setMxcForUrl(url: string, mxc: string) {
         if (!AvatarCache.cache) AvatarCache.initCache();
         const key = sha512().update(url).digest('hex');
-        AvatarCache.cache.update(key, mxc).write();
+        AvatarCache.cache.set(key, mxc).write();
     }
 }
