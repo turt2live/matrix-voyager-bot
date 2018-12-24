@@ -17,6 +17,7 @@ interface IVoyagerConfig {
     };
     data: {
         appservice: string;
+        avatarCache: string;
     };
     rabbitmq: {
         protocol: string;
@@ -28,6 +29,9 @@ interface IVoyagerConfig {
         exchange: string;
         deadLetterExchange: string;
         deadLetterQueue: string;
+    };
+    misc: {
+        uiAvatarsUrl: string;
     };
     logging: LogConfig;
 }

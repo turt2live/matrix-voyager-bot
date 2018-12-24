@@ -38,6 +38,10 @@ data:
   # file.
   appservice: "/data/appservice.json"
 
+  # The storage location for the bot's generated avatar cache. Must point to a single
+  # file.
+  avatarCache: "/data/avatars.json"
+
 # The configuration for the RabbitMQ connection. The various queues and exchanges
 # will be created upon startup.
 rabbitmq:
@@ -67,6 +71,12 @@ rabbitmq:
 
   # The queue name that is used to hold dead letters
   deadLetterQueue: dlq
+
+# Miscellaneous settings for the bot.
+misc:
+  # Where the bot can find a ui-avatars instance. See https://ui-avatars.com/ for
+  # more information.
+  uiAvatarsUrl: "https://ui-avatars.com"
 
 # Settings for controlling how logging works
 logging:

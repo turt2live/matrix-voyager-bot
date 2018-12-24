@@ -100,6 +100,7 @@ export class AppserviceWorker implements IWorker {
             });
             return this.appservice.botIntent.joinRoom(roomId);
         } else if (membership === "join") {
+            if (this.joinedRooms.indexOf(roomId) === -1) this.joinedRooms.push(roomId);
             LogService.info("AppserviceWorker", "Successfully joined a room");
             return await this.mq.sendPayload(TOPIC_ROOM_STATE, TYPE_STATE_EVENT, <IRoomStatePayload>{
                 roomId: roomId,
