@@ -21,7 +21,7 @@ export class CreateRoomSnapshotsTable implements IMigration {
             )
         `);
         await txn.query(`
-            CREATE INDEX IF NOT EXISTS ${TABLE_ROOM_SNAPSHOTS}_idx_room_id 
+            CREATE INDEX IF NOT EXISTS ${TABLE_ROOM_SNAPSHOTS}_idx_room_id
             ON ${TABLE_ROOM_SNAPSHOTS}(room_id)
         `);
         await txn.query(`

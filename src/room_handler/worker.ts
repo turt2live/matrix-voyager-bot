@@ -93,8 +93,7 @@ export class RoomHandlerWorker implements IWorker {
             await txn.insert(TABLE_ROOM_SNAPSHOTS, snapshot);
             await txn.upsert(TABLE_CURRENT_ROOM_SNAPSHOTS, "room_id", currentSnapshot);
             await txn.commitTransaction();
-        }
-        catch (e) {
+        } catch (e) {
             LogService.error("RoomHandlerWorker", e);
             await txn.rollbackTransaction();
         } finally {
