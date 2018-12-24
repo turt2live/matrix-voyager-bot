@@ -1,5 +1,6 @@
 import { IPostgresTransaction } from "./postgres";
 import { CreateRoomSnapshotsTable } from "./migrations/20181224105745-CreateRoomVersionsTable";
+import { CreateLinksTable } from "./migrations/20181224163945-CreateLinksTable";
 
 /**
  * Represents a database migration
@@ -20,4 +21,5 @@ export interface IMigration {
 
 export const KNOWN_MIGRATIONS: IMigration[] = [
     new CreateRoomSnapshotsTable(),
+    new CreateLinksTable(),
 ];

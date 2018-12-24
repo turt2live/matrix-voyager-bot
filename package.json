@@ -34,8 +34,10 @@
     "build:bot": "tsc",
     "start:appservice": "npm run build && npm run run:appservice",
     "start:room_handler": "npm run build && npm run run:room_handler",
+    "start:linker": "npm run build && npm run run:linker",
     "run:appservice": "node lib/index.js -w appservice",
-    "run:room_handler": "node lib/index.js -w room_handler"
+    "run:room_handler": "node lib/index.js -w room_handler",
+    "run:linker": "node lib/index.js -w linker"
   },
   "engines": {
     "node": ">= 8.0.0",
