@@ -1,5 +1,6 @@
 import { LogService } from "matrix-js-snippets";
 import * as request from "request";
+import { VoyagerConfig } from "./VoyagerConfig";
 
 export async function downloadFromUrl(url: string): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -54,4 +55,10 @@ export function simpleDiff(a: any, ...b: any[]): string[] {
     }
 
     return mismatchProperties.filter((p, i) => mismatchProperties.indexOf(p) === i);
+}
+
+export function getAvatarUrl(mxc: string): string {
+    let baseUrl = VoyagerConfig.matrix.homeserverUrl;
+    if (baseUrl.endsWith("/")) baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+    return `${baseUrl}/_matrix/media/r0/thumbnail/${mxc.substring("mxc://".length)}?width=512&height=512&method=crop&animated=false`;
 }

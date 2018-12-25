@@ -5,6 +5,10 @@ import { ICreateLink, IRoomUpdated, TOPIC_LINKS, TYPE_CREATE_LINK, TYPE_ROOM_UPD
 import { IRoomLink, TABLE_ROOM_LINKS } from "../db/models/RoomLink";
 import { now } from "../util";
 import * as sha512 from "hash.js/lib/hash/sha/512";
+import { GraphData } from "./GraphData";
+import { LogService } from "matrix-js-snippets";
+import { MatrixClient } from "matrix-bot-sdk";
+import { VoyagerConfig } from "../VoyagerConfig";
 
 /**
  * Creates a new linker worker
@@ -18,6 +22,7 @@ export class LinkerWorker implements IWorker {
 
     private mq: MqConnection;
     private db = new PostgresDatabase();
+    private graph: GraphData;
 
     constructor() {
         this.mq = new MqConnection();
@@ -29,7 +34,10 @@ export class LinkerWorker implements IWorker {
         return Promise.all([
             this.mq.start(),
             this.db.start(),
-        ]);
+        ]).then(() => {
+            this.graph = new GraphData(this.db);
+            return this.graph.loadData();
+        });
     }
 
     private async onLink(payloadType: string, payload: ICreateLink | IRoomUpdated) {
@@ -50,8 +58,16 @@ export class LinkerWorker implements IWorker {
             link.id = sha512().update(`${createdTs}${JSON.stringify(link)}`).digest('hex');
 
             await this.db.insert(TABLE_ROOM_LINKS, link);
+
+            LogService.info("LinkerWorker", `Updating graph with link of type ${linkInfo.type}`);
+            await this.graph.handleLink(linkInfo);
         } else if (payloadType === TYPE_ROOM_UPDATED) {
-            console.log(payload);
+            const roomId = (<IRoomUpdated>payload).roomId;
+            LogService.info("LinkerWorker", `Updating graph with link for room ${roomId}`);
+            await this.graph.updateRoom(roomId);
         }
+
+        await (new MatrixClient(VoyagerConfig.matrix.homeserverUrl, VoyagerConfig.appservice.asToken))
+            .sendNotice("!VLJKJUOcAMRSxfYWFH:dev.t2bot.io", "Updated condensed graph: \n\n" + JSON.stringify(this.graph.condense()));
     }
 }

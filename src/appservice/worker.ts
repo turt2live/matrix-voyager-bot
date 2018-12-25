@@ -155,7 +155,7 @@ export class AppserviceWorker implements IWorker {
 
     private async processMessageEvent(roomId: string, event: any) {
         const body: string = event["content"]["body"];
-        if (!body) return;
+        if (!body || event['sender'] === this.appservice.botUserId) return;
 
         if (body.startsWith("!voyager")) {
             LogService.info("AppserviceWorker", "COMMAND");

@@ -1,12 +1,9 @@
 import { MatrixClient } from "matrix-bot-sdk";
 import { VoyagerConfig } from "../VoyagerConfig";
-import * as ColorHash from "color-hash";
 import * as url from "url";
-import { downloadFromUrl } from "../util";
-import { AvatarCache } from "./AvatarCache";
+import { AvatarCache } from "../AvatarCache";
 
 const DEFAULT_ROOM_NAME = "Unnamed room";
-const COLOR_HASH = new ColorHash({lightness: 0.66});
 
 export interface IRoomState {
     id: string;
@@ -89,16 +86,7 @@ export class RoomStateCalculator {
 
         // Try and generate one on behalf of the room instead
         const name = this.calculateName(state);
-        const hex = COLOR_HASH.hex(name).substring(1);
-        const avatarUrl = url.resolve(VoyagerConfig.misc.uiAvatarsUrl, `/api?color=fff&size=512&background=${hex}&name=${name.startsWith('#') ? name.substring(1)[0] : name[0]}`);
-
-        const existingAvatar = AvatarCache.getMxcForUrl(avatarUrl);
-        if (existingAvatar) return existingAvatar;
-
-        const buf = await downloadFromUrl(avatarUrl);
-        const mxc = await this.client.uploadContent(buf, "image/png");
-        AvatarCache.setMxcForUrl(avatarUrl, mxc);
-        return mxc;
+        return await AvatarCache.getMxcForItem(name);
     }
 
     private calculatePublicity(state: any[]): boolean {
