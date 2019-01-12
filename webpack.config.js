@@ -50,6 +50,10 @@ config.module = {
             test: /\.html$/,
             loader: "html-loader"
         },
+        {
+            test: /\.(png|jpe?g|gif|svg|woff|woff2|ttf|eot|ico)(\?v=[0-9]\.[0-9]\.[0-9])?$/,
+            loader: 'file-loader'
+        },
     ]
 };
 config.optimization = {

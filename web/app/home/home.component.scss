@@ -1,0 +1,61 @@
+.hero {
+  color: #DBE4EE;
+  background: linear-gradient(to right, #2E86AB, #054A91);
+  padding: 0;
+  display: flex;
+  align-items: center;
+
+  h1,h2,h3 {
+    display: inline-block;
+    margin: 0;
+    flex-grow: 1;
+    padding: 0 0 0 10px;
+  }
+
+  ul.nav {
+    display: inline-block;
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    vertical-align: middle;
+
+    li {
+      float: left;
+
+      a {
+        color: #81A4CD;
+        display: block;
+        text-align: center;
+        padding: 16px;
+        text-decoration: none;
+      }
+
+      a:hover {
+        color: #0c1218;
+        background-color: rgba(211, 208, 223, 0.27);
+      }
+    }
+  }
+}
+
+.footer {
+  color: #DBE4EE;
+  text-align: center;
+  padding: 50px;
+  background: linear-gradient(to right, #2E86AB, #054A91);
+
+  a {
+    color: #DBE4EE;
+    font-size: 0.9em;
+    margin-left: 20px;
+  }
+}
+
+.made-for-matrix {
+  height: 45px;
+}
+
+.made-for-matrix-anchor {
+  margin-left: 20px;
+}
