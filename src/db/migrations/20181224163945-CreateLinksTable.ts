@@ -1,6 +1,5 @@
 import { IMigration } from "../IMigration";
 import { IPostgresTransaction } from "../postgres";
-import { TABLE_CURRENT_ROOM_SNAPSHOTS, TABLE_ROOM_SNAPSHOTS } from "../models/RoomSnapshot";
 import { TABLE_ROOM_LINKS } from "../models/RoomLink";
 
 export class CreateLinksTable implements IMigration {

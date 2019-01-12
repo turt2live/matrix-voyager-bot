@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "ES6",
+    "noImplicitAny": false,
+    "sourceMap": false,
+    "outDir": "./build/app",
+    "types": ["node"]
+  },
+  "compileOnSave": true,
+  "include": [
+    "src/**/*"
+  ]
+}

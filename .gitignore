@@ -6,6 +6,7 @@ web-dist/
 workers-build/
 config/worker*
 lib/
+build/
 voyager-registration.yaml
 
 logs/

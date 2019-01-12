@@ -15,6 +15,7 @@ program
     .version("2.0.0") // TODO: Make this dynamic
     .option('-w, --worker [name]', 'The worker to run')
     .option('-g, --generate-registration <file_name>', 'Generate a registration file from the configuration. Does not start a worker.')
+    .option('-p, --port <port>', 'The port to run the worker on', 0)
     .parse(process.argv);
 
 if (program.generateRegistration) {
@@ -35,6 +36,11 @@ const knownWorkers: { [name: string]: IWorkerFactory } = {
 if (!(program.worker in knownWorkers)) {
     LogService.error("index", "Worker not found");
     process.exit(1);
+}
+
+if (program.port > 1) {
+    LogService.info("index", `Using port from command line: ${program.port}`);
+    VoyagerConfig.web.port = program.port;
 }
 
 (async function () {

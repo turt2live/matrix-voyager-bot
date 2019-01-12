@@ -7,8 +7,9 @@ import { now } from "../util";
 import * as sha512 from "hash.js/lib/hash/sha/512";
 import { GraphData } from "./GraphData";
 import { LogService } from "matrix-js-snippets";
-import { MatrixClient } from "matrix-bot-sdk";
 import { VoyagerConfig } from "../VoyagerConfig";
+import * as express from "express";
+import * as morgan from "morgan";
 
 /**
  * Creates a new linker worker
@@ -23,17 +24,26 @@ export class LinkerWorker implements IWorker {
     private mq: MqConnection;
     private db = new PostgresDatabase();
     private graph: GraphData;
+    private app = express();
 
     constructor() {
         this.mq = new MqConnection();
 
         this.mq.on(TOPIC_LINKS, this.onLink.bind(this));
+
+        this.app.use(express.json());
+        this.app.use(morgan("combined"));
+
+        this.app.get("/api/v2/graph", this.getGraph.bind(this));
     }
 
     public async start(): Promise<any> {
         return Promise.all([
             this.mq.start(),
             this.db.start(),
+            new Promise((resolve, _reject) => {
+                this.app.listen(VoyagerConfig.web.port, VoyagerConfig.web.bindAddress, () => resolve());
+            }),
         ]).then(() => {
             this.graph = new GraphData(this.db);
             return this.graph.loadData();
@@ -66,8 +76,14 @@ export class LinkerWorker implements IWorker {
             LogService.info("LinkerWorker", `Updating graph with link for room ${roomId}`);
             await this.graph.updateRoom(roomId);
         }
+    }
 
-        await (new MatrixClient(VoyagerConfig.matrix.homeserverUrl, VoyagerConfig.appservice.asToken))
-            .sendNotice("!VLJKJUOcAMRSxfYWFH:dev.t2bot.io", "Updated condensed graph: \n\n" + JSON.stringify(this.graph.condense()));
+    private async getGraph(_req, res): Promise<any> {
+        if (!this.graph) {
+            res.status(500).send({errcode: "NOT_READY", error: "Data not ready"});
+            return;
+        }
+
+        res.status(200).send(this.graph.condense());
     }
 }

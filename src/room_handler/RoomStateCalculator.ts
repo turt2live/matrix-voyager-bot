@@ -1,6 +1,5 @@
 import { MatrixClient } from "matrix-bot-sdk";
 import { VoyagerConfig } from "../VoyagerConfig";
-import * as url from "url";
 import { AvatarCache } from "../AvatarCache";
 
 const DEFAULT_ROOM_NAME = "Unnamed room";
