@@ -4,8 +4,6 @@ import { LogConfig } from "matrix-js-snippets";
 interface IVoyagerConfig {
     matrix: {
         homeserverUrl: string;
-        homeserverName: string;
-        userLocalpart: string;
     };
     appservice: {
         asToken: string;

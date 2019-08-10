@@ -1,5 +1,11 @@
 import { IWorker } from "../IWorker";
-import { Appservice, IAppserviceRegistration, SimpleFsStorageProvider, SimpleRetryJoinStrategy } from "matrix-bot-sdk";
+import {
+    Appservice,
+    IAppserviceRegistration,
+    MatrixClient,
+    SimpleFsStorageProvider,
+    SimpleRetryJoinStrategy
+} from "matrix-bot-sdk";
 import { VoyagerConfig } from "../VoyagerConfig";
 import * as escapeStringRegexp from "escape-string-regexp";
 import * as mkdirp from "mkdirp";
@@ -41,14 +47,24 @@ export class AppserviceWorker implements IWorker {
 
         mkdirp.sync(path.normalize(path.join(VoyagerConfig.data.appservice, '..')));
 
+        this.setupAppservice().then(() => LogService.info("AppserviceWorker", "Appservice set up"));
+    }
+
+    private async setupAppservice() {
+        const tempClient = new MatrixClient(VoyagerConfig.matrix.homeserverUrl, VoyagerConfig.appservice.asToken);
+        const userId = await tempClient.getUserId();
+        const userParts = userId.split(':');
+        const localpart = userParts[0].substring(1);
+        const domainName = userParts.slice(1).join(':');
+
         // Generate a registration and change the user namespace to make the bot-sdk
         // happy. It doesn't actually affect anything because we don't use intents.
-        const registration = AppserviceWorker.generateRegistrationFromConfig();
+        const registration = AppserviceWorker.generateRegistrationFromConfig(localpart, domainName);
         registration.namespaces.users = [{regex: '@.*:.*', exclusive: true}];
 
         this.appservice = new Appservice({
             homeserverUrl: VoyagerConfig.matrix.homeserverUrl,
-            homeserverName: VoyagerConfig.matrix.homeserverName,
+            homeserverName: domainName,
             storage: new SimpleFsStorageProvider(VoyagerConfig.data.appservice),
             bindAddress: VoyagerConfig.web.bindAddress,
             port: VoyagerConfig.web.port,
@@ -219,19 +235,21 @@ export class AppserviceWorker implements IWorker {
 
     /**
      * Generates an appservice registration from the runtime configuration.
+     * @param localpart {string} the user's localpart
+     * @param domainName {string} the user's domain name
      * @returns {IAppserviceRegistration} the registration
      */
-    static generateRegistrationFromConfig(): IAppserviceRegistration {
+    static generateRegistrationFromConfig(localpart: string, domainName: string): IAppserviceRegistration {
         return {
             id: "voyager",
             hs_token: VoyagerConfig.appservice.hsToken,
             as_token: VoyagerConfig.appservice.asToken,
             url: `http://localhost:${VoyagerConfig.web.port}`,
-            sender_localpart: VoyagerConfig.matrix.userLocalpart,
+            sender_localpart: localpart,
             namespaces: {
                 users: [{
                     exclusive: true,
-                    regex: escapeStringRegexp(`@${VoyagerConfig.matrix.userLocalpart}:${VoyagerConfig.matrix.homeserverName}`),
+                    regex: escapeStringRegexp(`@${localpart}:${domainName}`),
                 }],
                 rooms: [],
                 aliases: [],

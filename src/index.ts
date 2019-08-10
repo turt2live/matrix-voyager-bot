@@ -20,10 +20,10 @@ program
 
 if (program.generateRegistration) {
     LogService.info("index", "Generating registration file...");
-    const registration = AppserviceWorker.generateRegistrationFromConfig();
+    const registration = AppserviceWorker.generateRegistrationFromConfig("voyager", "example.org");
     const result = yaml.safeDump(registration);
     fs.writeFileSync(program.generateRegistration, result);
-    LogService.info("index", "Registration file written! You may need to change the url property to point to Voyager correctly.");
+    LogService.info("index", "Registration file written! Please verify the file before assuming it is valid.");
     process.exit(0);
 }
 

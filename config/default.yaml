@@ -5,12 +5,6 @@ matrix:
   # The homeserver URL for the bot. For example, https://matrix.org
   homeserverUrl: "https://t2bot.io"
 
-  # The name of the homeserver (the part after the colon in a user ID)
-  homeserverName: "t2bot.io"
-
-  # The user's localpart (the part between the @ and : in a user ID)
-  userLocalpart: "voyager"
-
 # The configuration for the application service portion of the bot. This is required
 # to be set for all workers so they can access the homeserver.
 appservice:

@@ -69,7 +69,7 @@
     "zone.js": "^0.8.26"
   },
   "scripts": {
-    "generate-registration": "npm run build && node lib/index.js --generate-registration voyager-registration.yaml",
+    "generate-registration": "npm run build:bot && node build/app/index.js --generate-registration voyager-registration.yaml",
     "lint": "npm run lint:app && npm run lint:web",
     "lint:app": "tslint --project ./tsconfig-app.json -t stylish",
     "lint:web": "tslint --project ./tsconfig.json -t stylish",
