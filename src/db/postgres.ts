@@ -1,7 +1,7 @@
 import { Client, Pool } from "pg";
 import { VoyagerConfig } from "../VoyagerConfig";
 import { KNOWN_MIGRATIONS } from "./IMigration";
-import { LogService } from "matrix-js-snippets";
+import { LogService } from "matrix-bot-sdk";
 
 export interface IPostgresTransaction {
     query<T>(statement: string, args?: any[]): Promise<T[]>;

@@ -1,4 +1,4 @@
-import { LogService } from "matrix-js-snippets";
+import { LogService, RichConsoleLogger } from "matrix-bot-sdk";
 import { VoyagerConfig } from "./VoyagerConfig";
 import * as program from "commander";
 import { IWorkerFactory } from "./IWorker";
@@ -8,7 +8,7 @@ import * as fs from "fs";
 import { NewRoomHandlerWorker } from "./room_handler/worker";
 import { NewLinkerWorker } from "./linker/worker";
 
-LogService.configure(VoyagerConfig.logging);
+LogService.setLogger(new RichConsoleLogger());
 LogService.info("index", "Starting Voyager");
 
 program

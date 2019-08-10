@@ -5,7 +5,7 @@ import { ICurrentRoomSnapshot, TABLE_CURRENT_ROOM_SNAPSHOTS } from "../db/models
 import { getAvatarUrl } from "../util";
 import { AvatarCache } from "../AvatarCache";
 import { ICreateLink } from "../mq/consts";
-import { LogService } from "matrix-js-snippets";
+import { LogService } from "matrix-bot-sdk";
 
 export interface ICondensedGraphData {
     nodes: IGraphNode[];

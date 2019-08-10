@@ -1,5 +1,4 @@
 import * as config from "config";
-import { LogConfig } from "matrix-js-snippets";
 
 interface IVoyagerConfig {
     matrix: {
@@ -32,7 +31,6 @@ interface IVoyagerConfig {
     misc: {
         uiAvatarsUrl: string;
     };
-    logging: LogConfig;
 }
 
 export const VoyagerConfig = <IVoyagerConfig>config;

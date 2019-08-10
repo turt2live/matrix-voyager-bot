@@ -2,6 +2,7 @@ import { IWorker } from "../IWorker";
 import {
     Appservice,
     IAppserviceRegistration,
+    LogService,
     MatrixClient,
     SimpleFsStorageProvider,
     SimpleRetryJoinStrategy
@@ -10,7 +11,6 @@ import { VoyagerConfig } from "../VoyagerConfig";
 import * as escapeStringRegexp from "escape-string-regexp";
 import * as mkdirp from "mkdirp";
 import * as path from "path";
-import { LogService } from "matrix-js-snippets";
 import { MqConnection } from "../mq/mq";
 import {
     ICreateLink,

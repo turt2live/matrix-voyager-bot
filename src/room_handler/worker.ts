@@ -10,7 +10,7 @@ import {
 } from "../mq/consts";
 import { RoomStateCalculator } from "./RoomStateCalculator";
 import { now, simpleDiff } from "../util";
-import { LogService } from "matrix-js-snippets";
+import { LogService } from "matrix-bot-sdk";
 import { PostgresDatabase } from "../db/postgres";
 import * as sha512 from "hash.js/lib/hash/sha/512";
 import {

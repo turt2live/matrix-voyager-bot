@@ -74,13 +74,3 @@ misc:
   # Where the bot can find a ui-avatars instance. See https://ui-avatars.com/ for
   # more information.
   uiAvatarsUrl: "https://ui-avatars.com"
-
-# Settings for controlling how logging works
-logging:
-  file: logs/voyager.log
-  console: true
-  consoleLevel: info
-  fileLevel: verbose
-  rotate:
-    size: 52428800 # bytes, default is 50mb
-    count: 5

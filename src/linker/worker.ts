@@ -6,7 +6,7 @@ import { IRoomLink, TABLE_ROOM_LINKS } from "../db/models/RoomLink";
 import { now } from "../util";
 import * as sha512 from "hash.js/lib/hash/sha/512";
 import { GraphData } from "./GraphData";
-import { LogService } from "matrix-js-snippets";
+import { LogService } from "matrix-bot-sdk";
 import { VoyagerConfig } from "../VoyagerConfig";
 import * as express from "express";
 import * as morgan from "morgan";

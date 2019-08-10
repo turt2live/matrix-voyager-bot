@@ -1,4 +1,4 @@
-import { LogService } from "matrix-js-snippets";
+import { LogService } from "matrix-bot-sdk";
 import { VoyagerConfig } from "../VoyagerConfig";
 import * as amqp from "amqplib";
 import * as randomString from "random-string";

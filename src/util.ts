@@ -1,6 +1,6 @@
-import { LogService } from "matrix-js-snippets";
 import * as request from "request";
 import { VoyagerConfig } from "./VoyagerConfig";
+import { LogService } from "matrix-bot-sdk";
 
 export async function downloadFromUrl(url: string): Promise<any> {
     return new Promise((resolve, reject) => {
