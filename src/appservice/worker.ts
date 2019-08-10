@@ -46,8 +46,6 @@ export class AppserviceWorker implements IWorker {
         this.mq = new MqConnection();
 
         mkdirp.sync(path.normalize(path.join(VoyagerConfig.data.appservice, '..')));
-
-        this.setupAppservice().then(() => LogService.info("AppserviceWorker", "Appservice set up"));
     }
 
     private async setupAppservice() {
@@ -78,6 +76,8 @@ export class AppserviceWorker implements IWorker {
     }
 
     public async start(): Promise<any> {
+        await this.setupAppservice();
+
         LogService.info("AppserviceWorker", "Getting joined rooms for bot...");
         this.joinedRooms = await this.appservice.botIntent.underlyingClient.getJoinedRooms();
         LogService.info("AppserviceWorker", `Bot resides in ${this.joinedRooms.length} rooms - starting normal routine`);
