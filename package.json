@@ -16,7 +16,7 @@
     "hash.js": "^1.1.7",
     "js-yaml": "^3.13.1",
     "lowdb": "^1.0.0",
-    "matrix-bot-sdk": "^0.4.0-beta.3",
+    "matrix-bot-sdk": "^0.4.0-beta.4",
     "mkdirp": "^0.5.1",
     "pg": "^7.12.1",
     "random-string": "^0.2.0",
