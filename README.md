@@ -38,3 +38,15 @@ There are 2 options to remove the bot from the room:
 
 The bot does record who kicked/banned it and what the reason given was. The bot will remove any applicable nodes from the graph.
 
+# Rewrite progress
+
+* [x] Respond to invites
+* [x] Respond to messages with rooms in them
+* [x] Handle kicks/bans as temporary redactions
+* [ ] Handle soft leave
+* [ ] Handle other commands
+* [ ] Hash user IDs in database
+* [ ] Web interface for graph
+* [ ] Web interface for stats
+* [ ] Web interface for misc info
+* [ ] Update README for actual documentation
