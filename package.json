@@ -79,7 +79,7 @@
     "start:appservice": "npm run build:bot && npm run run:appservice",
     "start:room_handler": "npm run build:bot && npm run run:room_handler",
     "start:linker": "npm run build:bot && npm run run:linker",
-    "start:devweb": "webpack-dev-server --inline --progress --port 8080 --host 0.0.0.0",
+    "start:devweb": "webpack-dev-server --inline --progress --port 8081 --host 0.0.0.0",
     "run:appservice": "node build/app/index.js -w appservice",
     "run:room_handler": "node build/app/index.js -w room_handler",
     "run:linker": "node build/app/index.js -w linker"

@@ -85,7 +85,7 @@ config.devServer = {
     stats: 'minimal',
     proxy: {
         '/api': {
-            target: 'http://localhost:8185',
+            target: 'http://localhost:8186',
             secure: false
         }
     }
