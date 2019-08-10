@@ -344,6 +344,9 @@ export class GraphData {
         fromNode.edgeStats.outbound[link.type]++;
         toNode.edgeStats.inbound[link.type]++;
 
+        if (!this.edges.byFromId[fromNode.id]) this.edges.byFromId[fromNode.id] = [];
+        if (!this.edges.byToId[toNode.id]) this.edges.byToId[toNode.id] = [];
+
         let fromEdge = this.edges.byFromId[fromNode.id].find(e => e.kind === link.type && e.toId === toNode.id);
         let toEdge = this.edges.byToId[toNode.id].find(e => e.kind === link.type && e.fromId === fromNode.id);
         if (fromEdge !== toEdge || !fromEdge) {
