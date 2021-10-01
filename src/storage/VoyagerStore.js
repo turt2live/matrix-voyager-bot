@@ -199,7 +199,7 @@ class VoyagerStore {
      * @returns {Promise<StateEvent>} resolves to the state event, or null if not found
      */
     getStateEvent(id) {
-        return this.__StateEvents.findById(id).then(e => e ? new StateEvent(e) : null);
+        return this.__StateEvents.findByPk(id).then(e => e ? new StateEvent(e) : null);
     }
 
     /**
@@ -256,7 +256,7 @@ class VoyagerStore {
      * @returns {Promise<Node>} resolves to the found node, or null if not found
      */
     getNodeById(id) {
-        return this.__Nodes.findById(id).then(n => n ? new Node(n) : null);
+        return this.__Nodes.findByPk(id).then(n => n ? new Node(n) : null);
     }
 
     /**
@@ -368,7 +368,7 @@ class VoyagerStore {
      * @returns {Promise<NodeVersion>} resolves to a node version, or null if not found
      */
     getNodeVersionById(id) {
-        return this.__NodeVersions.findById(id).then(nv => nv ? new NodeVersion(nv) : null);
+        return this.__NodeVersions.findByPk(id).then(nv => nv ? new NodeVersion(nv) : null);
     }
 
     /**
@@ -434,7 +434,7 @@ class VoyagerStore {
      * @returns {Promise<Link>} resolves to the found link, or null if not found
      */
     getLinkById(id) {
-        return this.__Links.findById(id).then(k => k ? new Link(k) : null);
+        return this.__Links.findByPk(id).then(k => k ? new Link(k) : null);
     }
 
     /**
@@ -449,9 +449,9 @@ class VoyagerStore {
         var sourceNode;
         var targetNode;
 
-        return this.__Nodes.findById(link.sourceNodeId).then(node => {
+        return this.__Nodes.findByPk(link.sourceNodeId).then(node => {
             sourceNode = node;
-            return this.__Nodes.findById(link.targetNodeId);
+            return this.__Nodes.findByPk(link.targetNodeId);
         }).then(node => {
             targetNode = node;
             return this._updateNodeTimestamp(sourceNode, timestamp);
@@ -482,7 +482,7 @@ class VoyagerStore {
      * @returns {Promise<TimelineEvent>} resolves to the timeline event, or null if not found
      */
     getTimelineEventById(id) {
-        return this.__TimelineEvents.findById(id).then(e => e ? new TimelineEvent(e) : null);
+        return this.__TimelineEvents.findByPk(id).then(e => e ? new TimelineEvent(e) : null);
     }
 
     /**
@@ -508,7 +508,7 @@ class VoyagerStore {
      * @returns {Promise} resolves when the node has been updated
      */
     redactNode(node) {
-        return this.__Nodes.findById(node.id)
+        return this.__Nodes.findByPk(node.id)
             .then(n => {
                 n.isRedacted = true;
                 return n.save();
@@ -526,7 +526,7 @@ class VoyagerStore {
      * @returns {Promise} resolves when the node has been updated
      */
     unredactNode(node) {
-        return this.__Nodes.findById(node.id)
+        return this.__Nodes.findByPk(node.id)
             .then(n => {
                 n.isRedacted = false;
                 return n.save();
@@ -556,7 +556,7 @@ class VoyagerStore {
      * @returns {Promise} resolves when the link has been updated
      */
     redactLink(link) {
-        return this.__Links.findById(link.id)
+        return this.__Links.findByPk(link.id)
             .then(k => {
                 k.isRedacted = true;
                 return k.save();
