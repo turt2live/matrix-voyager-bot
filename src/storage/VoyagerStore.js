@@ -1,6 +1,6 @@
 var DBMigrate = require("db-migrate");
 var log = require("./../LogService");
-var Sequelize = require('sequelize');
+var {Sequelize} = require('sequelize');
 var dbConfig = require("../../config/database.json");
 var map = require("promise-map");
 var Promise = require('bluebird');
