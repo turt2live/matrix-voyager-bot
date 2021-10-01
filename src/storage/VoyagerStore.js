@@ -30,7 +30,7 @@ class VoyagerStore {
             });
             dbMigrate.up().then(() => {
                 var driverMap = {
-                    'sqlite3': 'sqlite',
+                    // 'sqlite3': 'sqlite',
                     'pg': 'postgres'
                 };
 

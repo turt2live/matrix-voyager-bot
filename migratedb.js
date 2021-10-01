@@ -19,7 +19,7 @@ var targetDbConfigEnv = targetDbConfig[env];
 
 function setupOrm(configPath, dbConfigEnv) {
     var driverMap = {
-        'sqlite3': 'sqlite',
+        // 'sqlite3': 'sqlite',
         'pg': 'postgres'
     };
     process.env.VOYAGER_DB_CONF_MIGRATE = "../" + configPath;
