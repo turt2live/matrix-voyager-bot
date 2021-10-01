@@ -1,9 +1,6 @@
 # matrix-voyager-bot
 
-[![TravisCI badge](https://travis-ci.org/turt2live/matrix-voyager-bot.svg?branch=master)](https://travis-ci.org/turt2live/matrix-voyager-bot)
-[![Donate on Gratipay](https://img.shields.io/gratipay/matrix-voyager.svg)](https://gratipay.com/Matrix-Voyager/)
-
-This is a [[matrix]](https://matrix.org) bot that travels the federation simply based upon user input to rooms it participates in. 
+This is a [[matrix]](https://matrix.org) bot that travels the federation simply based upon user input to rooms it participates in.
 
 Whenever the bot is invited to a room, or someone leaves an alias to a room in their message, the bot will try to join that room and add it to the network graph. If the bot is then kicked or banned, it removes the node from the graph.
 
