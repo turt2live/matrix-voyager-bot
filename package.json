@@ -49,7 +49,7 @@
     "copy-webpack-plugin": "^4.0.1",
     "css-loader": "^0.28.0",
     "cssnano": "^3.10.0",
-    "d3": "^4.10.2",
+    "d3": "^7.6.1",
     "eslint": "^4.18.2",
     "eslint-config-standard": "^6.2.1",
     "eslint-friendly-formatter": "^3.0.0",
